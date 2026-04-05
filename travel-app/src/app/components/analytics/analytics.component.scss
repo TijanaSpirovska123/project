@@ -1,0 +1,1067 @@
+@use "sass:color";
+
+:host {
+  display: block;
+}
+
+// Analytics Dashboard Styles
+.analytics-dashboard {
+  padding: 20px;
+  max-width: 80%;
+  margin: 0 auto;
+
+  // Main Analytics Layout (Widget-based)
+  .main-analytics-layout {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+
+    .analytics-header {
+      background: linear-gradient(135deg, #1ca698, #27ae60);
+      color: white;
+      padding: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #e8ebf2;
+
+      h3 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
+
+      .time-selector {
+        select {
+          padding: 10px 16px;
+          border: none;
+          border-radius: 8px;
+          background: rgba(255, 255, 255, 0.2);
+          color: white;
+          font-weight: 500;
+          cursor: pointer;
+          font-size: 0.9rem;
+          min-width: 140px;
+          outline: none;
+          transition: all 0.2s ease;
+          backdrop-filter: blur(10px);
+
+          &:hover {
+            background: rgba(255, 255, 255, 0.3);
+          }
+
+          &:focus {
+            background: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+          }
+
+          option {
+            background: #1ca698;
+            color: white;
+            padding: 8px;
+          }
+        }
+      }
+
+      @media (max-width: 768px) {
+        flex-direction: column;
+        gap: 16px;
+        text-align: center;
+
+        h3 {
+          font-size: 1.3rem;
+        }
+      }
+    }
+
+    .analytics-content-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 24px;
+      padding: 24px;
+
+      @media (max-width: 1200px) {
+        grid-template-columns: 1fr;
+
+        .charts-widget {
+          grid-column: 1 / -1;
+        }
+      }
+
+      @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+        gap: 20px;
+        padding: 16px;
+      }
+
+      .analytics-widget {
+        background: #f8fafc;
+        border-radius: 12px;
+        border: 1px solid #e8ebf2;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+        overflow: hidden;
+        transition: all 0.3s ease;
+
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .widget-header {
+          background: white;
+          padding: 20px;
+          border-bottom: 1px solid #e8ebf2;
+
+          h4 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #20233a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+
+            &::before {
+              content: "";
+              width: 4px;
+              height: 24px;
+              border-radius: 2px;
+            }
+          }
+        }
+
+        .widget-content {
+          padding: 20px;
+          background: white;
+        }
+
+        // Widget-specific header colors
+        &.charts-widget .widget-header h4::before {
+          background: linear-gradient(135deg, #1ca698, #27ae60);
+        }
+
+        &.performance-widget .widget-header h4::before {
+          background: linear-gradient(135deg, #3498db, #2980b9);
+        }
+
+        &.promotion-widget .widget-header h4::before {
+          background: linear-gradient(135deg, #f39c12, #e67e22);
+        }
+
+        // Charts Widget Styles
+        &.charts-widget {
+          .charts-container {
+            .main-chart {
+              margin-bottom: 20px;
+              background: #fafbfc;
+              border-radius: 8px;
+              padding: 16px;
+              border: 1px solid #e8ebf2;
+
+              .performance-chart {
+                width: 100%;
+                height: 200px;
+                display: block;
+              }
+            }
+
+            .secondary-charts {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 20px;
+
+              @media (max-width: 768px) {
+                grid-template-columns: 1fr;
+              }
+
+              .chart-item {
+                background: #fafbfc;
+                border-radius: 8px;
+                padding: 16px;
+                border: 1px solid #e8ebf2;
+                text-align: center;
+
+                h6 {
+                  margin: 0 0 12px 0;
+                  font-size: 0.9rem;
+                  font-weight: 600;
+                  color: #64748b;
+                  text-transform: uppercase;
+                  letter-spacing: 0.5px;
+                }
+
+                .device-chart {
+                  width: 100%;
+                  height: 150px;
+                }
+
+                .age-distribution {
+                  display: flex;
+                  flex-direction: column;
+                  gap: 8px;
+
+                  .age-bar-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-size: 0.8rem;
+
+                    .age-label {
+                      min-width: 35px;
+                      font-weight: 600;
+                      color: #20233a;
+                      text-align: left;
+                    }
+
+                    .age-bar-bg {
+                      flex: 1;
+                      height: 6px;
+                      background: #e8ebf2;
+                      border-radius: 3px;
+                      overflow: hidden;
+
+                      .age-bar-fill {
+                        height: 100%;
+                        background: linear-gradient(90deg, #1ca698, #27ae60);
+                        border-radius: 3px;
+                        transition: width 0.6s ease;
+                      }
+                    }
+
+                    .age-value {
+                      min-width: 30px;
+                      font-weight: 600;
+                      color: #1ca698;
+                      text-align: right;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // Performance Widget Styles
+        &.performance-widget {
+          .performance-metrics {
+            .metric-row {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 16px;
+              margin-bottom: 20px;
+
+              &:last-child {
+                margin-bottom: 0;
+              }
+
+              @media (max-width: 768px) {
+                grid-template-columns: 1fr;
+                gap: 12px;
+              }
+
+              .metric-item {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 16px;
+                background: #f8fafc;
+                border-radius: 8px;
+                border-left: 4px solid transparent;
+                transition: all 0.3s ease;
+
+                &:hover {
+                  background: #f1f5f9;
+                  transform: translateX(2px);
+                }
+
+                .metric-icon {
+                  width: 40px;
+                  height: 40px;
+                  border-radius: 8px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  flex-shrink: 0;
+
+                  mat-icon {
+                    font-size: 20px;
+                    width: 20px;
+                    height: 20px;
+                  }
+
+                  &.impressions-icon {
+                    background: rgba(28, 166, 152, 0.1);
+                    mat-icon {
+                      color: #1ca698;
+                    }
+                  }
+                  &.reach-icon {
+                    background: rgba(52, 152, 219, 0.1);
+                    mat-icon {
+                      color: #3498db;
+                    }
+                  }
+                  &.clicks-icon {
+                    background: rgba(243, 156, 18, 0.1);
+                    mat-icon {
+                      color: #f39c12;
+                    }
+                  }
+                  &.conversions-icon {
+                    background: rgba(231, 76, 60, 0.1);
+                    mat-icon {
+                      color: #e74c3c;
+                    }
+                  }
+                  &.cost-icon {
+                    background: rgba(142, 68, 173, 0.1);
+                    mat-icon {
+                      color: #8e44ad;
+                    }
+                  }
+                  &.ctr-icon {
+                    background: rgba(46, 204, 113, 0.1);
+                    mat-icon {
+                      color: #2ecc71;
+                    }
+                  }
+                }
+
+                .metric-data {
+                  flex: 1;
+
+                  .metric-value {
+                    font-size: 1.4rem;
+                    font-weight: 700;
+                    color: #20233a;
+                    line-height: 1.2;
+                    margin-bottom: 2px;
+                  }
+
+                  .metric-label {
+                    font-size: 0.8rem;
+                    color: #64748b;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    margin-bottom: 4px;
+                  }
+
+                  .metric-change {
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    display: inline-block;
+
+                    &.positive {
+                      background: rgba(39, 174, 96, 0.1);
+                      color: #27ae60;
+                    }
+
+                    &.negative {
+                      background: rgba(231, 76, 60, 0.1);
+                      color: #e74c3c;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // Promotion Widget Styles
+        &.promotion-widget {
+          .promotion-overview {
+            .promotion-stats {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 12px;
+              margin-bottom: 24px;
+
+              @media (max-width: 768px) {
+                grid-template-columns: 1fr;
+                gap: 8px;
+              }
+
+              .stat-card {
+                background: #f8fafc;
+                border-radius: 8px;
+                padding: 16px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                transition: all 0.3s ease;
+
+                &:hover {
+                  background: #f1f5f9;
+                  transform: translateY(-1px);
+                }
+
+                &.active-promotions {
+                  border-left: 4px solid #27ae60;
+                }
+
+                &.paused-promotions {
+                  border-left: 4px solid #f39c12;
+                }
+
+                &.budget-info {
+                  border-left: 4px solid #3498db;
+                }
+
+                .stat-icon {
+                  width: 36px;
+                  height: 36px;
+                  border-radius: 6px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  flex-shrink: 0;
+
+                  mat-icon {
+                    font-size: 18px;
+                    width: 18px;
+                    height: 18px;
+                    color: white;
+                  }
+                }
+
+                &.active-promotions .stat-icon {
+                  background: #27ae60;
+                }
+
+                &.paused-promotions .stat-icon {
+                  background: #f39c12;
+                }
+
+                &.budget-info .stat-icon {
+                  background: #3498db;
+                }
+
+                .stat-info {
+                  flex: 1;
+
+                  .stat-number {
+                    font-size: 1.25rem;
+                    font-weight: 700;
+                    color: #20233a;
+                    line-height: 1.2;
+                    margin-bottom: 2px;
+                  }
+
+                  .stat-label {
+                    font-size: 0.75rem;
+                    color: #64748b;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                  }
+                }
+              }
+            }
+
+            .promotion-actions {
+              display: flex;
+              gap: 8px;
+              margin-bottom: 20px;
+              flex-wrap: wrap;
+
+              .action-btn {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                padding: 10px 14px;
+                border: none;
+                border-radius: 6px;
+                font-weight: 600;
+                font-size: 0.8rem;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                min-height: 38px;
+
+                mat-icon {
+                  font-size: 16px;
+                  width: 16px;
+                  height: 16px;
+                }
+
+                &.primary {
+                  background: #1ca698;
+                  color: white;
+
+                  &:hover {
+                    background: #17a085;
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(28, 166, 152, 0.3);
+                  }
+                }
+
+                &.secondary {
+                  background: #e8ebf2;
+                  color: #64748b;
+
+                  &:hover {
+                    background: #d1d5db;
+                    color: #374151;
+                    transform: translateY(-1px);
+                  }
+                }
+
+                @media (max-width: 768px) {
+                  flex: none;
+                  width: 100%;
+                  margin-bottom: 4px;
+                }
+              }
+            }
+
+            .quick-insights {
+              .insight-item {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 12px 16px;
+                background: #f8fafc;
+                border-radius: 6px;
+                margin-bottom: 8px;
+                font-size: 0.85rem;
+                color: #374151;
+                transition: all 0.2s ease;
+
+                &:hover {
+                  background: #f1f5f9;
+                  transform: translateX(2px);
+                }
+
+                &:last-child {
+                  margin-bottom: 0;
+                }
+
+                mat-icon {
+                  font-size: 16px;
+                  width: 16px;
+                  height: 16px;
+                  color: #1ca698;
+                  flex-shrink: 0;
+                }
+
+                span {
+                  font-weight: 500;
+                }
+              }
+            }
+          }
+        }
+
+        // Performance Overview Widget Styles (Separate Horizontal Card)
+        &.performance-overview-widget {
+          margin-top: 24px; // Space from charts widget
+          grid-column: 1 / -1; // Full width
+
+          .widget-header h4::before {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+          }
+
+          .performance-metrics-horizontal {
+            display: flex;
+            gap: 10px;
+            justify-content: space-between;
+            align-items: stretch;
+
+            @media (max-width: 1400px) {
+              gap: 10px;
+            }
+
+            @media (max-width: 1200px) {
+              flex-wrap: wrap;
+              justify-content: center;
+              gap: 14px;
+            }
+
+            @media (max-width: 768px) {
+              flex-direction: column;
+              gap: 10px;
+            }
+
+            .metric-item {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              padding: 10px;
+              background: #f8fafc;
+              border-radius: 8px;
+              border-left: 4px solid transparent;
+              transition: all 0.3s ease;
+              flex: 1;
+              min-width: 0;
+
+              @media (max-width: 1200px) {
+                flex: 0 0 calc(33.333% - 12px);
+                min-width: 200px;
+              }
+
+              @media (max-width: 768px) {
+                flex: 1;
+                min-width: auto;
+              }
+
+              &:hover {
+                background: #f1f5f9;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+              }
+
+              .metric-icon {
+                width: 48px;
+                height: 48px;
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+
+                mat-icon {
+                  font-size: 24px;
+                  width: 24px;
+                  height: 24px;
+                }
+
+                &.impressions-icon {
+                  background: rgba(28, 166, 152, 0.1);
+                  mat-icon {
+                    color: #1ca698;
+                  }
+                }
+                &.reach-icon {
+                  background: rgba(52, 152, 219, 0.1);
+                  mat-icon {
+                    color: #3498db;
+                  }
+                }
+                &.clicks-icon {
+                  background: rgba(243, 156, 18, 0.1);
+                  mat-icon {
+                    color: #f39c12;
+                  }
+                }
+                &.conversions-icon {
+                  background: rgba(231, 76, 60, 0.1);
+                  mat-icon {
+                    color: #e74c3c;
+                  }
+                }
+                &.cost-icon {
+                  background: rgba(142, 68, 173, 0.1);
+                  mat-icon {
+                    color: #8e44ad;
+                  }
+                }
+                &.ctr-icon {
+                  background: rgba(46, 204, 113, 0.1);
+                  mat-icon {
+                    color: #2ecc71;
+                  }
+                }
+              }
+
+              .metric-data {
+                flex: 1;
+                min-width: 0;
+
+                .metric-value {
+                  font-size: 1.5rem;
+                  font-weight: 700;
+                  color: #20233a;
+                  line-height: 1.2;
+                  margin-bottom: 4px;
+                  word-break: break-word;
+
+                  @media (max-width: 1200px) {
+                    font-size: 1.3rem;
+                  }
+                }
+
+                .metric-label {
+                  font-size: 0.8rem;
+                  color: #64748b;
+                  font-weight: 600;
+                  text-transform: uppercase;
+                  letter-spacing: 0.5px;
+                  margin-bottom: 6px;
+                }
+
+                .metric-change {
+                  font-size: 0.75rem;
+                  font-weight: 600;
+                  padding: 3px 8px;
+                  border-radius: 4px;
+                  display: inline-block;
+
+                  &.positive {
+                    background: rgba(39, 174, 96, 0.1);
+                    color: #27ae60;
+                  }
+
+                  &.negative {
+                    background: rgba(231, 76, 60, 0.1);
+                    color: #e74c3c;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Standalone Performance Overview Widget (Outside main layout)
+  .analytics-widget.performance-overview-widget.standalone {
+    max-width: 100%;
+    margin: 24px auto 0 auto;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+
+    .widget-header {
+      background: white;
+      padding: 10px;
+      border-bottom: 1px solid #e8ebf2;
+
+      h4 {
+        margin: 0;
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #20233a;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        &::before {
+          content: "";
+          width: 4px;
+          height: 24px;
+          border-radius: 2px;
+          background: linear-gradient(135deg, #3498db, #2980b9);
+        }
+      }
+    }
+
+    .widget-content {
+      padding: 10px;
+      background: white;
+    }
+
+    .performance-metrics-horizontal {
+      display: flex;
+      gap: 20px;
+      justify-content: flex-start;
+      align-items: stretch;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scroll-behavior: smooth;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+
+      // Custom scrollbar for WebKit browsers
+      &::-webkit-scrollbar {
+        height: 6px;
+      }
+
+      &::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.05);
+        border-radius: 3px;
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 3px;
+
+        &:hover {
+          background: rgba(0, 0, 0, 0.3);
+        }
+      }
+
+      @media (max-width: 1400px) {
+        gap: 16px;
+      }
+
+      @media (max-width: 1200px) {
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        gap: 20px;
+        padding-bottom: 8px; // Extra space for scrollbar
+      }
+
+      @media (max-width: 768px) {
+        flex-direction: column;
+        gap: 16px;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+
+      .metric-item {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 12px;
+        background: #f8fafc;
+        border-radius: 12px;
+        border-left: 4px solid transparent;
+        transition: all 0.3s ease;
+        flex: 0 0 auto;
+        min-width: 200px;
+        min-height: 100px;
+
+        @media (max-width: 1200px) {
+          min-width: 220px;
+        }
+
+        @media (max-width: 768px) {
+          flex: 1;
+          min-width: auto;
+          min-height: 80px;
+        }
+
+        &:hover {
+          background: #f1f5f9;
+          transform: translateY(-3px);
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+        }
+
+        .metric-icon {
+          width: 52px;
+          height: 52px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+
+          mat-icon {
+            font-size: 26px;
+            width: 26px;
+            height: 26px;
+          }
+
+          &.impressions-icon {
+            background: rgba(28, 166, 152, 0.1);
+            mat-icon {
+              color: #1ca698;
+            }
+          }
+          &.reach-icon {
+            background: rgba(52, 152, 219, 0.1);
+            mat-icon {
+              color: #3498db;
+            }
+          }
+          &.clicks-icon {
+            background: rgba(243, 156, 18, 0.1);
+            mat-icon {
+              color: #f39c12;
+            }
+          }
+          &.conversions-icon {
+            background: rgba(231, 76, 60, 0.1);
+            mat-icon {
+              color: #e74c3c;
+            }
+          }
+          &.cost-icon {
+            background: rgba(142, 68, 173, 0.1);
+            mat-icon {
+              color: #8e44ad;
+            }
+          }
+          &.ctr-icon {
+            background: rgba(46, 204, 113, 0.1);
+            mat-icon {
+              color: #2ecc71;
+            }
+          }
+        }
+
+        .metric-data {
+          flex: 1;
+          min-width: 0;
+
+          .metric-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: #20233a;
+            line-height: 1.2;
+            margin-bottom: 6px;
+            word-break: break-word;
+
+            @media (max-width: 1200px) {
+              font-size: 1.4rem;
+            }
+
+            @media (max-width: 768px) {
+              font-size: 1.3rem;
+            }
+          }
+
+          .metric-label {
+            font-size: 0.85rem;
+            color: #64748b;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+          }
+
+          .metric-change {
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 6px;
+            display: inline-block;
+
+            &.positive {
+              background: rgba(39, 174, 96, 0.1);
+              color: #27ae60;
+            }
+
+            &.negative {
+              background: rgba(231, 76, 60, 0.1);
+              color: #e74c3c;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /* Engagement Insights Widget */
+  .engagement-insights {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e8ebf2;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+    .engagement-header {
+      padding: 20px 20px 0;
+      border-bottom: 1px solid #e8ebf2;
+      margin-bottom: 20px;
+
+      h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 8px;
+      }
+
+      p {
+        margin: 0 0 20px 0;
+        color: #666;
+        font-size: 14px;
+      }
+    }
+
+    .engagement-content {
+      padding: 0 20px 20px;
+
+      .engagement-chart {
+        margin-bottom: 24px;
+
+        canvas {
+          width: 100%;
+          height: 200px;
+          border-radius: 8px;
+          border: 1px solid #e8ebf2;
+        }
+      }
+
+      .engagement-stats {
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 16px;
+          margin-bottom: 20px;
+
+          .stat-item {
+            text-align: center;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e8ebf2;
+
+            .stat-icon {
+              font-size: 20px;
+              margin-bottom: 8px;
+              display: block;
+            }
+
+            .stat-value {
+              font-size: 16px;
+              font-weight: 600;
+              color: #2c3e50;
+              margin-bottom: 4px;
+            }
+
+            .stat-label {
+              font-size: 12px;
+              color: #666;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+          }
+        }
+
+        .engagement-summary {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 16px;
+          background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+          border-radius: 8px;
+          color: white;
+
+          .summary-item {
+            text-align: center;
+
+            .summary-value {
+              font-size: 18px;
+              font-weight: 600;
+              margin-bottom: 4px;
+            }
+
+            .summary-label {
+              font-size: 12px;
+              opacity: 0.9;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @media (max-width: 768px) {
+    .engagement-insights {
+      .engagement-content {
+        .engagement-stats {
+          .stats-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .engagement-summary {
+            flex-direction: column;
+            gap: 12px;
+          }
+        }
+      }
+    }
+  }
+}

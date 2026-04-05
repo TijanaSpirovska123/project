@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:pro="http://www.liquibase.org/xml/ns/pro"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd
+            http://www.liquibase.org/xml/ns/pro
+            http://www.liquibase.org/xml/ns/pro/liquibase-pro-4.1.xsd">
+
+    <changeSet author="MARKETING" id="1">
+        <sql>
+            CREATE TABLE USERS (
+                                   ID SERIAL PRIMARY KEY,
+                                   FULL_NAME VARCHAR(255) NOT NULL,
+                                   USERNAME VARCHAR(255) UNIQUE NOT NULL,
+                                   EMAIL VARCHAR(255) UNIQUE NOT NULL,
+                                   PHONE_NUMBER INTEGER,
+                                   ADDRESS VARCHAR(255),
+                                   PASSWORD VARCHAR(255) NOT NULL,
+                                   ROLE VARCHAR(50) NOT NULL
+            );
+        </sql>
+        <rollback>
+            <sql>DROP TABLE USERS;</sql>
+        </rollback>
+    </changeSet>
+
+    <changeSet author="MARKETING" id="1.1">
+        <sql>
+            INSERT INTO USERS (FULL_NAME, USERNAME, EMAIL, PHONE_NUMBER, ADDRESS, PASSWORD, ROLE)
+            VALUES ('John Doe', 'johndoe', 'john.doe@example.com', 1234567890, '123 Main St', 'password123', 'USER');
+        </sql>
+        <rollback>
+            <sql>DELETE FROM USERS WHERE USERNAME = 'johndoe';</sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

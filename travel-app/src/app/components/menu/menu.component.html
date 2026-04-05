@@ -1,0 +1,87 @@
+<!-- Desktop Sidebar -->
+<div
+  [class.visible]="!isVisible"
+  [class.expanded]="isExpanded"
+  class="side-bar"
+>
+  <ul>
+    <div [class.active]="true" class="toggle" (click)="toggleExpand()">
+      <span class="material-symbols-outlined">{{
+        isExpanded ? "chevron_left" : "grid_view"
+      }}</span>
+    </div>
+
+    <li *ngFor="let item of menuItems">
+      <!-- Parent Item -->
+      <div
+        [class.active]="item.active"
+        [class.expanded]="item.isExpanded"
+        class="menu-item"
+        (click)="navigate(item)"
+        matTooltipPosition="right"
+      >
+        <span class="material-symbols-outlined">{{ item.icon }}</span>
+        <span class="label">{{ item.label }}</span>
+        <span
+          class="expand-icon material-symbols-outlined"
+          *ngIf="item.isParent"
+          [class.rotated]="item.isExpanded"
+        >
+          chevron_right
+        </span>
+      </div>
+
+      <!-- Children Items -->
+      <ul
+        class="submenu"
+        *ngIf="item.children && item.isExpanded && isExpanded"
+      >
+        <li
+          *ngFor="let child of item.children"
+          [class.active]="child.active"
+          class="submenu-item"
+          (click)="navigate(child)"
+        >
+          <span class="material-symbols-outlined">{{ child.icon }}</span>
+          <span class="label">{{ child.label }}</span>
+        </li>
+      </ul>
+    </li>
+
+    <button
+      (click)="theme.toggle()"
+      class="button theme-toggle"
+      [class.expanded]="isExpanded"
+      matTooltipPosition="right"
+    >
+      <span class="material-symbols-outlined">{{ theme.isDark ? 'light_mode' : 'dark_mode' }}</span>
+      <span class="label">{{ theme.isDark ? 'Light Mode' : 'Dark Mode' }}</span>
+    </button>
+    <button
+      (click)="logout()"
+      class="button"
+      [class.expanded]="isExpanded"
+      matTooltipPosition="right"
+    >
+      <span class="material-symbols-outlined">{{
+        isLoggedIn ? "logout" : "login"
+      }}</span>
+      <span class="label">{{
+        isLoggedIn ? "Log Out" : "Sign In"
+      }}</span>
+    </button>
+  </ul>
+</div>
+
+<!-- Mobile Bottom Navigation Bar -->
+<nav class="mobile-bottom-nav" *ngIf="isVisible">
+  <a
+    *ngFor="let item of menuItems"
+    class="mob-tab"
+    [class.active]="item.active"
+    (click)="navigate(item)"
+  >
+    <span class="material-symbols-outlined">{{ item.icon }}</span>
+    <span class="mob-label">{{ item.label }}</span>
+  </a>
+</nav>

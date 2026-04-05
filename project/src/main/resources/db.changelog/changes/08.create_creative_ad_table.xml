@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <changeSet id="8" author="MARKETING">
+        <sql>
+            CREATE TABLE creatives (
+                                       id              SERIAL PRIMARY KEY,
+
+                -- BasePlatformEntity
+                                       user_id         BIGINT NOT NULL,
+                                       name            VARCHAR(255) NOT NULL,
+                                       status          VARCHAR(20),
+                                       ad_account_id   VARCHAR(50) NOT NULL,
+                                       external_id     VARCHAR(100),          -- nullable = drafts allowed
+                                       created_at      TIMESTAMP NOT NULL,
+                                       updated_at      TIMESTAMP,
+                                       platform        VARCHAR(50) NOT NULL,
+                                       image_hash      VARCHAR(255),
+
+                -- creative-specific
+                                       link_url        TEXT,
+
+                -- MODE 1 (optional)
+                                       page_post_id    BIGINT NULL,
+
+                -- MODE 2 (optional)
+                                       page_id         VARCHAR(100) NULL,
+
+                                       CONSTRAINT fk_creative_user
+                                           FOREIGN KEY (user_id) REFERENCES users(id),
+
+                                       CONSTRAINT fk_creative_pagepost
+                                           FOREIGN KEY (page_post_id) REFERENCES page_posts(id),
+
+                                       CONSTRAINT uk_creative_external
+                                           UNIQUE (user_id, platform, ad_account_id, external_id)
+            );
+
+            -- Optional: prevent linking the SAME page_post twice (if that’s a business rule)
+            CREATE UNIQUE INDEX ux_creatives_page_post_id_not_null
+                ON creatives(page_post_id)
+                WHERE page_post_id IS NOT NULL;
+
+        </sql>
+
+        <rollback>
+            <sql>DROP TABLE creatives;</sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

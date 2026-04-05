@@ -1,0 +1,188 @@
+<div class="page with-menu">
+  <app-menu [isVisible]="true"></app-menu>
+
+  <div class="sync-container">
+    <div class="sync-content-wrapper">
+      <!-- Header -->
+      <div class="sync-header">
+        <h1 class="page-title">
+          <mat-icon>sync</mat-icon>
+          Sync Accounts
+        </h1>
+        <p class="page-description">
+          Connect and sync your advertising accounts from different platforms
+        </p>
+      </div>
+
+      <!-- Loading connections -->
+      @if (isLoadingConnections) {
+        <div class="connections-loading">
+          <div class="conn-spinner"></div>
+          <span>Checking connection status…</span>
+        </div>
+      }
+
+      <!-- Platform Cards Grid -->
+      <div class="platforms-grid">
+        @for (platform of platforms; track platform.key) {
+          <div
+            class="platform-card"
+            [class.disabled]="!platform.enabled"
+            [class.syncing]="platform.syncing"
+            [class.is-connected]="platform.connected && !isTokenExpired(platform)"
+            [class.token-expired]="isTokenExpired(platform)"
+          >
+            <!-- Status badge -->
+            @if (platform.connected && !isTokenExpired(platform)) {
+              <div class="badge-connected">
+                <mat-icon>check_circle</mat-icon>
+                Connected
+              </div>
+            }
+            @if (isTokenExpired(platform)) {
+              <div class="badge-expired">
+                <mat-icon>error_outline</mat-icon>
+                Token expired
+              </div>
+            }
+
+            <div class="platform-icon" [style.background]="platform.color">
+              <mat-icon>{{ platform.icon }}</mat-icon>
+            </div>
+
+            <div class="platform-info">
+              <h3 class="platform-name">{{ platform.name }}</h3>
+              @if (!platform.enabled) {
+                <span class="coming-soon-badge">Coming Soon</span>
+              }
+              @if (platform.connected && platform.lastSynced && !isTokenExpired(platform)) {
+                <span class="last-synced-text">
+                  Last synced {{ formatLastSynced(platform.lastSynced) }}
+                </span>
+              }
+            </div>
+
+            <!-- Expiring soon warning banner -->
+            @if (isTokenExpiringSoon(platform)) {
+              <div class="token-warning-banner">
+                <mat-icon>warning_amber</mat-icon>
+                <span>Your Meta connection expires in less than 2 days. Reconnect to avoid interruption.</span>
+              </div>
+            }
+
+            <!-- Expired error banner -->
+            @if (isTokenExpired(platform)) {
+              <div class="token-error-banner">
+                <mat-icon>error_outline</mat-icon>
+                <span>Your Meta connection has expired. Reconnect to continue syncing.</span>
+              </div>
+            }
+
+            <div class="platform-actions">
+              @if (platform.enabled) {
+                <!-- Not connected (and not expired): show Connect button -->
+                @if (!platform.connected && !isTokenExpired(platform)) {
+                  <button
+                    class="action-btn connect-btn"
+                    (click)="connectPlatform(platform)"
+                    [disabled]="isConnecting || platform.syncing"
+                  >
+                    <mat-icon>link</mat-icon>
+                    <span>Connect</span>
+                  </button>
+                }
+
+                <!-- Connected and not expired: show Disconnect button -->
+                @if (platform.connected && !isTokenExpired(platform)) {
+                  <button
+                    class="action-btn manage-btn"
+                    (click)="openDisconnectDialog(platform)"
+                    [disabled]="platform.syncing"
+                  >
+                    <mat-icon>manage_accounts</mat-icon>
+                    <span>Disconnect</span>
+                  </button>
+                }
+
+                <!-- Reconnect: shown when expiring soon or expired -->
+                @if (isTokenExpired(platform) || isTokenExpiringSoon(platform)) {
+                  <button
+                    class="action-btn reconnect-btn"
+                    (click)="connectPlatform(platform)"
+                    [disabled]="isConnecting || platform.syncing"
+                  >
+                    <mat-icon>refresh</mat-icon>
+                    <span>{{ isTokenExpired(platform) ? 'Reconnect now' : 'Reconnect' }}</span>
+                  </button>
+                }
+
+                <!-- Sync button: disabled when not connected OR token expired -->
+                <button
+                  class="action-btn sync-btn"
+                  [class.sync-btn-enabled]="platform.connected && !isTokenExpired(platform)"
+                  (click)="syncPlatform(platform)"
+                  [disabled]="platform.syncing || !platform.connected || isTokenExpired(platform)"
+                  [matTooltip]="getSyncTooltip(platform)"
+                  matTooltipPosition="above"
+                >
+                  @if (platform.syncing) {
+                    <div class="btn-spinner"></div>
+                    <span>{{ syncStep || 'Syncing…' }}</span>
+                  } @else {
+                    <mat-icon>sync</mat-icon>
+                    <span>Sync Data</span>
+                  }
+                </button>
+              } @else {
+                <button class="action-btn disabled-btn" disabled>
+                  <mat-icon>schedule</mat-icon>
+                  <span>Not Available</span>
+                </button>
+              }
+            </div>
+
+            @if (platform.syncing && syncStep) {
+              <div class="sync-progress">
+                <div class="sync-progress-bar">
+                  <div class="sync-progress-fill" [style.width.%]="(syncStepNum / 3) * 100"></div>
+                </div>
+                <span class="sync-progress-label">{{ syncStep }}</span>
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Info Section -->
+      <div class="info-section">
+        <div class="info-card">
+          <mat-icon class="info-icon">info</mat-icon>
+          <div class="info-content">
+            <h4>How Syncing Works</h4>
+            <ul>
+              <li><strong>Connect:</strong> Authenticate your account with OAuth to grant access</li>
+              <li><strong>Sync:</strong> Import campaigns, ad sets, and ads from your linked accounts</li>
+              <li><strong>Manage:</strong> View and control all your ads from one dashboard</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Disconnect Confirmation Dialog -->
+@if (showDisconnectDialog && disconnectPlatform) {
+  <div class="dialog-backdrop" (click)="cancelDisconnect()">
+    <div class="dialog-card" (click)="$event.stopPropagation()">
+      <h3 class="dialog-title">Disconnect {{ disconnectPlatform.name }}?</h3>
+      <p class="dialog-body">
+        Your synced data will remain in the app, but you won't be able to sync new data until you reconnect.
+      </p>
+      <div class="dialog-actions">
+        <button class="dialog-btn cancel" (click)="cancelDisconnect()">Cancel</button>
+        <button class="dialog-btn confirm" (click)="confirmDisconnect()">Disconnect</button>
+      </div>
+    </div>
+  </div>
+}

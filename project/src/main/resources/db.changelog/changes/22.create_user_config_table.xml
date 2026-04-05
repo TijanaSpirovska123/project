@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <changeSet id="22" author="MARKETING">
+        <sql>
+            CREATE TABLE user_config (
+                id          SERIAL PRIMARY KEY,
+                user_id     BIGINT NOT NULL,
+                config_type VARCHAR(64) NOT NULL,
+                config_json TEXT NOT NULL,
+                created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+                CONSTRAINT fk_user_config_user FOREIGN KEY (user_id) REFERENCES USERS(ID),
+                CONSTRAINT uq_user_config_type UNIQUE (user_id, config_type)
+            );
+            CREATE INDEX idx_user_config_user_id ON user_config(user_id);
+        </sql>
+        <rollback>
+            <sql>DROP TABLE IF EXISTS user_config;</sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

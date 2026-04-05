@@ -1,0 +1,265 @@
+<!-- src/app/shared/table/table.component.html -->
+<div class="aca-table">
+  <!-- Top toolbar -->
+  <div class="toolbar">
+    <div class="tabs" *ngIf="tabs && tabs.length > 0">
+      <button
+        *ngFor="let tab of tabs; let i = index"
+        class="tab"
+        [class.active]="i === activeTabIndex"
+        (click)="onTabClick(i)"
+      >
+        {{ tab }}
+      </button>
+    </div>
+
+    <div class="right-tools">
+      <!-- Search -->
+      <div class="search">
+        <mat-icon class="icon">search</mat-icon>
+        <input
+          placeholder="Search name or reservation ID..."
+          [value]="search"
+          (input)="onSearchInputEvent($event)"
+        />
+      </div>
+      <button class="export" (click)="exportCsv()">
+        <mat-icon class="icon">file_download</mat-icon>
+        Export
+      </button>
+
+      <button *ngIf="showCreateButton" class="create" (click)="onCreateClick()">
+        <mat-icon class="icon">add</mat-icon>
+        {{ createButtonText }}
+      </button>
+    </div>
+  </div>
+
+  <!-- table -->
+  <div class="table-scroll-wrapper" [class.has-scroll]="enableScrollX" [class.has-add-col]="showAddCol">
+  <div class="table">
+    <!-- Header -->
+    <div class="thead" [style.grid-template-columns]="getGridTemplate()">
+      <div
+        class="th sortable"
+        *ngFor="let h of headers; let i = index"
+        [class.col-first]="i === 0"
+        [class.col-second]="i === 1"
+        [class.col-third]="i === 2"
+        [style.width]="h.width"
+        (click)="onHeaderSort(h)"
+      >
+        <span>{{ h.title }}</span>
+        <span class="sort-icons">
+          <mat-icon
+            class="chev"
+            [class.on]="sortKey === h.value && sortDir === 'asc'"
+            >arrow_drop_up</mat-icon
+          >
+          <mat-icon
+            class="chev"
+            [class.on]="sortKey === h.value && sortDir === 'desc'"
+            >arrow_drop_down</mat-icon
+          >
+        </span>
+      </div>
+      <div class="th expand-col"></div>
+      <div class="th add-col" *ngIf="showAddCol">
+        <button class="add-col-btn" (click)="onAddColClick()" title="Customize columns">
+          <mat-icon>add</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="tbody">
+      <div class="empty-state-row" *ngIf="paginatedData.length === 0">
+        <mat-icon>inbox</mat-icon>
+        <span>No data available</span>
+      </div>
+      <ng-container *ngFor="let item of paginatedData; trackBy: trackByGuid">
+        <!-- Parent Row -->
+        <div class="tr" [style.grid-template-columns]="getGridTemplate()" (click)="onRowClick(item, $event)" (mouseenter)="onRowMouseEnter(item, $event)" (mouseleave)="onRowMouseLeave()">
+          <!-- one TD per header -->
+          <div class="td" *ngFor="let h of headers; let i = index" [class.col-first]="i === 0" [class.col-second]="i === 1" [class.col-third]="i === 2" [style.width]="h.width">
+            <!-- small smart formatting for date/status/toggle -->
+            <ng-container [ngSwitch]="h.value">
+              <ng-container *ngSwitchCase="'toggle'">
+                <label class="ios-toggle" (click)="$event.stopPropagation()">
+                  <input
+                    type="checkbox"
+                    [checked]="getValue(item, 'status') === 'Active'"
+                    (change)="onStatusToggle(item, getValue(item, 'status')); $event.stopPropagation()"
+                  />
+                  <span class="slider"></span>
+                </label>
+              </ng-container>
+
+              <ng-container *ngSwitchCase="'statusBadge'">
+                <span
+                  class="badge"
+                  [class.badge-active]="getValue(item, h.value)?.toLowerCase() === 'active'"
+                  [class.badge-paused]="getValue(item, h.value)?.toLowerCase() === 'paused'"
+                  [class.badge-failed]="getValue(item, h.value)?.toLowerCase() === 'failed'"
+                  [class.badge-archived]="getValue(item, h.value)?.toLowerCase() === 'archived'"
+                  [class.badge-processing]="getValue(item, h.value)?.toLowerCase() === 'processing'"
+                >{{ getValue(item, h.value) }}</span>
+              </ng-container>
+
+              <ng-container *ngSwitchCase="'scheduleTime'">
+                {{ getValue(item, h.value) | date : momentDateAndTimeSeconds }}
+              </ng-container>
+
+              <ng-container *ngSwitchCase="'status'">
+                <div class="status-toggle">
+                  @if (item.disabledButtons) {
+                    <span class="toggle-spinner"></span>
+                  } @else {
+                    <button
+                      class="toggle-btn"
+                      [class.active]="getValue(item, h.value) === 'Active'"
+                      [class.paused]="getValue(item, h.value) === 'Paused'"
+                      (click)="
+                        onStatusToggle(item, getValue(item, h.value));
+                        $event.stopPropagation()
+                      "
+                    >
+                      {{ getValue(item, h.value) }}
+                    </button>
+                  }
+                </div>
+              </ng-container>
+
+              <ng-container *ngSwitchDefault>
+                {{ getValue(item, h.value) }}
+              </ng-container>
+            </ng-container>
+          </div>
+
+          <!-- expand arrow -->
+          <div class="td expand-col">
+            <button
+              *ngIf="hasChildren(item)"
+              class="caret"
+              (click)="toggleExpand(item); $event.stopPropagation()"
+              title="Expand/Collapse"
+            >
+              <mat-icon [class.expanded]="item.expanded">chevron_right</mat-icon>
+            </button>
+          </div>
+
+          <!-- add-col placeholder -->
+          <div class="td add-col" *ngIf="showAddCol"></div>
+        </div>
+
+        <!-- Children rows (expanded) -->
+        <ng-container *ngIf="item.expanded && hasChildren(item)">
+          <div class="tr child-row" [style.grid-template-columns]="getGridTemplate()" *ngFor="let child of getChildren(item)" (mouseenter)="onChildRowMouseEnter(item, child, $event)" (mouseleave)="onRowMouseLeave()">
+            <!-- Child row data mapped to same headers -->
+            <div class="td" *ngFor="let h of headers; let i = index" [class.col-first]="i === 0" [class.col-second]="i === 1" [class.col-third]="i === 2" [style.width]="h.width">
+              <ng-container [ngSwitch]="h.value">
+                <ng-container *ngSwitchCase="'toggle'">
+                  <label class="ios-toggle" (click)="$event.stopPropagation()">
+                    <input
+                      type="checkbox"
+                      [checked]="childValue(child, 'status') === 'Active'"
+                      (change)="onChildStatusToggle(item, child, childValue(child, 'status')); $event.stopPropagation()"
+                    />
+                    <span class="slider"></span>
+                  </label>
+                </ng-container>
+                <ng-container *ngSwitchCase="'statusBadge'">
+                  <span
+                    class="badge"
+                    [class.badge-active]="childValue(child, h.value || '')?.toLowerCase() === 'active'"
+                    [class.badge-paused]="childValue(child, h.value || '')?.toLowerCase() === 'paused'"
+                    [class.badge-failed]="childValue(child, h.value || '')?.toLowerCase() === 'failed'"
+                    [class.badge-archived]="childValue(child, h.value || '')?.toLowerCase() === 'archived'"
+                    [class.badge-processing]="childValue(child, h.value || '')?.toLowerCase() === 'processing'"
+                  >{{ childValue(child, h.value || "") }}</span>
+                </ng-container>
+                <ng-container *ngSwitchCase="'status'">
+                  <div class="status-toggle">
+                    @if (item.disabledButtons) {
+                      <span class="toggle-spinner"></span>
+                    } @else {
+                      <button
+                        class="toggle-btn"
+                        [class.active]="childValue(child, h.value || '') === 'Active'"
+                        [class.paused]="childValue(child, h.value || '') === 'Paused'"
+                        (click)="onChildStatusToggle(item, child, childValue(child, h.value || ''))"
+                      >{{ childValue(child, h.value || "") }}</button>
+                    }
+                  </div>
+                </ng-container>
+                <ng-container *ngSwitchCase="'scheduleTime'">
+                  {{ childValue(child, h.value || "") | date : momentDateAndTimeSeconds }}
+                </ng-container>
+                <ng-container *ngSwitchDefault>
+                  {{ childValue(child, h.value || "") }}
+                </ng-container>
+              </ng-container>
+            </div>
+
+            <!-- expand placeholder for children -->
+            <div class="td expand-col"></div>
+            <div class="td add-col" *ngIf="showAddCol"></div>
+          </div>
+        </ng-container>
+      </ng-container>
+    </div>
+  </div>
+  </div>
+
+  <!-- Pagination Controls -->
+  <div class="pagination" *ngIf="totalItems > 0">
+    <div class="pagination-info">
+      <span
+        >{{ (currentPage - 1) * itemsPerPage + 1 }} - {{ getEndIndex() }} of
+        {{ totalItems }} items</span
+      >
+
+      <div class="items-per-page">
+        <label>Show:</label>
+        <select
+          [value]="itemsPerPage"
+          (change)="onItemsPerPageChange(+$any($event.target).value)"
+        >
+          <option *ngFor="let option of itemsPerPageOptions" [value]="option">
+            {{ option }}
+          </option>
+        </select>
+        <span>per page</span>
+      </div>
+    </div>
+
+    <div class="pagination-controls">
+      <button
+        class="pagination-btn"
+        [disabled]="currentPage === 1"
+        (click)="onPageChange(currentPage - 1)"
+        title="Previous page"
+      >
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+
+      <button
+        *ngFor="let page of getPaginationPages()"
+        class="pagination-btn page-number"
+        [class.active]="page === currentPage"
+        (click)="onPageChange(page)"
+      >
+        {{ page }}
+      </button>
+
+      <button
+        class="pagination-btn"
+        [disabled]="currentPage === totalPages"
+        (click)="onPageChange(currentPage + 1)"
+        title="Next page"
+      >
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+    </div>
+  </div>
+</div>

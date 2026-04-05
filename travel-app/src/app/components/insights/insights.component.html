@@ -1,0 +1,506 @@
+<!-- Loading overlay -->
+<div class="loading-overlay" *ngIf="isLoading">
+  <div class="spinner"></div>
+</div>
+
+<div class="page with-menu">
+  <app-menu [isVisible]="true"></app-menu>
+
+  <div class="insights-container">
+    <!-- Page Header -->
+    <div class="insights-header">
+      <div class="header-left">
+        <h2 class="page-title">
+          <mat-icon>insights</mat-icon>
+          Insights
+        </h2>
+        <!-- Platform Tabs inline in header -->
+        <div class="platform-tabs-row">
+          @if (isLoadingPlatforms) {
+            @for (i of [1,2,3,4,5,6]; track i) {
+              <div class="platform-tab-skeleton"></div>
+            }
+          } @else {
+            @for (tab of platformTabs; track tab.key) {
+              <button
+                class="platform-tab"
+                [class.active]="activePlatform === tab.key"
+                [class.disconnected]="!tab.connected"
+                [disabled]="!tab.connected"
+                (click)="setPlatformTab(tab.key)"
+                [matTooltip]="!tab.connected ? tab.label + ' not connected' : ''"
+                matTooltipPosition="above"
+              >
+                <i [class]="tab.icon"></i>
+                <span>{{ tab.label }}</span>
+                @if (!tab.connected) {
+                  <mat-icon class="lock-icon">lock</mat-icon>
+                }
+              </button>
+            }
+          }
+        </div>
+      </div>
+      <div class="header-controls">
+        <app-date-range-picker
+          (rangeChange)="onCustomRangeChange($event)"
+          (quickSelectChange)="onQuickSelectChange($event)">
+        </app-date-range-picker>
+      </div>
+    </div>
+
+    <!-- Lower Panel Buttons -->
+    <div class="lower-panel-buttons">
+      <button
+        class="panel-toggle-btn"
+        [class.active]="showTopPerformers"
+        (click)="showTopPerformers = !showTopPerformers"
+      >
+        <mat-icon>emoji_events</mat-icon>
+        <span>Top Performers</span>
+      </button>
+      <button
+        class="panel-toggle-btn"
+        [class.active]="showSpendDistribution"
+        (click)="showSpendDistribution = !showSpendDistribution"
+      >
+        <mat-icon>donut_large</mat-icon>
+        <span>Spend Distribution</span>
+      </button>
+    </div>
+
+    <!-- KPI Metric Blocks: 6 cards -->
+    <div class="metric-blocks-grid">
+      @if (isLoading) {
+        @for (i of [1,2,3,4,5,6]; track i) {
+          <div class="metric-block skeleton-block">
+            <div class="skeleton skeleton-icon"></div>
+            <div class="block-body">
+              <div class="skeleton skeleton-value"></div>
+              <div class="skeleton skeleton-label"></div>
+            </div>
+          </div>
+        }
+      } @else {
+        <div
+          class="metric-block"
+          *ngFor="let block of metricBlocks"
+          (click)="openMetricModal(block.index)"
+          [class.empty]="!block.metricKey"
+        >
+          <div class="block-icon-wrap">
+            <mat-icon>{{ block.icon }}</mat-icon>
+          </div>
+          <div class="block-body">
+            <div class="block-label">{{ block.label }}</div>
+            <div class="block-value">{{ block.value }}</div>
+            <div
+              class="block-trend"
+              *ngIf="block.trend !== undefined"
+              [class.trend-up]="block.trendDirection === 'up'"
+              [class.trend-down]="block.trendDirection === 'down'"
+              [class.trend-neutral]="block.trendDirection === 'neutral'"
+            >
+              <mat-icon>{{
+                block.trendDirection === "up"
+                  ? "trending_up"
+                  : block.trendDirection === "down"
+                    ? "trending_down"
+                    : "trending_flat"
+              }}</mat-icon>
+              {{ block.trend! | number: "1.1-1" }}%
+            </div>
+          </div>
+          <div class="block-edit-hint">
+            <mat-icon>edit</mat-icon>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Filter Controls Row: toggle + tabs + sync -->
+    <div class="filter-controls-row">
+      <div class="filter-left">
+        <button class="filter-toggle-btn" (click)="selectionExpanded = !selectionExpanded">
+          <span class="filter-chevron" [class.rotated]="selectionExpanded">▾</span>
+          Filters
+          <span class="filter-count-badge">
+            {{ selectedCampaignIds.size + selectedAdSetIds.size + selectedAdIds.size }}
+          </span>
+        </button>
+        <div class="tabs-bar">
+          <button
+            *ngFor="let tab of tabs; let i = index"
+            class="tab-btn"
+            [class.active]="activeTabIndex === i"
+            (click)="onTabChange(i)"
+          >
+            {{ tab }}
+          </button>
+        </div>
+      </div>
+      <button
+        class="sync-btn"
+        (click)="syncSelected()"
+        [disabled]="isLoading || isLoadingObjects || !hasSelectedObjects() || !dateRangeSelected"
+        [title]="!dateRangeSelected ? 'Select a date range first' : !hasSelectedObjects() ? 'Select at least one campaign, ad set, or ad' : ''"
+      >
+        <mat-icon>sync</mat-icon>
+        Sync
+      </button>
+    </div>
+
+    <!-- Collapsible Object Selection Panel -->
+    <div class="object-selection-panel" [class.panel-open]="selectionExpanded">
+      <div class="selection-loading" *ngIf="isLoadingObjects">
+        <div class="mini-spinner"></div>
+        <span>Loading objects&hellip;</span>
+      </div>
+      <ng-container *ngIf="!isLoadingObjects && selectionExpanded">
+        <div class="cols-collapse-bar">
+          <button class="cols-toggle-btn" (click)="colsExpanded = !colsExpanded">
+            <mat-icon [class.rotated]="colsExpanded">expand_more</mat-icon>
+          </button>
+        </div>
+        <div class="selection-columns">
+          <!-- Campaigns -->
+          <div class="selection-col">
+            <div class="selection-col-header">
+              <mat-icon>campaign</mat-icon>
+              <span class="col-title">Campaigns</span>
+              <span class="col-summary">{{ selectionSummary("campaign") }}</span>
+              <button
+                class="sel-action-btn"
+                (click)="openFieldsModal('campaign')"
+                title="Configure fields"
+              >
+                <mat-icon>tune</mat-icon>
+                {{ fieldsSummary("campaign") }}
+              </button>
+
+            </div>
+            <ng-container *ngIf="colsExpanded">
+              <div class="sel-quick">
+                <button class="sel-mini-btn" (click)="selectAllCampaigns()">All</button>
+                <button class="sel-mini-btn" (click)="clearCampaigns()">Clear</button>
+                <input
+                  class="sel-search"
+                  type="text"
+                  placeholder="Search…"
+                  [(ngModel)]="campaignSearch"
+                  (click)="$event.stopPropagation()"
+                />
+              </div>
+              <div class="selection-list">
+                <label
+                  *ngFor="let c of filteredCampaigns"
+                  class="sel-item"
+                  [class.selected]="isCampaignSelected(c)"
+                >
+                  <input
+                    type="checkbox"
+                    [checked]="isCampaignSelected(c)"
+                    (change)="toggleCampaign(c)"
+                  />
+                  <span class="sel-name">{{ c.name }}</span>
+                  <span class="sel-id">{{ c.externalId }}</span>
+                </label>
+                <span class="sel-empty" *ngIf="!filteredCampaigns.length">No campaigns found</span>
+              </div>
+            </ng-container>
+          </div>
+
+          <div class="selection-col-divider"></div>
+
+          <!-- Ad Sets -->
+          <div class="selection-col">
+            <div class="selection-col-header">
+              <mat-icon>layers</mat-icon>
+              <span class="col-title">Ad Sets</span>
+              <span class="col-summary">{{ selectionSummary("adset") }}</span>
+              <button
+                class="sel-action-btn"
+                (click)="openFieldsModal('adset')"
+                title="Configure fields"
+              >
+                <mat-icon>tune</mat-icon>
+                {{ fieldsSummary("adset") }}
+              </button>
+
+            </div>
+            <ng-container *ngIf="colsExpanded">
+              <div class="sel-quick">
+                <button class="sel-mini-btn" (click)="selectAllAdSets()">All</button>
+                <button class="sel-mini-btn" (click)="clearAdSets()">Clear</button>
+                <input
+                  class="sel-search"
+                  type="text"
+                  placeholder="Search…"
+                  [(ngModel)]="adSetSearch"
+                  (click)="$event.stopPropagation()"
+                />
+              </div>
+              <div class="selection-list">
+                <label
+                  *ngFor="let a of filteredAdSets"
+                  class="sel-item"
+                  [class.selected]="isAdSetSelected(a)"
+                >
+                  <input
+                    type="checkbox"
+                    [checked]="isAdSetSelected(a)"
+                    (change)="toggleAdSet(a)"
+                  />
+                  <span class="sel-name">{{ a.name }}</span>
+                  <span class="sel-id">{{ a.externalId }}</span>
+                </label>
+                <span class="sel-empty" *ngIf="!filteredAdSets.length">No ad sets found</span>
+              </div>
+            </ng-container>
+          </div>
+
+          <div class="selection-col-divider"></div>
+
+          <!-- Ads -->
+          <div class="selection-col">
+            <div class="selection-col-header">
+              <mat-icon>web_asset</mat-icon>
+              <span class="col-title">Ads</span>
+              <span class="col-summary">{{ selectionSummary("ad") }}</span>
+              <button
+                class="sel-action-btn"
+                (click)="openFieldsModal('ad')"
+                title="Configure fields"
+              >
+                <mat-icon>tune</mat-icon>
+                {{ fieldsSummary("ad") }}
+              </button>
+
+            </div>
+            <ng-container *ngIf="colsExpanded">
+              <div class="sel-quick">
+                <button class="sel-mini-btn" (click)="selectAllAds()">All</button>
+                <button class="sel-mini-btn" (click)="clearAds()">Clear</button>
+                <input
+                  class="sel-search"
+                  type="text"
+                  placeholder="Search…"
+                  [(ngModel)]="adSearch"
+                  (click)="$event.stopPropagation()"
+                />
+              </div>
+              <div class="selection-list">
+                <label
+                  *ngFor="let a of filteredAds"
+                  class="sel-item"
+                  [class.selected]="isAdSelected(a)"
+                >
+                  <input
+                    type="checkbox"
+                    [checked]="isAdSelected(a)"
+                    (change)="toggleAd(a)"
+                  />
+                  <span class="sel-name">{{ a.name }}</span>
+                  <span class="sel-id">{{ a.externalId }}</span>
+                </label>
+                <span class="sel-empty" *ngIf="!filteredAds.length">No ads found</span>
+              </div>
+            </ng-container>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+
+    <!-- Performance Chart -->
+    <div class="graph-section">
+      <div class="graph-header">
+        <span class="graph-title">Performance Over Time</span>
+        <div class="graph-type-toggle">
+          <button
+            class="toggle-btn"
+            [class.active]="chartType === 'line'"
+            (click)="setChartType('line')"
+          >
+            <mat-icon>show_chart</mat-icon> Line
+          </button>
+          <button
+            class="toggle-btn"
+            [class.active]="chartType === 'bar'"
+            (click)="setChartType('bar')"
+          >
+            <mat-icon>bar_chart</mat-icon> Bar
+          </button>
+        </div>
+      </div>
+      <div class="graph-wrapper">
+        @if (isLoading) {
+          <div class="skeleton skeleton-chart"></div>
+        } @else {
+          <canvas #insightGraph class="insight-graph-canvas"></canvas>
+        }
+      </div>
+    </div>
+
+
+  </div>
+</div>
+
+<!-- Top Performers Slide Panel -->
+<div class="slide-panel" [class.open]="showTopPerformers">
+  <div class="slide-panel-header">
+    <div class="slide-panel-title">
+      <mat-icon>emoji_events</mat-icon>
+      <span>Top Performers</span>
+    </div>
+    <button class="slide-panel-close" (click)="showTopPerformers = false">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+  <div class="slide-panel-body">
+    <table class="insights-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Spend</th>
+          <th>Impressions</th>
+          <th>Clicks</th>
+          <th>CTR</th>
+          <th>CPC</th>
+          <th>Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let p of getTopPerformers(5)">
+          <td class="performer-name">{{ p.name }}</td>
+          <td>${{ p.spend | number: "1.2-2" }}</td>
+          <td>{{ p.impressions | number }}</td>
+          <td>{{ p.clicks | number }}</td>
+          <td>{{ p.ctr | number: "1.2-2" }}%</td>
+          <td>${{ p.cpc | number: "1.2-2" }}</td>
+          <td>
+            <span class="score-badge" [ngClass]="scoreClass(p.score)">
+              {{ p.score }}
+            </span>
+          </td>
+        </tr>
+        <tr *ngIf="!getTopPerformers(5).length">
+          <td colspan="7" class="no-data-row">No data available</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Spend Distribution Slide Panel -->
+<div
+  class="slide-panel"
+  [class.open]="showSpendDistribution"
+  [class.shifted]="showSpendDistribution && showTopPerformers"
+>
+  <div class="slide-panel-header">
+    <div class="slide-panel-title">
+      <mat-icon>donut_large</mat-icon>
+      <span>Spend Distribution</span>
+    </div>
+    <button class="slide-panel-close" (click)="showSpendDistribution = false">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+  <div class="slide-panel-body">
+    <div class="spend-chart-wrapper">
+      <canvas #spendChart></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Metric Selection Modal -->
+<div
+  *ngIf="isMetricModalOpen"
+  class="metric-overlay"
+  (click)="closeMetricModal()"
+>
+  <div class="metric-modal" (click)="$event.stopPropagation()">
+    <div class="metric-modal-header">
+      <h4>
+        <mat-icon>analytics</mat-icon>
+        Select Metric for Block {{ activeBlockIndex + 1 }}
+      </h4>
+      <button class="close-btn" (click)="closeMetricModal()">
+        <span>&times;</span>
+      </button>
+    </div>
+
+    <div class="metric-modal-body">
+      <label class="metric-select-label">Choose a metric:</label>
+      <select class="metric-select" [(ngModel)]="tempMetricSelection">
+        <option value="">— No metric —</option>
+        <option
+          *ngFor="let m of getAvailableMetrics()"
+          [value]="m"
+          [selected]="m === tempMetricSelection"
+        >
+          {{ formatMetricLabel(m) }}
+        </option>
+      </select>
+      <p class="metric-hint">
+        Metrics already selected in other blocks are not shown.
+      </p>
+    </div>
+
+    <div class="metric-modal-footer">
+      <button class="btn-apply" (click)="applyMetricSelection()">Apply</button>
+      <button class="btn-cancel" (click)="closeMetricModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fields Selection Modal -->
+<div
+  *ngIf="isFieldsModalOpen"
+  class="metric-overlay"
+  (click)="closeFieldsModal()"
+>
+  <div class="metric-modal fields-modal" (click)="$event.stopPropagation()">
+    <div class="metric-modal-header">
+      <h4>
+        <mat-icon>tune</mat-icon>
+        Configure Fields —
+        {{
+          fieldsModalTab === "campaign"
+            ? "Campaigns"
+            : fieldsModalTab === "adset"
+              ? "Ad Sets"
+              : "Ads"
+        }}
+      </h4>
+      <button class="close-btn" (click)="closeFieldsModal()">
+        <span>&times;</span>
+      </button>
+    </div>
+
+    <div class="metric-modal-body fields-modal-body">
+      <div class="fields-quick-actions">
+        <button class="sel-mini-btn" (click)="selectAllFields()">Select All</button>
+        <button class="sel-mini-btn" (click)="clearAllFields()">Clear All</button>
+      </div>
+      <div class="fields-grid">
+        <label
+          *ngFor="let f of getActiveFieldOptions()"
+          class="field-item"
+          [class.selected]="isFieldSelected(f)"
+        >
+          <input
+            type="checkbox"
+            [checked]="isFieldSelected(f)"
+            (change)="toggleField(f)"
+          />
+          <span>{{ formatMetricLabel(f) }}</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="metric-modal-footer">
+      <button class="btn-apply" (click)="closeFieldsModal()">Done</button>
+    </div>
+  </div>
+</div>

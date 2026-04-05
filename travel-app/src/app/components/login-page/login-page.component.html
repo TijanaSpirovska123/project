@@ -1,0 +1,320 @@
+<div class="auth-split-page">
+  <!-- ── Left panel: animated characters ── -->
+  <div class="left-panel">
+    <div class="left-brand">
+      <div class="brand-icon-box">
+        <lucide-angular [img]="Sparkles" class="brand-lucide"></lucide-angular>
+      </div>
+      <span>TravelAds</span>
+    </div>
+
+    <div class="characters-stage">
+      <div class="characters-scene">
+        <!-- Purple character -->
+        <div
+          #purpleRef
+          class="character"
+          [style.left]="'70px'"
+          [style.width]="'180px'"
+          [style.height]="purpleHeight"
+          [style.backgroundColor]="'#6C3FF5'"
+          [style.borderRadius]="'10px 10px 0 0'"
+          [style.zIndex]="1"
+          [style.transform]="purpleTransform"
+        >
+          <div
+            class="eyes-wrap"
+            [style.left]="purpleEyesLeft"
+            [style.top]="purpleEyesTop"
+          >
+            <app-eyeball
+              [size]="18"
+              [pupilSize]="7"
+              [maxDistance]="5"
+              eyeColor="white"
+              pupilColor="#2D2D2D"
+              [isBlinking]="isPurpleBlinking"
+              [forceLookX]="purpleForceLookX"
+              [forceLookY]="purpleForceLookY"
+            />
+            <app-eyeball
+              [size]="18"
+              [pupilSize]="7"
+              [maxDistance]="5"
+              eyeColor="white"
+              pupilColor="#2D2D2D"
+              [isBlinking]="isPurpleBlinking"
+              [forceLookX]="purpleForceLookX"
+              [forceLookY]="purpleForceLookY"
+            />
+          </div>
+        </div>
+
+        <!-- Black character -->
+        <div
+          #blackRef
+          class="character"
+          [style.left]="'240px'"
+          [style.width]="'120px'"
+          [style.height]="'310px'"
+          [style.backgroundColor]="'#2D2D2D'"
+          [style.borderRadius]="'8px 8px 0 0'"
+          [style.zIndex]="2"
+          [style.transform]="blackTransform"
+        >
+          <div
+            class="eyes-wrap"
+            [style.left]="blackEyesLeft"
+            [style.top]="blackEyesTop"
+          >
+            <app-eyeball
+              [size]="16"
+              [pupilSize]="6"
+              [maxDistance]="4"
+              eyeColor="white"
+              pupilColor="#2D2D2D"
+              [isBlinking]="isBlackBlinking"
+              [forceLookX]="blackForceLookX"
+              [forceLookY]="blackForceLookY"
+            />
+            <app-eyeball
+              [size]="16"
+              [pupilSize]="6"
+              [maxDistance]="4"
+              eyeColor="white"
+              pupilColor="#2D2D2D"
+              [isBlinking]="isBlackBlinking"
+              [forceLookX]="blackForceLookX"
+              [forceLookY]="blackForceLookY"
+            />
+          </div>
+        </div>
+
+        <!-- Orange character -->
+        <div
+          #orangeRef
+          class="character"
+          [style.left]="'0px'"
+          [style.width]="'240px'"
+          [style.height]="'200px'"
+          [style.zIndex]="3"
+          [style.backgroundColor]="'#FF9B6B'"
+          [style.borderRadius]="'120px 120px 0 0'"
+          [style.transform]="orangeTransform"
+        >
+          <div
+            class="eyes-wrap"
+            [style.left]="orangeEyesLeft"
+            [style.top]="orangeEyesTop"
+          >
+            <app-pupil
+              [size]="12"
+              [maxDistance]="5"
+              pupilColor="#2D2D2D"
+              [forceLookX]="orangeForceLookX"
+              [forceLookY]="orangeForceLookY"
+            />
+            <app-pupil
+              [size]="12"
+              [maxDistance]="5"
+              pupilColor="#2D2D2D"
+              [forceLookX]="orangeForceLookX"
+              [forceLookY]="orangeForceLookY"
+            />
+          </div>
+        </div>
+
+        <!-- Yellow character -->
+        <div
+          #yellowRef
+          class="character"
+          [style.left]="'310px'"
+          [style.width]="'140px'"
+          [style.height]="'230px'"
+          [style.backgroundColor]="'#E8D754'"
+          [style.borderRadius]="'70px 70px 0 0'"
+          [style.zIndex]="4"
+          [style.transform]="yellowTransform"
+        >
+          <div
+            class="eyes-wrap"
+            [style.left]="yellowEyesLeft"
+            [style.top]="yellowEyesTop"
+          >
+            <app-pupil
+              [size]="12"
+              [maxDistance]="5"
+              pupilColor="#2D2D2D"
+              [forceLookX]="yellowForceLookX"
+              [forceLookY]="yellowForceLookY"
+            />
+            <app-pupil
+              [size]="12"
+              [maxDistance]="5"
+              pupilColor="#2D2D2D"
+              [forceLookX]="yellowForceLookX"
+              [forceLookY]="yellowForceLookY"
+            />
+          </div>
+          <div
+            class="character-mouth"
+            [style.left]="yellowMouthLeft"
+            [style.top]="yellowMouthTop"
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="left-footer"></div>
+
+    <div class="left-glow left-glow--top"></div>
+    <div class="left-glow left-glow--bottom"></div>
+  </div>
+
+  <!-- ── Right panel: existing login form ── -->
+  <div class="right-panel">
+    <div class="form-card">
+      <div class="form-header">
+        <h1>Welcome back!</h1>
+        <p>Please enter your details</p>
+      </div>
+      @if (formGroup) {
+        <form [formGroup]="formGroup" class="form-fields">
+          <!-- Email -->
+          <div class="field has-support-text">
+            <div class="form-group">
+              <input
+                type="text"
+                formControlName="email"
+                placeholder="Email"
+                (focus)="onInputFocus()"
+                (blur)="onInputBlur()"
+                [class.invalid]="
+                  hasError('email', 'required') || hasError('email', 'email')
+                "
+              />
+              <div *ngIf="hasError('email', 'required')" class="error-text">
+                Email is required
+              </div>
+              <div *ngIf="hasError('email', 'email')" class="error-text">
+                Please enter a valid email
+              </div>
+            </div>
+          </div>
+
+          <!-- Token (forgot-password flow) -->
+          <div
+            *ngIf="isForgotPassword && !isResetPassword"
+            class="field has-support-text"
+          >
+            <div class="form-group">
+              <input
+                type="text"
+                formControlName="token"
+                placeholder="Reset Token"
+                [class.invalid]="hasError('token', 'required')"
+              />
+              <div *ngIf="hasError('token', 'required')" class="error-text">
+                Token is required
+              </div>
+            </div>
+          </div>
+
+          <!-- Password -->
+          <div class="field has-support-text password-field">
+            <div *ngIf="!isResetPassword" class="form-group">
+              <input
+                [type]="showPassword ? 'text' : 'password'"
+                formControlName="password"
+                placeholder="Password"
+                (input)="onPasswordChange(formGroup.get('password')?.value)"
+                [class.invalid]="hasError('password', 'required')"
+              />
+              <button
+                type="button"
+                class="toggle-pw"
+                (click)="togglePassword()"
+              >
+                <lucide-angular
+                  [img]="showPassword ? EyeOff : Eye"
+                  class="pw-icon"
+                ></lucide-angular>
+              </button>
+              <button
+                *ngIf="!isForgotPassword && !isResetPassword"
+                type="button"
+                class="forgot-q"
+                (click)="forgotPassword()"
+              >
+                ?
+              </button>
+              <div *ngIf="hasError('password', 'required')" class="error-text">
+                Password is required
+              </div>
+            </div>
+          </div>
+
+          <!-- Confirm password (forgot-password flow) -->
+          <div *ngIf="isForgotPassword && !isResetPassword" class="field">
+            <div class="form-group">
+              <input
+                type="password"
+                formControlName="confirmPassword"
+                placeholder="Confirm Password"
+                [class.invalid]="
+                  hasError('confirmPassword', 'required') ||
+                  (formGroup.errors?.['passwordMismatch'] &&
+                    formGroup.get('confirmPassword')?.touched)
+                "
+              />
+              <div
+                class="error-text"
+                *ngIf="hasError('confirmPassword', 'required')"
+              >
+                Please confirm your password
+              </div>
+              <div
+                class="error-text"
+                *ngIf="
+                  formGroup.errors?.['passwordMismatch'] &&
+                  formGroup.get('confirmPassword')?.touched
+                "
+              >
+                Passwords do not match
+              </div>
+            </div>
+          </div>
+
+          <!-- Submit buttons -->
+          <button
+            *ngIf="!isForgotPassword && !isResetPassword"
+            type="submit"
+            (click)="login()"
+            class="button signin-button"
+          >
+            Sign In
+          </button>
+          <button
+            *ngIf="isForgotPassword"
+            type="submit"
+            (click)="resetPassword()"
+            class="button signin-button"
+          >
+            Reset password
+          </button>
+          <button
+            *ngIf="isResetPassword"
+            type="submit"
+            (click)="sendToken()"
+            class="button signin-button"
+          >
+            Send email
+          </button>
+        </form>
+      }
+      <div class="footer-text">
+        Don't have an account? <a routerLink="/sign-up">Sign Up</a>
+      </div>
+    </div>
+  </div>
+</div>

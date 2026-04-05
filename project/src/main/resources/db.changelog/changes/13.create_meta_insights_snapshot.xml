@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:pro="http://www.liquibase.org/xml/ns/pro"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd
+            http://www.liquibase.org/xml/ns/pro
+            http://www.liquibase.org/xml/ns/pro/liquibase-pro-4.1.xsd">
+
+    <changeSet id="13" author="MARKETING">
+        <sql>
+            CREATE TABLE meta_insights_snapshot (
+                                                    id SERIAL PRIMARY KEY,
+
+                                                    user_id BIGINT NOT NULL,
+                                                    provider VARCHAR(50) NOT NULL,
+                                                    ad_account_id VARCHAR(64) NOT NULL,
+
+                                                    object_type VARCHAR(20) NOT NULL,
+                                                    object_id VARCHAR(64) NOT NULL,
+
+                                                    date_start DATE NOT NULL,
+                                                    date_stop  DATE NOT NULL,
+
+                                                    spend NUMERIC(12,2),
+                                                    impressions BIGINT,
+                                                    clicks BIGINT,
+                                                    ctr NUMERIC(12,6),
+                                                    cpc NUMERIC(12,6),
+                                                    cpm NUMERIC(12,6),
+
+                                                    actions_json JSONB,
+                                                    cost_per_action_type_json JSONB,
+                                                    purchase_roas_json JSONB,
+
+                -- ✅ make dedupe columns normalized and NOT NULL
+                                                    date_preset VARCHAR(50) NOT NULL DEFAULT '',
+                                                    time_increment INTEGER NOT NULL DEFAULT -1,
+                                                    since DATE NOT NULL DEFAULT DATE '1970-01-01',
+                                                    until DATE NOT NULL DEFAULT DATE '1970-01-01',
+
+                                                    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+                                                    CONSTRAINT fk_meta_snapshot_user
+                                                        FOREIGN KEY (user_id) REFERENCES USERS(ID),
+
+                -- ✅ real unique constraint (no COALESCE expressions)
+                                                    CONSTRAINT uq_meta_snapshot_unique UNIQUE (
+                                                                                               user_id, provider, ad_account_id, object_type, object_id,
+                                                                                               date_start, date_stop,
+                                                                                               date_preset, time_increment, since, until
+                                                        )
+            );
+
+            CREATE INDEX idx_meta_snapshot_user_id ON meta_insights_snapshot(user_id);
+            CREATE INDEX idx_meta_snapshot_account ON meta_insights_snapshot(ad_account_id);
+            CREATE INDEX idx_meta_snapshot_object ON meta_insights_snapshot(object_type, object_id);
+            CREATE INDEX idx_meta_snapshot_dates ON meta_insights_snapshot(date_start, date_stop);
+            CREATE INDEX idx_meta_snapshot_created_at ON meta_insights_snapshot(created_at);
+        </sql>
+
+        <rollback>
+            <sql>DROP TABLE IF EXISTS meta_insights_snapshot;</sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

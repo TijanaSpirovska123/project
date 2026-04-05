@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <changeSet id="09.1" author="MARKETING">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="stored_assets"/>
+            </not>
+        </preConditions>
+
+        <sql>
+            CREATE TABLE stored_assets (
+                                           id                SERIAL PRIMARY KEY,
+                                           user_id           BIGINT NOT NULL,
+
+                                           asset_type        VARCHAR(16) NOT NULL,   -- IMAGE / VIDEO
+                                           original_filename VARCHAR(255) NOT NULL,
+                                           mime_type         VARCHAR(64) NOT NULL,
+                                           size_bytes        BIGINT NOT NULL,
+                                           hash VARCHAR(255) NOT NULL,
+                                           status VARCHAR(255) NOT NULL,
+
+                                           created_at        TIMESTAMP NOT NULL DEFAULT NOW(),
+                                           updated_at        TIMESTAMP NOT NULL DEFAULT NOW(),
+
+                                           CONSTRAINT fk_stored_assets_user
+                                               FOREIGN KEY (user_id) REFERENCES users(id)
+            );
+
+            CREATE INDEX idx_stored_assets_user_created
+                ON stored_assets(user_id, created_at);
+        </sql>
+
+        <rollback>
+            <sql>DROP TABLE stored_assets;</sql>
+        </rollback>
+    </changeSet>
+
+    <!-- =========================
+         STORED ASSET VARIANTS
+         ========================= -->
+    <changeSet id="09.2" author="MARKETING">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="stored_asset_variants"/>
+            </not>
+        </preConditions>
+
+        <sql>
+            CREATE TABLE stored_asset_variants (
+                                                   id          SERIAL PRIMARY KEY,
+                                                   asset_id    BIGINT NOT NULL,
+
+                                                   variant_key VARCHAR(64) NOT NULL,  -- ORIGINAL, META_FEED_1080, ...
+                                                   width       INT,
+                                                   height      INT,
+
+                                                   bucket      VARCHAR(128) NOT NULL,
+                                                   object_key  TEXT NOT NULL,
+
+                                                   created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+                                                   updated_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+
+                                                   CONSTRAINT fk_variants_asset
+                                                       FOREIGN KEY (asset_id) REFERENCES stored_assets(id)
+                                                           ON DELETE CASCADE
+            );
+
+            -- One variant per key per asset
+            CREATE UNIQUE INDEX ux_variants_asset_key
+                ON stored_asset_variants(asset_id, variant_key);
+
+            CREATE INDEX idx_variants_asset
+                ON stored_asset_variants(asset_id);
+
+            CREATE INDEX idx_variants_bucket_key
+                ON stored_asset_variants(bucket, object_key);
+        </sql>
+
+        <rollback>
+            <sql>DROP TABLE stored_asset_variants;</sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

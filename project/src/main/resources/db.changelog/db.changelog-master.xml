@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <include file="classpath:db.changelog/changes/01.create_user_table.xml"/>
+    <include file="classpath:db.changelog/changes/02.create_token_table.xml"/>
+    <include file="classpath:db.changelog/changes/03.create_oauth_accounts_table.xml"/>
+    <include file="classpath:db.changelog/changes/06.create_page_table.xml"/>
+    <include file="classpath:db.changelog/changes/07.create_page_post_table.xml"/>
+    <include file="classpath:db.changelog/changes/08.create_creative_ad_table.xml"/>
+    <include file="classpath:db.changelog/changes/09.create_storage_assets.xml"/>
+    <include file="classpath:db.changelog/changes/10.create_ad_asset_table.xml"/>
+    <include file="classpath:db.changelog/changes/11.create_oauth_connect_requests.xml"/>
+    <include file="classpath:db.changelog/changes/12.create_ad_account_connection.xml"/>
+    <include file="classpath:db.changelog/changes/13.create_meta_insights_snapshot.xml"/>
+    <include file="classpath:db.changelog/changes/14.create_creative_assets_table.xml"/>
+    <include file="classpath:db.changelog/changes/15.create_insights_table.xml"/>
+    <include file="classpath:db.changelog/changes/16.create_campaign_table.xml"/>
+    <include file="classpath:db.changelog/changes/17.create_adset_table.xml"/>
+    <include file="classpath:db.changelog/changes/18.create_ad_table.xml"/>
+    <include file="classpath:db.changelog/changes/19.add_raw_data_column.xml"/>
+    <include file="classpath:db.changelog/changes/20.add_tags_to_stored_assets.xml"/>
+    <include file="classpath:db.changelog/changes/21.add_last_synced_to_ad_account_connection.xml"/>
+    <include file="classpath:db.changelog/changes/22.create_user_config_table.xml"/>
+    <include file="classpath:db.changelog/changes/23.add_oauth_connect_request_fields.xml"/>
+    <include file="classpath:db.changelog/changes/24.add_token_status_to_oauth_accounts.xml"/>
+
+</databaseChangeLog>

@@ -1,0 +1,283 @@
+<div class="analytics-modal" [class]="'modal-' + modalConfig.size">
+  <div class="modal-header">
+    <h4>{{ modalConfig.title }}</h4>
+    <div class="modal-subtitle" *ngIf="itemData">
+      {{ itemType?.toUpperCase() }}: {{ itemData.name || "Unknown" }}
+    </div>
+  </div>
+
+  <div class="modal-content">
+    <!-- Performance Modal -->
+    <ng-container *ngIf="modalConfig.type === 'performance'">
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-label">Impressions</div>
+          <div class="metric-value">{{ modalMetrics.impressions }}</div>
+          <div
+            class="metric-change"
+            [class.positive]="parseFloat(modalMetrics.impressionsChange) > 0"
+            [class.negative]="parseFloat(modalMetrics.impressionsChange) < 0"
+          >
+            {{ modalMetrics.impressionsChange > 0 ? "+" : ""
+            }}{{ modalMetrics.impressionsChange }}%
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Reach</div>
+          <div class="metric-value">{{ modalMetrics.reach }}</div>
+          <div
+            class="metric-change"
+            [class.positive]="parseFloat(modalMetrics.reachChange) > 0"
+            [class.negative]="parseFloat(modalMetrics.reachChange) < 0"
+          >
+            {{ modalMetrics.reachChange > 0 ? "+" : ""
+            }}{{ modalMetrics.reachChange }}%
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Clicks</div>
+          <div class="metric-value">{{ modalMetrics.clicks }}</div>
+          <div
+            class="metric-change"
+            [class.positive]="parseFloat(modalMetrics.clicksChange) > 0"
+            [class.negative]="parseFloat(modalMetrics.clicksChange) < 0"
+          >
+            {{ modalMetrics.clicksChange > 0 ? "+" : ""
+            }}{{ modalMetrics.clicksChange }}%
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">CTR</div>
+          <div class="metric-value">{{ modalMetrics.ctr }}</div>
+          <div
+            class="metric-change"
+            [class.positive]="parseFloat(modalMetrics.ctrChange) > 0"
+            [class.negative]="parseFloat(modalMetrics.ctrChange) < 0"
+          >
+            {{ modalMetrics.ctrChange > 0 ? "+" : ""
+            }}{{ modalMetrics.ctrChange }}%
+          </div>
+        </div>
+      </div>
+      <div class="chart-container">
+        <canvas #chartCanvas width="300" height="150"></canvas>
+      </div>
+    </ng-container>
+
+    <!-- Demographics Modal -->
+    <ng-container *ngIf="modalConfig.type === 'demographics'">
+      <div class="demographics-section">
+        <div class="age-groups">
+          <h5>Age Distribution</h5>
+          <div class="age-bar" *ngFor="let group of modalMetrics.ageGroups">
+            <div class="age-label">{{ group.range }}</div>
+            <div class="age-bar-container">
+              <div
+                class="age-bar-fill"
+                [style.width.%]="group.percentage"
+              ></div>
+            </div>
+            <div class="age-percentage">{{ group.percentage }}%</div>
+          </div>
+        </div>
+        <div class="gender-split">
+          <h5>Gender Distribution</h5>
+          <div
+            class="gender-item"
+            *ngFor="let gender of modalMetrics.genderSplit"
+          >
+            <span class="gender-label">{{ gender.gender }}</span>
+            <span class="gender-percentage">{{ gender.percentage }}%</span>
+          </div>
+        </div>
+      </div>
+      <div class="chart-container">
+        <canvas #chartCanvas width="200" height="200"></canvas>
+      </div>
+    </ng-container>
+
+    <!-- Devices Modal -->
+    <ng-container *ngIf="modalConfig.type === 'devices'">
+      <div class="devices-section">
+        <div class="device-stats">
+          <h5>Device Breakdown</h5>
+          <div class="device-item" *ngFor="let device of modalMetrics.devices">
+            <div
+              class="device-dot"
+              [style.backgroundColor]="device.color"
+            ></div>
+            <span class="device-name">{{ device.name }}</span>
+            <span class="device-percentage">{{ device.percentage }}%</span>
+          </div>
+        </div>
+        <div class="browser-stats">
+          <h5>Top Browsers</h5>
+          <div
+            class="browser-item"
+            *ngFor="let browser of modalMetrics.topBrowsers"
+          >
+            <span class="browser-name">{{ browser.name }}</span>
+            <span class="browser-percentage">{{ browser.percentage }}%</span>
+          </div>
+        </div>
+      </div>
+      <div class="chart-container">
+        <canvas #chartCanvas width="200" height="200"></canvas>
+      </div>
+    </ng-container>
+
+    <!-- Timeline Modal -->
+    <ng-container *ngIf="modalConfig.type === 'timeline'">
+      <div class="timeline-section">
+        <div class="peak-hours">
+          <h5>Peak Activity Hours</h5>
+          <div class="hour-item" *ngFor="let hour of modalMetrics.peakHours">
+            <span class="hour-time">{{ hour.hour }}</span>
+            <div class="hour-bar">
+              <div class="hour-bar-fill" [style.width.%]="hour.activity"></div>
+            </div>
+            <span class="hour-activity">{{ hour.activity }}%</span>
+          </div>
+        </div>
+        <div class="weekday-weekend">
+          <h5>Activity Distribution</h5>
+          <div class="activity-split">
+            <div class="split-item">
+              <span class="split-label">Weekdays</span>
+              <span class="split-percentage"
+                >{{ modalMetrics.weekdayVsWeekend?.weekdays }}%</span
+              >
+            </div>
+            <div class="split-item">
+              <span class="split-label">Weekends</span>
+              <span class="split-percentage"
+                >{{ modalMetrics.weekdayVsWeekend?.weekends }}%</span
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="chart-container">
+        <canvas #chartCanvas width="300" height="150"></canvas>
+      </div>
+    </ng-container>
+
+    <!-- Conversions Modal -->
+    <ng-container *ngIf="modalConfig.type === 'conversions'">
+      <div class="conversions-section">
+        <div class="conversion-metrics">
+          <div class="conversion-metric">
+            <div class="metric-label">Total Conversions</div>
+            <div class="metric-value">{{ modalMetrics.conversions }}</div>
+          </div>
+          <div class="conversion-metric">
+            <div class="metric-label">Conversion Rate</div>
+            <div class="metric-value">{{ modalMetrics.conversionRate }}</div>
+          </div>
+          <div class="conversion-metric">
+            <div class="metric-label">Cost per Conversion</div>
+            <div class="metric-value">{{ modalMetrics.costPerConversion }}</div>
+          </div>
+        </div>
+        <div class="conversion-types">
+          <h5>Conversion Types</h5>
+          <div
+            class="type-item"
+            *ngFor="let type of modalMetrics.conversionTypes"
+          >
+            <span class="type-name">{{ type.type }}</span>
+            <span class="type-count">{{ type.count }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="chart-container">
+        <canvas #chartCanvas width="300" height="150"></canvas>
+      </div>
+    </ng-container>
+
+    <!-- Budget Modal -->
+    <ng-container *ngIf="modalConfig.type === 'budget'">
+      <div class="budget-section">
+        <div class="budget-overview">
+          <div class="budget-metric">
+            <div class="metric-label">Total Budget</div>
+            <div class="metric-value">{{ modalMetrics.totalBudget }}</div>
+          </div>
+          <div class="budget-metric">
+            <div class="metric-label">Spent</div>
+            <div class="metric-value">{{ modalMetrics.spent }}</div>
+          </div>
+          <div class="budget-metric">
+            <div class="metric-label">Remaining</div>
+            <div class="metric-value">{{ modalMetrics.remaining }}</div>
+          </div>
+        </div>
+        <div class="budget-progress">
+          <div class="progress-bar">
+            <div
+              class="progress-fill"
+              [style.width.%]="modalMetrics.spentPercentage"
+            ></div>
+          </div>
+          <span class="progress-label"
+            >{{ modalMetrics.spentPercentage }}% spent</span
+          >
+        </div>
+        <div class="cost-metrics">
+          <div class="cost-metric">
+            <span class="cost-label">Avg CPC</span>
+            <span class="cost-value">{{ modalMetrics.averageCPC }}</span>
+          </div>
+          <div class="cost-metric">
+            <span class="cost-label">Avg CPM</span>
+            <span class="cost-value">{{ modalMetrics.averageCPM }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="chart-container">
+        <canvas #chartCanvas width="300" height="120"></canvas>
+      </div>
+    </ng-container>
+
+    <!-- Engagement Modal -->
+    <ng-container *ngIf="modalConfig.type === 'engagement'">
+      <div class="engagement-section">
+        <div class="engagement-metrics">
+          <div class="engagement-metric">
+            <div class="metric-label">Likes</div>
+            <div class="metric-value">{{ modalMetrics.likes }}</div>
+          </div>
+          <div class="engagement-metric">
+            <div class="metric-label">Shares</div>
+            <div class="metric-value">{{ modalMetrics.shares }}</div>
+          </div>
+          <div class="engagement-metric">
+            <div class="metric-label">Comments</div>
+            <div class="metric-value">{{ modalMetrics.comments }}</div>
+          </div>
+          <div class="engagement-metric">
+            <div class="metric-label">Saves</div>
+            <div class="metric-value">{{ modalMetrics.saves }}</div>
+          </div>
+        </div>
+        <div class="engagement-rate">
+          <div class="rate-label">Overall Engagement Rate</div>
+          <div class="rate-value">{{ modalMetrics.engagementRate }}</div>
+        </div>
+        <div class="content-performance">
+          <h5>Top Performing Content</h5>
+          <div
+            class="content-item"
+            *ngFor="let content of modalMetrics.topEngagingContent"
+          >
+            <span class="content-type">{{ content.type }}</span>
+            <span class="content-engagement">{{ content.engagement }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="chart-container">
+        <canvas #chartCanvas width="300" height="120"></canvas>
+      </div>
+    </ng-container>
+  </div>
+</div>

@@ -1,0 +1,618 @@
+<!-- ═══════════════════════════════════════════════════════════════════════
+     FULL-PAGE MODE
+     ═══════════════════════════════════════════════════════════════════════ -->
+<ng-container *ngIf="!embeddedMode">
+  <div class="loading-overlay" *ngIf="isLoading || isUploading">
+    <div class="spinner"></div>
+    <p class="loading-label">{{ isUploading ? "Uploading…" : "Loading…" }}</p>
+  </div>
+
+  <div class="page with-menu">
+    <app-menu [isVisible]="true"></app-menu>
+
+    <div class="library-container">
+      <ng-container *ngTemplateOutlet="libraryContent"></ng-container>
+    </div>
+  </div>
+</ng-container>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     EMBEDDED MODE (card inside create-ad-workflow side panel)
+     ═══════════════════════════════════════════════════════════════════════ -->
+<ng-container *ngIf="embeddedMode">
+  <div class="library-embedded-card">
+    <div class="embedded-card-header">
+      <div class="embedded-header-title">
+        <mat-icon>perm_media</mat-icon>
+        <h3>Creative Library</h3>
+      </div>
+      <button class="embedded-close-btn" (click)="closePanel.emit()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <div class="embedded-loading" *ngIf="isLoading || isUploading">
+      <div class="spinner small"></div>
+      <span>{{ isUploading ? "Uploading…" : "Loading…" }}</span>
+    </div>
+
+    <div class="library-embedded-body" *ngIf="!isLoading || assets.length">
+      <ng-container *ngTemplateOutlet="libraryContent"></ng-container>
+    </div>
+  </div>
+</ng-container>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SHARED LIBRARY CONTENT (used in both modes via ngTemplateOutlet)
+     ═══════════════════════════════════════════════════════════════════════ -->
+<ng-template #libraryContent>
+  <!-- Header (full-page only) -->
+  <div class="library-header" *ngIf="!embeddedMode">
+    <h2 class="page-title">
+      <mat-icon>perm_media</mat-icon>
+      Creative Library
+    </h2>
+    <div class="header-actions">
+      <button class="upload-btn-post" (click)="openCreateFromPost()">
+        <mat-icon>post_add</mat-icon>
+        Create from Post
+      </button>
+    </div>
+  </div>
+
+  <!-- Embedded header actions -->
+  <div class="embedded-actions" *ngIf="embeddedMode">
+    <button class="upload-btn-post small" (click)="openCreateFromPost()">
+      <mat-icon>post_add</mat-icon>
+      Create from Post
+    </button>
+    <label class="upload-btn small">
+      <mat-icon>add</mat-icon>
+      Upload
+      <input
+        type="file"
+        accept="image/*,video/mp4"
+        (change)="onFileInputChange($event)"
+        hidden
+      />
+    </label>
+  </div>
+
+  <!-- Platform filter pills -->
+  <div class="platform-pills-bar">
+    @for (pf of platformFilters; track pf.key) {
+      <button
+        class="platform-pill"
+        [class.active]="filterPlatform === pf.key"
+        (click)="setPlatformFilter(pf.key)"
+      >{{ pf.label }}</button>
+    }
+  </div>
+
+  <!-- Filters bar -->
+  <div class="filters-bar">
+    <div class="search-field">
+      <mat-icon>search</mat-icon>
+      <input
+        id="fileUploadInput"
+        type="text"
+        placeholder="Search by filename…"
+        [(ngModel)]="searchQuery"
+        (ngModelChange)="applyFilters()"
+      />
+    </div>
+
+    <div class="filter-toggle-group">
+      <button [class.active]="filterType === 'ALL'" (click)="filterType = 'ALL'; applyFilters()">All</button>
+      <button [class.active]="filterType === 'IMAGE'" (click)="filterType = 'IMAGE'; applyFilters()">
+        <mat-icon>image</mat-icon> Images
+      </button>
+      <button [class.active]="filterType === 'VIDEO'" (click)="filterType = 'VIDEO'; applyFilters()">
+        <mat-icon>videocam</mat-icon> Videos
+      </button>
+    </div>
+
+    <div class="filter-toggle-group">
+      <button [class.active]="filterStatus === 'ALL'" (click)="filterStatus = 'ALL'; applyFilters()">Any Status</button>
+      <button [class.active]="filterStatus === 'READY'" (click)="filterStatus = 'READY'; applyFilters()">Ready</button>
+      <button [class.active]="filterStatus === 'PROCESSING'" (click)="filterStatus = 'PROCESSING'; applyFilters()">Processing</button>
+      <button [class.active]="filterStatus === 'FAILED'" (click)="filterStatus = 'FAILED'; applyFilters()">Failed</button>
+    </div>
+
+    <span class="results-count">{{ filteredAssets.length }} asset{{ filteredAssets.length !== 1 ? "s" : "" }}</span>
+  </div>
+
+  <!-- Empty states -->
+  @if (!isLoading && !filteredAssets.length) {
+    @if (!assets.length) {
+      <!-- No assets at all -->
+      <div
+        class="drop-zone"
+        [class.drag-over]="isDragOver"
+        (dragover)="onDragOver($event)"
+        (dragleave)="onDragLeave()"
+        (drop)="onDrop($event)"
+      >
+        <app-empty-state
+          icon="fa-images"
+          title="Your creative library is empty"
+          message="Upload images or videos to build your creative library."
+          actionLabel="Upload Creative"
+          (action)="openUploadDialog()">
+        </app-empty-state>
+        <label class="upload-btn secondary">
+          Browse Files
+          <input type="file" accept="image/*,video/mp4" (change)="onFileInputChange($event)" hidden />
+        </label>
+        <p class="drop-hint">Supports: JPG, PNG, WebP, MP4 · Max 25 MB</p>
+      </div>
+    } @else {
+      <!-- Filtered — no results -->
+      <app-empty-state
+        icon="fa-filter"
+        title="No assets match your filters"
+        message="Try a different platform, type, or status filter."
+        actionLabel="Clear filters"
+        (action)="clearFilters()">
+      </app-empty-state>
+    }
+  }
+
+  <!-- Asset Grid -->
+  <div class="asset-grid" *ngIf="filteredAssets.length">
+    <!-- Inline upload card -->
+    <div
+      class="asset-card upload-card"
+      [class.drag-over]="isDragOver"
+      (dragover)="onDragOver($event)"
+      (dragleave)="onDragLeave()"
+      (drop)="onDrop($event)"
+    >
+      <label class="upload-card-inner">
+        <mat-icon>add_photo_alternate</mat-icon>
+        <span>Upload</span>
+        <input
+          type="file"
+          accept="image/*,video/mp4"
+          (change)="onFileInputChange($event)"
+          hidden
+        />
+      </label>
+    </div>
+
+    <!-- Asset Cards -->
+    <div
+      class="asset-card"
+      *ngFor="let asset of filteredAssets; trackBy: trackById"
+      (click)="openDetail(asset)"
+    >
+      <div class="asset-thumb">
+        <img
+          *ngIf="
+            isImage(asset) && asset.status === 'READY' && getThumbUrl(asset)
+          "
+          [src]="getThumbUrl(asset)"
+          [alt]="asset.originalFilename"
+        />
+        <div
+          class="asset-thumb-placeholder"
+          *ngIf="
+            !isImage(asset) || asset.status !== 'READY' || !getThumbUrl(asset)
+          "
+        >
+          <mat-icon>{{
+            asset.assetType === "VIDEO" ? "videocam" : "image"
+          }}</mat-icon>
+        </div>
+        <span class="status-badge" [class]="asset.status.toLowerCase()">
+          {{ asset.status }}
+        </span>
+        <span class="variant-count" *ngIf="asset.variants.length > 0">
+          {{ getVariantCountForPlatform(asset) }}
+          {{ filterPlatform !== 'ALL' ? filterPlatform + ' ' : '' }}variant{{ getVariantCountForPlatform(asset) !== 1 ? 's' : '' }}
+        </span>
+        <!-- Hover overlay with quick actions -->
+        <div class="asset-card-overlay">
+          <button class="overlay-btn" (click)="openPublishModal(asset, $event)" title="Publish">
+            <i class="fa fa-share-alt"></i>
+          </button>
+          <button class="overlay-btn" title="Edit Tags (coming soon)" disabled style="opacity:0.4; cursor:default;">
+            <i class="fa fa-tag"></i>
+          </button>
+          <button class="overlay-btn overlay-btn-danger" (click)="deleteAsset(asset, $event)" title="Delete">
+            <i class="fa fa-trash"></i>
+          </button>
+        </div>
+      </div>
+      <div class="asset-footer">
+        <span class="asset-name">{{ asset.originalFilename }}</span>
+        <div class="asset-meta">
+          <span
+            class="asset-type-badge"
+            [class]="asset.assetType.toLowerCase()"
+          >
+            {{ asset.assetType }}
+          </span>
+          <span class="asset-size">{{ formatFileSize(asset.sizeBytes) }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</ng-template>
+
+<!-- ─── Detail Modal ─────────────────────────────────────────────────────── -->
+<div class="modal-overlay" *ngIf="isDetailModalOpen" (click)="closeDetail()">
+  <div
+    class="detail-modal"
+    (click)="$event.stopPropagation()"
+    *ngIf="selectedAsset"
+  >
+    <div class="detail-modal-header">
+      <div class="detail-title">
+        <mat-icon>{{
+          selectedAsset.assetType === "VIDEO" ? "videocam" : "image"
+        }}</mat-icon>
+        <span>{{ selectedAsset.originalFilename }}</span>
+      </div>
+      <div class="detail-header-actions">
+        <button class="push-btn" (click)="openPlatformModal(selectedAsset)">
+          <mat-icon>share</mat-icon>
+          Push to Platform
+        </button>
+        <button class="close-btn" (click)="closeDetail()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <div class="detail-modal-body">
+      <div class="detail-preview">
+        <div class="variant-tabs">
+          <button
+            *ngFor="let v of getVariantsForAsset(selectedAsset)"
+            [class.active]="selectedVariantKey === v.key"
+            (click)="selectedVariantKey = v.key"
+          >
+            {{ v.label }}
+          </button>
+        </div>
+        <div class="preview-image-wrap">
+          <img
+            *ngIf="
+              isImage(selectedAsset) &&
+              getModalVariantUrl(selectedAsset.id, selectedVariantKey)
+            "
+            [src]="getModalVariantUrl(selectedAsset.id, selectedVariantKey)"
+            [alt]="selectedAsset.originalFilename"
+          />
+          <div
+            class="video-placeholder"
+            *ngIf="
+              isImage(selectedAsset) &&
+              !getModalVariantUrl(selectedAsset.id, selectedVariantKey)
+            "
+          >
+            <mat-icon>hourglass_empty</mat-icon>
+            <span>Loading preview…</span>
+          </div>
+          <div class="video-placeholder" *ngIf="!isImage(selectedAsset)">
+            <mat-icon>play_circle_filled</mat-icon>
+            <span>Video preview not available</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-meta">
+        <div class="meta-section">
+          <h4>Asset Info</h4>
+          <div class="meta-row">
+            <span>Type</span><span>{{ selectedAsset.assetType }}</span>
+          </div>
+          <div class="meta-row">
+            <span>Status</span>
+            <span
+              class="status-badge inline"
+              [class]="selectedAsset.status.toLowerCase()"
+              >{{ selectedAsset.status }}</span
+            >
+          </div>
+          <div class="meta-row">
+            <span>Size</span
+            ><span>{{ formatFileSize(selectedAsset.sizeBytes) }}</span>
+          </div>
+          <div class="meta-row">
+            <span>Format</span><span>{{ selectedAsset.mimeType }}</span>
+          </div>
+          <div class="meta-row">
+            <span>Uploaded</span
+            ><span>{{ selectedAsset.createdAt | date: "MMM d, y" }}</span>
+          </div>
+        </div>
+
+        <div class="meta-section">
+          <h4>Variants ({{ selectedAsset.variants.length }})</h4>
+          <div class="variant-list">
+            <div class="variant-item" *ngFor="let v of selectedAsset.variants">
+              <div class="variant-item-info">
+                <span class="variant-key">{{ v.variantKey }}</span>
+                <span class="variant-dims" *ngIf="v.width && v.height"
+                  >{{ v.width }}×{{ v.height }}</span
+                >
+              </div>
+              <a
+                [href]="getVariantDownloadUrl(selectedAsset.id, v.variantKey)"
+                target="_blank"
+                class="variant-download"
+                title="Download"
+                (click)="$event.stopPropagation()"
+              >
+                <mat-icon>download</mat-icon>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Publish to Meta Modal ─────────────────────────────────────────────── -->
+<div
+  class="modal-overlay"
+  *ngIf="isPublishModalOpen"
+  (click)="closePublishModal()"
+>
+  <div
+    class="platform-modal"
+    (click)="$event.stopPropagation()"
+    style="width: 460px"
+  >
+    <div class="platform-modal-header">
+      <h4><mat-icon>publish</mat-icon> Publish to Meta</h4>
+      <button class="close-btn" (click)="closePublishModal()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <div
+      class="platform-modal-body"
+      style="display: flex; flex-direction: column; gap: 16px"
+    >
+      <p style="margin: 0; font-size: 0.85rem; color: #64748b">
+        Publishing: <strong>{{ publishAsset?.originalFilename }}</strong>
+      </p>
+
+      <div class="publish-field">
+        <label class="publish-label">Ad variant</label>
+        <select class="publish-select" [(ngModel)]="publishVariantKey">
+          <option
+            *ngFor="let v of publishAsset?.variants"
+            [value]="v.variantKey"
+          >
+            {{ getVariantLabel(v.variantKey) }}
+          </option>
+        </select>
+      </div>
+
+      <div class="publish-field">
+        <label class="publish-label">
+          Creative name
+          <span style="color: #94a3b8; font-weight: 400"> — optional</span>
+        </label>
+        <input
+          class="publish-select"
+          type="text"
+          placeholder="e.g. Summer Sale Hero Image"
+          [(ngModel)]="publishCreativeName"
+        />
+      </div>
+
+      <div class="publish-field">
+        <label class="publish-label">
+          Destination URL
+          <span style="color: #94a3b8; font-weight: 400"> — optional</span>
+        </label>
+        <input
+          class="publish-select"
+          type="url"
+          placeholder="https://yourwebsite.com/landing-page"
+          [(ngModel)]="publishLinkUrl"
+        />
+      </div>
+    </div>
+
+    <div class="platform-modal-footer">
+      <button
+        class="btn-push"
+        [disabled]="isPublishing"
+        (click)="publishToMeta()"
+      >
+        <ng-container *ngIf="!isPublishing">
+          <mat-icon>send</mat-icon> Publish
+        </ng-container>
+        <span
+          *ngIf="isPublishing"
+          style="display: flex; align-items: center; gap: 6px"
+        >
+          <span class="mini-spinner"></span> Publishing…
+        </span>
+      </button>
+      <button class="btn-cancel" (click)="closePublishModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Platform Push Modal ──────────────────────────────────────────────── -->
+<div
+  class="modal-overlay"
+  *ngIf="isPlatformModalOpen"
+  (click)="closePlatformModal()"
+>
+  <div class="platform-modal" (click)="$event.stopPropagation()">
+    <div class="platform-modal-header">
+      <h4><mat-icon>share</mat-icon> Push to Platform</h4>
+      <button class="close-btn" (click)="closePlatformModal()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    <div class="platform-modal-body">
+      <p class="platform-hint">
+        Select where to push
+        <strong>{{ platformAsset?.originalFilename }}</strong
+        >:
+      </p>
+      <div class="platform-grid">
+        <div
+          *ngFor="let p of platforms"
+          class="platform-tile"
+          [class.selected]="selectedPlatforms.has(p.key)"
+          (click)="togglePlatform(p.key)"
+        >
+          <mat-icon>{{ p.icon }}</mat-icon>
+          <span>{{ p.label }}</span>
+          <mat-icon class="check-icon">check_circle</mat-icon>
+        </div>
+      </div>
+    </div>
+    <div class="platform-modal-footer">
+      <button
+        class="btn-push"
+        [disabled]="selectedPlatforms.size === 0"
+        (click)="pushToPlatforms()"
+      >
+        <mat-icon>send</mat-icon>
+        Push ({{ selectedPlatforms.size }} selected)
+      </button>
+      <button class="btn-cancel" (click)="closePlatformModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Create from Post Modal ───────────────────────────────────────────── -->
+<div
+  class="modal-overlay"
+  *ngIf="isCreateFromPostOpen"
+  (click)="closeCreateFromPost()"
+>
+  <div
+    class="platform-modal create-post-modal"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="platform-modal-header">
+      <h4><mat-icon>post_add</mat-icon> Create Ad Creative from Post</h4>
+      <button class="close-btn" (click)="closeCreateFromPost()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <div class="platform-modal-body cfp-modal-body">
+      <!-- Spinner while pages are loading on initial open -->
+      <div class="cfp-spinner-row" *ngIf="isLoadingPages">
+        <div class="spinner small"></div>
+        <span class="cfp-loading-text">Loading pages…</span>
+      </div>
+
+      <!-- Form fields shown once pages are ready -->
+      <ng-container *ngIf="!isLoadingPages">
+        <!-- Page selector -->
+        <div class="publish-field">
+          <label class="publish-label">Facebook Page *</label>
+          <select class="publish-select" (change)="onPageSelectChange($event)">
+            <option value="" disabled [selected]="!selectedPage">
+              Select a page
+            </option>
+            <option *ngFor="let p of pages" [value]="p.name">
+              {{ p.name }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Post selector -->
+        <div class="publish-field">
+          <label class="publish-label">Page Post *</label>
+
+          <!-- Spinner while posts load after page is chosen -->
+          <div class="cfp-spinner-row small" *ngIf="isLoadingPosts">
+            <div class="spinner small"></div>
+            <span class="cfp-loading-text">Loading posts…</span>
+          </div>
+
+          <select
+            *ngIf="!isLoadingPosts"
+            class="publish-select"
+            [disabled]="!selectedPage"
+            (change)="onPostSelectChange($event)"
+          >
+            <option value="" disabled [selected]="!selectedPost">
+              {{
+                !selectedPage
+                  ? "Select a page first"
+                  : posts.length
+                    ? "Select a post"
+                    : "No posts found"
+              }}
+            </option>
+            <option *ngFor="let p of posts" [value]="p.postId">
+              {{ truncatePostId(p.postId) }}
+            </option>
+          </select>
+
+          <a
+            *ngIf="selectedPost"
+            [href]="selectedPost.permalinkUrl"
+            target="_blank"
+            class="post-permalink"
+          >
+            <mat-icon>open_in_new</mat-icon> View post
+          </a>
+        </div>
+
+        <!-- Creative name -->
+        <div class="publish-field">
+          <label class="publish-label">
+            Creative name <span class="publish-label-optional">— optional</span>
+          </label>
+          <input
+            class="publish-select"
+            type="text"
+            placeholder="e.g. Summer Campaign Post"
+            [(ngModel)]="createFromPostName"
+          />
+        </div>
+
+        <!-- Link URL -->
+        <div class="publish-field">
+          <label class="publish-label">
+            Destination URL
+            <span class="publish-label-optional">— optional</span>
+          </label>
+          <input
+            class="publish-select"
+            type="url"
+            placeholder="https://yourwebsite.com/landing-page"
+            [(ngModel)]="createFromPostLinkUrl"
+          />
+        </div>
+      </ng-container>
+    </div>
+
+    <div class="platform-modal-footer">
+      <button
+        class="btn-push"
+        [disabled]="isCreatingFromPost || !selectedPage || !selectedPost"
+        (click)="createFromPost()"
+      >
+        <ng-container *ngIf="!isCreatingFromPost">
+          <mat-icon>add_circle</mat-icon> Create Creative
+        </ng-container>
+        <span
+          *ngIf="isCreatingFromPost"
+          style="display: flex; align-items: center; gap: 6px"
+        >
+          <span class="mini-spinner"></span> Creating…
+        </span>
+      </button>
+      <button class="btn-cancel" (click)="closeCreateFromPost()">Cancel</button>
+    </div>
+  </div>
+</div>

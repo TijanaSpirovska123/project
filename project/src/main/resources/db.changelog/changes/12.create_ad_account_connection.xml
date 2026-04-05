@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:pro="http://www.liquibase.org/xml/ns/pro"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd
+            http://www.liquibase.org/xml/ns/pro
+            http://www.liquibase.org/xml/ns/pro/liquibase-pro-4.1.xsd">
+
+    <changeSet id="12" author="MARKETING">
+        <sql>
+            CREATE TABLE ad_account_connection (
+                                                   id SERIAL PRIMARY KEY,
+                                                   user_id BIGINT NOT NULL,
+                                                   provider VARCHAR(50) NOT NULL,
+                                                   ad_account_id VARCHAR(64) NOT NULL,
+
+                                                   ad_account_name VARCHAR(255),
+                                                   account_id VARCHAR(64),
+                                                   account_status INTEGER,
+                                                   currency VARCHAR(10),
+                                                   timezone_name VARCHAR(64),
+
+                                                   business_id VARCHAR(64),
+                                                   active BOOLEAN NOT NULL DEFAULT FALSE,
+                                                   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                                                   updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+                                                   CONSTRAINT fk_ad_account_user FOREIGN KEY (user_id) REFERENCES USERS(ID),
+                                                   CONSTRAINT uq_user_provider_adaccount UNIQUE (user_id, provider, ad_account_id)
+            );
+
+            CREATE INDEX idx_ad_account_user_id ON ad_account_connection(user_id);
+            CREATE INDEX idx_ad_account_provider ON ad_account_connection(provider);
+            CREATE INDEX idx_ad_account_active ON ad_account_connection(active);
+        </sql>
+
+        <rollback>
+            <sql>DROP TABLE IF EXISTS ad_account_connection;</sql>
+        </rollback>
+    </changeSet>
+
+
+</databaseChangeLog>

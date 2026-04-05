@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <changeSet id="14" author="MARKETING">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="creative_assets"/>
+            </not>
+        </preConditions>
+
+        <sql>
+            CREATE TABLE creative_assets (
+                                             id           SERIAL PRIMARY KEY,
+                                             creative_id  BIGINT NOT NULL,
+                                             asset_id     BIGINT NOT NULL,
+                                             variant_id   BIGINT NOT NULL,
+                                             role         VARCHAR(32) NOT NULL,
+                                             sort_order   INT,
+
+                                             CONSTRAINT fk_creative_assets_creative
+                                                 FOREIGN KEY (creative_id) REFERENCES creatives(id),
+                                             CONSTRAINT fk_creative_assets_asset
+                                                 FOREIGN KEY (asset_id) REFERENCES stored_assets(id),
+                                             CONSTRAINT fk_creative_assets_variant
+                                                 FOREIGN KEY (variant_id) REFERENCES stored_asset_variants(id)
+            );
+
+            -- Unique constraint: one role per creative-variant combination
+            CREATE UNIQUE INDEX uk_creative_assets_creative_variant_role
+                ON creative_assets(creative_id, variant_id, role);
+
+            -- Performance indexes
+            CREATE INDEX idx_creative_assets_creative
+                ON creative_assets(creative_id);
+
+            CREATE INDEX idx_creative_assets_asset
+                ON creative_assets(asset_id);
+
+            CREATE INDEX idx_creative_assets_variant
+                ON creative_assets(variant_id);
+        </sql>
+
+        <rollback>
+            <sql>DROP TABLE creative_assets;</sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

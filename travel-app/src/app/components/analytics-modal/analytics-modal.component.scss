@@ -1,0 +1,593 @@
+@use "sass:color";
+
+:host {
+  display: block;
+}
+
+.analytics-modal {
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #e8ebf2;
+  box-shadow: 0 6px 24px rgba(30, 41, 59, 0.06);
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+
+  .modal-header {
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    padding: 16px 20px;
+    border-bottom: 1px solid #e8ebf2;
+
+    h4 {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #20233a;
+      margin-bottom: 4px;
+    }
+
+    .modal-subtitle {
+      font-size: 0.8rem;
+      color: #64748b;
+      font-weight: 500;
+    }
+  }
+
+  .modal-content {
+    padding: 16px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+  }
+
+  // Size variants
+  &.modal-small {
+    min-height: 250px;
+  }
+
+  &.modal-medium {
+    min-height: 350px;
+  }
+
+  &.modal-large {
+    min-height: 450px;
+  }
+}
+
+// Performance Modal Styles
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+
+  .metric-card {
+    background: #f8fafc;
+    padding: 12px;
+    border-radius: 8px;
+    border-left: 3px solid #1ca698;
+
+    .metric-label {
+      font-size: 0.75rem;
+      color: #64748b;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .metric-value {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #20233a;
+      margin-bottom: 2px;
+    }
+
+    .metric-change {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 2px 4px;
+      border-radius: 4px;
+
+      &.positive {
+        background: #d1fae5;
+        color: #065f46;
+      }
+
+      &.negative {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+    }
+  }
+}
+
+// Demographics Modal Styles
+.demographics-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .age-groups,
+  .gender-split {
+    h5 {
+      margin: 0 0 12px 0;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #20233a;
+    }
+
+    .age-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+
+      .age-label {
+        min-width: 50px;
+        font-size: 0.8rem;
+        color: #64748b;
+        font-weight: 600;
+      }
+
+      .age-bar-container {
+        flex: 1;
+        height: 16px;
+        background: #e8ebf2;
+        border-radius: 8px;
+        overflow: hidden;
+
+        .age-bar-fill {
+          height: 100%;
+          background: linear-gradient(90deg, #1ca698, #27ae60);
+          transition: width 0.3s ease;
+        }
+      }
+
+      .age-percentage {
+        min-width: 35px;
+        font-size: 0.8rem;
+        color: #20233a;
+        font-weight: 600;
+        text-align: right;
+      }
+    }
+
+    .gender-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid #f1f5f9;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .gender-label {
+        font-size: 0.8rem;
+        color: #64748b;
+        font-weight: 600;
+      }
+
+      .gender-percentage {
+        font-size: 0.8rem;
+        color: #20233a;
+        font-weight: 700;
+      }
+    }
+  }
+}
+
+// Devices Modal Styles
+.devices-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .device-stats,
+  .browser-stats {
+    h5 {
+      margin: 0 0 12px 0;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #20233a;
+    }
+
+    .device-item,
+    .browser-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid #f1f5f9;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .device-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .device-name,
+      .browser-name {
+        flex: 1;
+        font-size: 0.8rem;
+        color: #64748b;
+        font-weight: 600;
+      }
+
+      .device-percentage,
+      .browser-percentage {
+        font-size: 0.8rem;
+        color: #20233a;
+        font-weight: 700;
+      }
+    }
+  }
+}
+
+// Timeline Modal Styles
+.timeline-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .peak-hours,
+  .weekday-weekend {
+    h5 {
+      margin: 0 0 12px 0;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #20233a;
+    }
+
+    .hour-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+
+      .hour-time {
+        min-width: 45px;
+        font-size: 0.8rem;
+        color: #64748b;
+        font-weight: 600;
+      }
+
+      .hour-bar {
+        flex: 1;
+        height: 12px;
+        background: #e8ebf2;
+        border-radius: 6px;
+        overflow: hidden;
+
+        .hour-bar-fill {
+          height: 100%;
+          background: linear-gradient(90deg, #3498db, #2980b9);
+          transition: width 0.3s ease;
+        }
+      }
+
+      .hour-activity {
+        min-width: 35px;
+        font-size: 0.8rem;
+        color: #20233a;
+        font-weight: 600;
+        text-align: right;
+      }
+    }
+
+    .activity-split {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+
+      .split-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        background: #f8fafc;
+        border-radius: 8px;
+
+        .split-label {
+          font-size: 0.8rem;
+          color: #64748b;
+          font-weight: 600;
+        }
+
+        .split-percentage {
+          font-size: 0.9rem;
+          color: #20233a;
+          font-weight: 700;
+        }
+      }
+    }
+  }
+}
+
+// Conversions Modal Styles
+.conversions-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .conversion-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+
+    .conversion-metric {
+      background: #f8fafc;
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+
+      .metric-label {
+        font-size: 0.7rem;
+        color: #64748b;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+
+      .metric-value {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #20233a;
+      }
+    }
+  }
+
+  .conversion-types {
+    h5 {
+      margin: 0 0 12px 0;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #20233a;
+    }
+
+    .type-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid #f1f5f9;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .type-name {
+        font-size: 0.8rem;
+        color: #64748b;
+        font-weight: 600;
+      }
+
+      .type-count {
+        font-size: 0.8rem;
+        color: #20233a;
+        font-weight: 700;
+      }
+    }
+  }
+}
+
+// Budget Modal Styles
+.budget-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .budget-overview {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+
+    .budget-metric {
+      background: #f8fafc;
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+
+      .metric-label {
+        font-size: 0.7rem;
+        color: #64748b;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+
+      .metric-value {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #20233a;
+      }
+    }
+  }
+
+  .budget-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    .progress-bar {
+      height: 12px;
+      background: #e8ebf2;
+      border-radius: 6px;
+      overflow: hidden;
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #f39c12, #e67e22);
+        transition: width 0.3s ease;
+      }
+    }
+
+    .progress-label {
+      font-size: 0.8rem;
+      color: #64748b;
+      font-weight: 600;
+      text-align: center;
+    }
+  }
+
+  .cost-metrics {
+    display: flex;
+    justify-content: space-around;
+
+    .cost-metric {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+
+      .cost-label {
+        font-size: 0.7rem;
+        color: #64748b;
+        font-weight: 600;
+      }
+
+      .cost-value {
+        font-size: 0.9rem;
+        color: #20233a;
+        font-weight: 700;
+      }
+    }
+  }
+}
+
+// Engagement Modal Styles
+.engagement-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .engagement-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+
+    .engagement-metric {
+      background: #f8fafc;
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+
+      .metric-label {
+        font-size: 0.7rem;
+        color: #64748b;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+
+      .metric-value {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #20233a;
+      }
+    }
+  }
+
+  .engagement-rate {
+    background: linear-gradient(135deg, #1ca698, #27ae60);
+    color: white;
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+
+    .rate-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .rate-value {
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+  }
+
+  .content-performance {
+    h5 {
+      margin: 0 0 12px 0;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #20233a;
+    }
+
+    .content-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid #f1f5f9;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .content-type {
+        font-size: 0.8rem;
+        color: #64748b;
+        font-weight: 600;
+      }
+
+      .content-engagement {
+        font-size: 0.8rem;
+        color: #20233a;
+        font-weight: 700;
+      }
+    }
+  }
+}
+
+// Chart Container Styles
+.chart-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+  min-height: 100px;
+  background: #fafbfc;
+  border-radius: 8px;
+  border: 1px solid #e8ebf2;
+  padding: 12px;
+
+  canvas {
+    max-width: 100%;
+    max-height: 100%;
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .analytics-modal {
+    .modal-header {
+      padding: 12px 16px;
+    }
+
+    .modal-content {
+      padding: 12px;
+    }
+  }
+
+  .metrics-grid,
+  .conversion-metrics,
+  .budget-overview {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .engagement-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .cost-metrics {
+    flex-direction: column;
+    gap: 8px;
+  }
+}

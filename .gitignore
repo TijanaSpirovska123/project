@@ -1,0 +1,9 @@
+.env
+*.zip
+*.log
+
+# IDE
+.idea/
+
+# Claude Code
+.claude/

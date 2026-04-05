@@ -1,0 +1,253 @@
+<!-- Loading overlay -->
+<div class="loading-overlay" *ngIf="isLoading">
+  <div class="spinner"></div>
+</div>
+
+<div class="page with-menu">
+  <app-menu [isVisible]="true"></app-menu>
+  <div class="centered-table">
+    @if (isLoadingColumns) {
+      <div class="column-loading-bar">
+        <div class="column-loading-shimmer"></div>
+      </div>
+    }
+    <app-table
+      [headers]="getCurrentHeaders()"
+      [data]="getCurrentData()"
+      [tabs]="tabs"
+      [activeTabIndex]="activeTabIndex"
+      [enableScrollX]="true"
+      [showAddCol]="true"
+      (tabChange)="onTabChange($event)"
+      (statusToggle)="onStatusToggle($event)"
+      (addColClick)="openColumnCustomiser()"
+      [(search)]="search"
+      [showCreateButton]="false"
+      [buttons]="buttons"
+      (rowClick)="onRowClick($event)"
+      (topItemChange)="onTopItemChange($event)"
+    >
+    </app-table>
+  </div>
+</div>
+
+<!-- Column Customiser Modal -->
+<div
+  *ngIf="isColumnCustomiserOpen"
+  class="col-customiser-overlay"
+  (click)="closeColumnCustomiser()"
+>
+  <div class="col-customiser-modal" (click)="$event.stopPropagation()">
+    <div class="col-customiser-header">
+      <h3>Customize Columns</h3>
+      <button class="close-btn" (click)="closeColumnCustomiser()">
+        <span>&times;</span>
+      </button>
+    </div>
+
+    <div class="col-customiser-search">
+      <input
+        type="text"
+        placeholder="Search columns…"
+        [(ngModel)]="columnSearch"
+      />
+    </div>
+
+    <div class="col-customiser-cats">
+      <button
+        *ngFor="let cat of customiserCategories; let i = index"
+        class="cat-tab"
+        [class.active]="i === customiserCategoryIndex"
+        (click)="customiserCategoryIndex = i; columnSearch = ''"
+      >
+        {{ cat.label }}
+      </button>
+    </div>
+
+    <div class="col-customiser-body">
+      <!-- Left: available columns in selected category -->
+      <div class="col-available">
+        <p class="panel-label">Available</p>
+
+        <!-- Key Metrics tab: collapsible sections -->
+        <ng-container *ngIf="customiserCategoryIndex === 0">
+          <ng-container *ngFor="let section of kmSections">
+            <div class="col-section-header" (click)="toggleSection(section.id)">
+              <span>{{ section.label }}</span>
+              <span
+                class="section-count"
+                *ngIf="getSectionSelectedCount(section.keys) > 0"
+              >
+                {{ getSectionSelectedCount(section.keys) }} selected
+              </span>
+              <mat-icon>{{
+                isSectionCollapsed(section.id) ? "expand_more" : "expand_less"
+              }}</mat-icon>
+            </div>
+            <div
+              class="col-section-body"
+              *ngIf="!isSectionCollapsed(section.id)"
+            >
+              <!-- Standard events: 3-column conversion table -->
+              <ng-container *ngIf="section.isConversionTable">
+                <table class="conversion-table">
+                  <thead>
+                    <tr>
+                      <th>Conversions</th>
+                      <th>Total</th>
+                      <th>Value</th>
+                      <th>Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <ng-container *ngFor="let evt of seList">
+                      <tr>
+                        <td class="conv-name">{{ evt.label }}</td>
+                        <td>
+                          <input
+                            type="checkbox"
+                            [checked]="
+                              isTempColEnabled('conv_' + evt.id + '_total')
+                            "
+                            (change)="
+                              toggleTempColumnByKey('conv_' + evt.id + '_total')
+                            "
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="checkbox"
+                            [checked]="
+                              isTempColEnabled('conv_' + evt.id + '_value')
+                            "
+                            (change)="
+                              toggleTempColumnByKey('conv_' + evt.id + '_value')
+                            "
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="checkbox"
+                            [checked]="
+                              isTempColEnabled('conv_' + evt.id + '_cost')
+                            "
+                            (change)="
+                              toggleTempColumnByKey('conv_' + evt.id + '_cost')
+                            "
+                          />
+                        </td>
+                      </tr>
+                    </ng-container>
+                  </tbody>
+                </table>
+              </ng-container>
+              <!-- All other sections: normal checkbox grid -->
+              <ng-container *ngIf="!section.isConversionTable">
+                <div
+                  *ngFor="let col of getAvailableColumnsByKeys(section.keys)"
+                  class="col-item"
+                  [class.selected]="col.enabled"
+                  (click)="toggleTempColumn(col)"
+                >
+                  <span class="col-check">
+                    <mat-icon>{{
+                      col.enabled ? "check_box" : "check_box_outline_blank"
+                    }}</mat-icon>
+                  </span>
+                  <span class="col-label">{{ col.label }}</span>
+                </div>
+              </ng-container>
+            </div>
+          </ng-container>
+        </ng-container>
+
+        <!-- Tracking / Ad Settings / Advanced tabs: grouped by parentSection + section -->
+        <ng-container
+          *ngIf="customiserCategoryIndex !== 0 && customiserCategoryIndex !== 4"
+        >
+          <ng-container *ngFor="let grp of getTabSections(); let i = index">
+            <!-- parentSection divider (bold, non-collapsible) — only when non-empty and changes -->
+            <div
+              class="col-parent-section"
+              *ngIf="
+                grp.parentSection &&
+                (i === 0 ||
+                  getTabSections()[i - 1].parentSection !== grp.parentSection)
+              "
+            >
+              {{ grp.parentSection }}
+            </div>
+            <!-- section collapsible header -->
+            <div class="col-section-header" (click)="toggleSection(grp.id)">
+              <span>{{ grp.section }}</span>
+              <span
+                class="section-count"
+                *ngIf="getTabSectionSelectedCount(grp.id) > 0"
+              >
+                {{ getTabSectionSelectedCount(grp.id) }} selected
+              </span>
+              <mat-icon>{{
+                isSectionCollapsed(grp.id) ? "expand_more" : "expand_less"
+              }}</mat-icon>
+            </div>
+            <div class="col-section-body" *ngIf="!isSectionCollapsed(grp.id)">
+              <div
+                *ngFor="
+                  let col of getColumnsBySection(grp.parentSection, grp.section)
+                "
+                class="col-item"
+                [class.selected]="col.enabled"
+                (click)="toggleTempColumn(col)"
+              >
+                <span class="col-check">
+                  <mat-icon>{{
+                    col.enabled ? "check_box" : "check_box_outline_blank"
+                  }}</mat-icon>
+                </span>
+                <span class="col-label">{{ col.label }}</span>
+              </div>
+            </div>
+          </ng-container>
+          <p *ngIf="getTabSections().length === 0" class="empty-msg">
+            No columns found
+          </p>
+        </ng-container>
+
+        <!-- Custom tab: coming soon -->
+        <ng-container *ngIf="customiserCategoryIndex === 4">
+          <div class="custom-empty">
+            <mat-icon>tune</mat-icon>
+            <p>Custom columns — coming soon</p>
+          </div>
+        </ng-container>
+      </div>
+
+      <!-- Right: selected columns -->
+      <div class="col-selected">
+        <p class="panel-label">Selected ({{ getSelectedColumns().length }})</p>
+        <div *ngFor="let col of getSelectedColumns()" class="col-item selected">
+          <mat-icon class="drag-handle">drag_indicator</mat-icon>
+          <span class="col-label">{{ col.label }}</span>
+          <button
+            class="remove-col-btn"
+            (click)="removeTempColumn(col)"
+            title="Remove"
+          >
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        <p *ngIf="getSelectedColumns().length === 0" class="empty-msg">
+          No columns selected
+        </p>
+      </div>
+    </div>
+
+    <div class="col-customiser-footer">
+      <button class="button neutral" (click)="closeColumnCustomiser()">
+        Cancel
+      </button>
+      <button class="button" (click)="applyColumnConfig()">Apply</button>
+    </div>
+  </div>
+</div>
+

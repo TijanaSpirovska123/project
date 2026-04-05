@@ -1,0 +1,139 @@
+spring:
+  liquibase:
+    default-schema: public
+    enabled: true
+    drop-first: false
+    change-log: classpath:db.changelog/db.changelog-master.xml
+    database-change-log-table: databasechangelog
+    database-change-log-lock-table: databasechangeloglock
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  jpa:
+    properties:
+      hibernate:
+        default_schema: public
+
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          ssl.trust: smtp.gmail.com
+
+  security:
+    oauth2:
+      client:
+        registration:
+          facebook:
+            client-id: ${FACEBOOK_CLIENT_ID}
+            client-secret: ${FACEBOOK_CLIENT_SECRET}
+            scope: public_profile,email,read_insights,pages_show_list,ads_management,ads_read,business_management,pages_manage_ads,pages_manage_metadata,pages_read_engagement
+            redirect-uri: "{baseUrl}/login/oauth2/code/facebook"
+            authorization-grant-type: authorization_code
+            client-name: Facebook
+            provider: facebook
+          instagram:
+            client-id: ${INSTAGRAM_CLIENT_ID}
+            client-secret: ${INSTAGRAM_CLIENT_SECRET}
+            scope: user_profile,user_media
+            redirect-uri: "{baseUrl}/login/oauth2/code/instagram"
+            authorization-grant-type: authorization_code
+            client-name: Instagram
+            provider: instagram
+        provider:
+          # Facebook (Business or Consumer) provider endpoints
+          facebook:
+            authorization-uri: https://www.facebook.com/v23.0/dialog/oauth
+            token-uri: https://graph.facebook.com/v23.0/oauth/access_token
+            user-info-uri: https://graph.facebook.com/v23.0/me?fields=id,name,email
+            user-name-attribute: id
+          instagram:
+            authorization-uri: https://api.instagram.com/oauth/authorize
+            token-uri: https://api.instagram.com/oauth/access_token
+            user-info-uri: https://graph.instagram.com/me?fields=id,username,account_type
+            user-name-attribute: id
+
+jwt:
+  secret: ${JWT_SECRET:3d5f78520a5483f1742708ce3f5e80edfbde53e9b06f718aced5a6764ff17d83b3e531cbae1a8c9af0ccd98565a342f4302666dc83b0b022bdd60a6545f9f486}
+  expiration: 3600000 # 1 hour in ms
+
+app:
+  cors:
+    allowed-origins: http://localhost:5000,http://localhost:8080
+  cache:
+    campaign:
+      ttl-seconds: 300
+    adset:
+      ttl-seconds: 300
+    ad:
+      ttl-seconds: 120
+
+facebook:
+  login:
+    config-id: ${CONFIG_ID} # replace with your actual config id
+    marketing:
+      api-version: ${FACEBOOK_MARKETING_API_VERSION:${meta.graph.version}} # defaults to meta.graph.version
+      access-token: ${FB_ACCESS_TOKEN:} # <-- set in env/secret store
+      ad-account-id: ${FB_AD_ACCOUNT_ID} # optional convenience; can be blank
+
+meta:
+  client-id: ${META_CLIENT_ID:${spring.security.oauth2.client.registration.facebook.client-id}}
+  client-secret: ${META_CLIENT_SECRET:${spring.security.oauth2.client.registration.facebook.client-secret}}
+  redirect-uri: ${META_REDIRECT_URI:http://localhost:8080/api/oauth/meta/callback}
+  scopes: ads_read,ads_management,pages_read_engagement,pages_show_list
+  graph-api-version: v23.0
+  graph-api-base-url: https://graph.facebook.com
+  graph:
+    version: "v23.0"
+
+frontend:
+  success-redirect-url: ${FRONTEND_SUCCESS_URL:http://localhost:5000/oauth-success}
+  failure-redirect-url: ${FRONTEND_FAILURE_URL:http://localhost:5000/login}
+  login-url: ${FRONTEND_LOGIN_URL:http://localhost:5000/login}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+  show-actuator: true
+
+storage:
+  bucket:
+    assets: marketing-assets
+
+s3:
+  enabled: true
+  endpoint: ${S3_ENDPOINT:http://localhost:9000}
+  # Set this to the public-facing MinIO/S3 URL when the internal endpoint is not reachable from browsers.
+  # Leave empty when endpoint is already public.
+  public-endpoint: ${S3_PUBLIC_ENDPOINT:}
+  region: us-east-1
+  accessKey: ${S3_ACCESS_KEY:minioadmin}
+  secretKey: ${S3_SECRET_KEY:minioadmin123}

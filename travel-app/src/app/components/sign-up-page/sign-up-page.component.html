@@ -1,0 +1,166 @@
+<div class="auth-split-page">
+
+  <!-- ── Left panel: animated characters ── -->
+  <div class="left-panel">
+    <div class="left-brand">
+      <div class="brand-icon-box">
+        <lucide-angular [img]="Sparkles" class="brand-lucide"></lucide-angular>
+      </div>
+      <span>TravelAds</span>
+    </div>
+
+    <div class="characters-stage">
+      <div class="characters-scene">
+
+        <!-- Purple character -->
+        <div #purpleRef class="character"
+          [style.left]="'70px'" [style.width]="'180px'" [style.height]="purpleHeight"
+          [style.backgroundColor]="'#6C3FF5'" [style.borderRadius]="'10px 10px 0 0'"
+          [style.zIndex]="1" [style.transform]="purpleTransform">
+          <div class="eyes-wrap" [style.left]="purpleEyesLeft" [style.top]="purpleEyesTop">
+            <app-eyeball [size]="18" [pupilSize]="7" [maxDistance]="5"
+              eyeColor="white" pupilColor="#2D2D2D"
+              [isBlinking]="isPurpleBlinking"
+              [forceLookX]="purpleForceLookX" [forceLookY]="purpleForceLookY"/>
+            <app-eyeball [size]="18" [pupilSize]="7" [maxDistance]="5"
+              eyeColor="white" pupilColor="#2D2D2D"
+              [isBlinking]="isPurpleBlinking"
+              [forceLookX]="purpleForceLookX" [forceLookY]="purpleForceLookY"/>
+          </div>
+        </div>
+
+        <!-- Black character -->
+        <div #blackRef class="character"
+          [style.left]="'240px'" [style.width]="'120px'" [style.height]="'310px'"
+          [style.backgroundColor]="'#2D2D2D'" [style.borderRadius]="'8px 8px 0 0'"
+          [style.zIndex]="2" [style.transform]="blackTransform">
+          <div class="eyes-wrap" [style.left]="blackEyesLeft" [style.top]="blackEyesTop">
+            <app-eyeball [size]="16" [pupilSize]="6" [maxDistance]="4"
+              eyeColor="white" pupilColor="#2D2D2D"
+              [isBlinking]="isBlackBlinking"
+              [forceLookX]="blackForceLookX" [forceLookY]="blackForceLookY"/>
+            <app-eyeball [size]="16" [pupilSize]="6" [maxDistance]="4"
+              eyeColor="white" pupilColor="#2D2D2D"
+              [isBlinking]="isBlackBlinking"
+              [forceLookX]="blackForceLookX" [forceLookY]="blackForceLookY"/>
+          </div>
+        </div>
+
+        <!-- Orange character -->
+        <div #orangeRef class="character"
+          [style.left]="'0px'" [style.width]="'240px'" [style.height]="'200px'"
+          [style.zIndex]="3" [style.backgroundColor]="'#FF9B6B'"
+          [style.borderRadius]="'120px 120px 0 0'" [style.transform]="orangeTransform">
+          <div class="eyes-wrap" [style.left]="orangeEyesLeft" [style.top]="orangeEyesTop">
+            <app-pupil [size]="12" [maxDistance]="5" pupilColor="#2D2D2D"
+              [forceLookX]="orangeForceLookX" [forceLookY]="orangeForceLookY"/>
+            <app-pupil [size]="12" [maxDistance]="5" pupilColor="#2D2D2D"
+              [forceLookX]="orangeForceLookX" [forceLookY]="orangeForceLookY"/>
+          </div>
+        </div>
+
+        <!-- Yellow character -->
+        <div #yellowRef class="character"
+          [style.left]="'310px'" [style.width]="'140px'" [style.height]="'230px'"
+          [style.backgroundColor]="'#E8D754'" [style.borderRadius]="'70px 70px 0 0'"
+          [style.zIndex]="4" [style.transform]="yellowTransform">
+          <div class="eyes-wrap" [style.left]="yellowEyesLeft" [style.top]="yellowEyesTop">
+            <app-pupil [size]="12" [maxDistance]="5" pupilColor="#2D2D2D"
+              [forceLookX]="yellowForceLookX" [forceLookY]="yellowForceLookY"/>
+            <app-pupil [size]="12" [maxDistance]="5" pupilColor="#2D2D2D"
+              [forceLookX]="yellowForceLookX" [forceLookY]="yellowForceLookY"/>
+          </div>
+          <div class="character-mouth" [style.left]="yellowMouthLeft" [style.top]="yellowMouthTop"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="left-footer"></div>
+    <div class="left-glow left-glow--top"></div>
+    <div class="left-glow left-glow--bottom"></div>
+  </div>
+
+  <!-- ── Right panel: sign-up form ── -->
+  <div class="right-panel">
+    <div class="form-card">
+
+      <div class="form-header">
+        <h1>Create account</h1>
+        <p>Start managing your ads today</p>
+      </div>
+
+      <form *ngIf="formGroup" [formGroup]="formGroup" class="form-fields">
+
+        <div class="field has-support-text">
+          <div class="form-group">
+            <input type="text" formControlName="fullName" placeholder="Full Name"
+              (focus)="onInputFocus()" (blur)="onInputBlur()"
+              [class.invalid]="hasError('fullName', 'required')" />
+            <div class="error-text" *ngIf="hasError('fullName', 'required')">Full name is required</div>
+          </div>
+        </div>
+
+        <div class="field has-support-text">
+          <div class="form-group">
+            <input type="text" formControlName="email" placeholder="Email"
+              (focus)="onInputFocus()" (blur)="onInputBlur()"
+              [class.invalid]="hasError('email', 'required') || hasError('email', 'email')" />
+            <div class="error-text" *ngIf="hasError('email', 'required')">Email is required</div>
+            <div class="error-text" *ngIf="hasError('email', 'email')">Please enter a valid email</div>
+          </div>
+        </div>
+
+        <div class="field has-support-text">
+          <div class="form-group">
+            <input type="text" formControlName="username" placeholder="Username"
+              (focus)="onInputFocus()" (blur)="onInputBlur()"
+              [class.invalid]="hasError('username', 'required') || hasError('username', 'pattern')" />
+            <div class="error-text" *ngIf="hasError('username', 'required')">Username is required</div>
+            <div class="error-text" *ngIf="hasError('username', 'pattern')">Please enter a valid username</div>
+          </div>
+        </div>
+
+        <div class="field has-support-text password-field">
+          <div class="form-group">
+            <input [type]="showPassword ? 'text' : 'password'" formControlName="password"
+              placeholder="Password"
+              (input)="onPasswordChange(formGroup.get('password')?.value)"
+              (focus)="onInputFocus()" (blur)="onInputBlur()"
+              [class.invalid]="hasError('password', 'required')" />
+            <button type="button" class="toggle-pw" (click)="togglePassword()">
+              <lucide-angular [img]="showPassword ? EyeOff : Eye" class="pw-icon"></lucide-angular>
+            </button>
+            <div class="error-text" *ngIf="hasError('password', 'required')">Password is required</div>
+          </div>
+        </div>
+
+        <div class="field has-support-text password-field">
+          <div class="form-group">
+            <input [type]="showConfirmPassword ? 'text' : 'password'" formControlName="confirmPassword"
+              placeholder="Confirm Password"
+              [class.invalid]="hasError('confirmPassword', 'required') ||
+                (formGroup.errors?.['passwordMismatch'] && formGroup.get('confirmPassword')?.touched)" />
+            <button type="button" class="toggle-pw" (click)="toggleConfirmPassword()">
+              <lucide-angular [img]="showConfirmPassword ? EyeOff : Eye" class="pw-icon"></lucide-angular>
+            </button>
+            <div class="error-text" *ngIf="hasError('confirmPassword', 'required')">Please confirm your password</div>
+            <div class="error-text" *ngIf="formGroup.errors?.['passwordMismatch'] && formGroup.get('confirmPassword')?.touched">
+              Passwords do not match
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" (click)="onSubmit()" class="signup-button" [disabled]="!formGroup.valid">
+          Sign Up
+        </button>
+
+      </form>
+
+      <div class="footer-text">
+        Already have an account? <a routerLink="/login">Sign In</a>
+      </div>
+    </div>
+  </div>
+
+</div>

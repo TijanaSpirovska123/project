@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <changeSet id="7" author="MARKETING">
+        <sql>
+            CREATE TABLE page_posts (
+                                        id SERIAL PRIMARY KEY,
+                                        post_id VARCHAR(255) NOT NULL,
+                                        permalink_url VARCHAR(255) NOT NULL,
+                                        page_id BIGINT NOT NULL,
+                                        CONSTRAINT fk_pagepost_page FOREIGN KEY (page_id) REFERENCES pages(id)
+            );
+        </sql>
+        <rollback>
+            <sql>DROP TABLE page_posts;</sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

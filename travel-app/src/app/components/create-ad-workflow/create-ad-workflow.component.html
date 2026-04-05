@@ -1,0 +1,878 @@
+<div class="page with-menu">
+  <app-menu [isVisible]="true"></app-menu>
+
+  <div class="create-ad-workflow">
+    <div class="workflow-row">
+      <!-- ── Left: Ad form card ─────────────────────────────────────── -->
+      <div class="ad-form-card">
+        <div class="ad-form-header">
+          <h2>Create Ad</h2>
+        </div>
+
+        <!-- Mobile stepper progress indicator (hidden on lg+) -->
+        <div class="mobile-stepper">
+          @for (step of mobileStepLabels; track $index) {
+            <div
+              class="stepper-step"
+              [class.active]="mobileStep === $index + 1"
+              [class.done]="mobileStep > $index + 1"
+            >
+              <div class="stepper-dot">
+                {{ mobileStep > $index + 1 ? "✓" : $index + 1 }}
+              </div>
+              <span class="stepper-label">{{ step }}</span>
+            </div>
+            @if ($index < mobileStepLabels.length - 1) {
+              <div
+                class="stepper-line"
+                [class.done]="mobileStep > $index + 1"
+              ></div>
+            }
+          }
+        </div>
+
+        @if (isInitialLoading) {
+          <div class="init-loading">
+            <div class="init-loading-spinner"></div>
+            <p class="init-loading-text">Loading campaign data…</p>
+            <div class="skeleton-form">
+              <div class="skeleton-row two-col">
+                <div class="skeleton-field"></div>
+                <div class="skeleton-field"></div>
+              </div>
+              <div class="skeleton-row one-col">
+                <div class="skeleton-field"></div>
+              </div>
+              <div class="skeleton-row one-col">
+                <div class="skeleton-field"></div>
+              </div>
+              <div class="skeleton-row two-col">
+                <div class="skeleton-field"></div>
+                <div class="skeleton-field"></div>
+              </div>
+              <div class="skeleton-row one-col">
+                <div class="skeleton-field tall"></div>
+              </div>
+            </div>
+          </div>
+        }
+
+        <div class="ad-form-body" [class.hidden]="isInitialLoading">
+          <form [formGroup]="adForm" class="form">
+            <!-- Mobile step 1: Ad Details — on desktop always visible -->
+            <div
+              class="mobile-step-section"
+              [class.mobile-hidden]="mobileStep !== 1"
+            >
+              <!-- Row 1: Ad Name + Platform -->
+              <div class="form-row two-col">
+                <div class="form-group">
+                  <label for="adName"
+                    >Ad Name <span class="required-star">*</span></label
+                  >
+                  <input
+                    id="adName"
+                    type="text"
+                    formControlName="name"
+                    placeholder="Enter ad name"
+                    [class.error]="hasError('name', 'required')"
+                  />
+                  @if (hasError("name", "required")) {
+                    <div class="error-message">Ad name is required</div>
+                  }
+                </div>
+
+                <div class="form-group">
+                  <label for="platform"
+                    >Platform <span class="required-star">*</span></label
+                  >
+                  <app-searchable-dropdown
+                    formControlName="platform"
+                    [options]="platformOptions"
+                    placeholder="Select a platform"
+                    (selectionChange)="onPlatformChange($event)"
+                  ></app-searchable-dropdown>
+                </div>
+              </div>
+
+              <!-- Row 2: Campaign -->
+              <div class="form-row one-col">
+                <div class="form-group">
+                  <label>Campaign <span class="required-star">*</span></label>
+                  <app-searchable-dropdown
+                    [(ngModel)]="selectedCampaignId"
+                    [ngModelOptions]="{ standalone: true }"
+                    [options]="campaignOptions"
+                    [loading]="isLoadingCampaigns"
+                    [placeholder]="
+                      isLoadingCampaigns
+                        ? 'Loading campaigns…'
+                        : 'Select a campaign'
+                    "
+                    (selectionChange)="onCampaignChange($event)"
+                  ></app-searchable-dropdown>
+                </div>
+              </div>
+
+              <!-- Row 3: Page -->
+              <div class="form-row one-col">
+                <div class="form-group">
+                  <label
+                    >Facebook Page <span class="required-star">*</span></label
+                  >
+                  <app-searchable-dropdown
+                    formControlName="pageId"
+                    [class.error]="hasError('pageId', 'required')"
+                    [options]="pageOptions"
+                    [loading]="isLoadingPages"
+                    [placeholder]="
+                      isLoadingPages
+                        ? 'Loading pages…'
+                        : pages.length === 0
+                          ? 'No pages found'
+                          : 'Select a page'
+                    "
+                  ></app-searchable-dropdown>
+                  @if (hasError("pageId", "required")) {
+                    <div class="error-message">Facebook page is required</div>
+                  }
+                </div>
+              </div>
+
+              <!-- Row 4: Ad Set + Status -->
+              <div class="form-row two-col">
+                <div class="form-group">
+                  <label>Ad Set <span class="required-star">*</span></label>
+                  <app-searchable-dropdown
+                    formControlName="adSetId"
+                    [class.error]="hasError('adSetId', 'required')"
+                    [options]="adSetOptions"
+                    [loading]="isLoadingAdSets"
+                    [disabled]="!selectedCampaignId"
+                    [placeholder]="
+                      !selectedCampaignId
+                        ? 'Select a campaign first'
+                        : isLoadingAdSets
+                          ? 'Loading ad sets…'
+                          : 'Select an ad set'
+                    "
+                  ></app-searchable-dropdown>
+                  @if (hasError("adSetId", "required")) {
+                    <div class="error-message">Ad set is required</div>
+                  }
+                </div>
+
+                <div class="form-group">
+                  <label for="adStatus"
+                    >Status <span class="required-star">*</span></label
+                  >
+                  <app-searchable-dropdown
+                    formControlName="status"
+                    [options]="statusOptions"
+                    placeholder="Select a status"
+                  ></app-searchable-dropdown>
+                </div>
+              </div>
+            </div>
+            <!-- /mobile-step-section step 1 -->
+
+            <!-- Mobile step 2: Choose Creative — on desktop always visible -->
+            <div
+              class="mobile-step-section"
+              [class.mobile-hidden]="mobileStep !== 2"
+            >
+              <!-- Row 4: Creative picker -->
+              <div class="form-row one-col">
+                <div class="form-group">
+                  <label
+                    >Ad Creative <span class="required-star">*</span></label
+                  >
+
+                  @if (selectedCreative) {
+                    <div class="creative-preview">
+                      <div class="creative-preview-thumb">
+                        @if (getCreativeThumbnail(selectedCreative)) {
+                          <img
+                            [src]="getCreativeThumbnail(selectedCreative)"
+                            alt="Creative thumbnail"
+                          />
+                        } @else {
+                          <div class="creative-preview-placeholder">
+                            <mat-icon>image_not_supported</mat-icon>
+                          </div>
+                        }
+                      </div>
+                      <div class="creative-preview-info">
+                        <span class="creative-preview-name">{{
+                          selectedCreative.name
+                        }}</span>
+                        <span
+                          class="creative-type-badge"
+                          [attr.data-type]="selectedCreative.object_type"
+                        >
+                          {{ getObjectTypeLabel(selectedCreative.object_type) }}
+                        </span>
+                        <span class="creative-preview-id"
+                          >ID: {{ selectedCreative.id }}</span
+                        >
+                      </div>
+                      <button
+                        type="button"
+                        class="btn-change-creative"
+                        (click)="openPanel('picker')"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  } @else {
+                    <!-- Two action buttons side by side -->
+                    <div class="creative-action-row">
+                      <button
+                        type="button"
+                        class="btn-select-creative"
+                        [class.error]="hasError('creativeId', 'required')"
+                        (click)="openPanel('picker')"
+                      >
+                        <mat-icon>image_search</mat-icon>
+                        Choose Creative
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-create-creative"
+                        (click)="openPanel('creator')"
+                      >
+                        <mat-icon>add_photo_alternate</mat-icon>
+                        Create Ad Creative
+                      </button>
+                    </div>
+                    @if (hasError("creativeId", "required")) {
+                      <div class="error-message">Ad creative is required</div>
+                    }
+                  }
+                </div>
+              </div>
+            </div>
+            <!-- /mobile-step-section step 2 -->
+
+            <!-- Mobile step 3: Review & Publish — on desktop always hidden (publish is in footer) -->
+            <div
+              class="mobile-step-section mobile-step-review"
+              [class.mobile-hidden]="mobileStep !== 3"
+            >
+              <div class="review-summary">
+                <div class="review-row">
+                  <span class="review-label">Ad Name</span
+                  ><span class="review-value">{{
+                    adForm.get("name")?.value || "—"
+                  }}</span>
+                </div>
+                <div class="review-row">
+                  <span class="review-label">Campaign</span
+                  ><span class="review-value">{{
+                    selectedCampaignId ? campaigns[0]?.name : "—"
+                  }}</span>
+                </div>
+                <div class="review-row">
+                  <span class="review-label">Creative</span
+                  ><span class="review-value">{{
+                    selectedCreative?.name || "—"
+                  }}</span>
+                </div>
+                <div class="review-row">
+                  <span class="review-label">Status</span
+                  ><span class="review-value">{{
+                    adForm.get("status")?.value
+                  }}</span>
+                </div>
+              </div>
+            </div>
+            <!-- /mobile-step-section step 3 -->
+          </form>
+        </div>
+
+        <!-- Mobile stepper navigation -->
+        <div class="mobile-stepper-nav" [class.hidden]="isInitialLoading">
+          @if (mobileStep > 1) {
+            <button
+              type="button"
+              class="mobile-nav-btn back-btn"
+              (click)="prevMobileStep()"
+            >
+              ← Back
+            </button>
+          } @else {
+            <span></span>
+          }
+          @if (mobileStep < 3) {
+            <button
+              type="button"
+              class="mobile-nav-btn next-btn"
+              (click)="nextMobileStep()"
+            >
+              Next →
+            </button>
+          } @else {
+            <button
+              class="btn-publish mobile-nav-btn"
+              (click)="publish()"
+              [disabled]="isPublishing || adForm.invalid"
+            >
+              @if (isPublishing) {
+                <span class="publish-spinner"></span> Publishing…
+              } @else {
+                Publish Ad
+              }
+            </button>
+          }
+        </div>
+
+        <div class="ad-form-footer" [class.hidden]="isInitialLoading">
+          <button
+            class="btn-publish"
+            (click)="publish()"
+            [disabled]="isPublishing || adForm.invalid"
+          >
+            @if (isPublishing) {
+              <span class="publish-spinner"></span>
+              Publishing...
+            } @else {
+              <mat-icon>rocket_launch</mat-icon>
+              Publish Ad
+            }
+          </button>
+          <button class="btn btn-secondary" (click)="cancel()">Cancel</button>
+        </div>
+      </div>
+      <!-- end ad-form-card -->
+
+      <!-- ── Right: Side panel ──────────────────────────────────────── -->
+
+      <!-- Creative Picker Panel -->
+      @if (activePanelType === "picker") {
+        <div class="side-panel-card">
+          <div class="side-panel-header">
+            <h3>Select Ad Creative</h3>
+            <div class="side-panel-header-actions">
+              <button
+                type="button"
+                class="panel-icon-btn"
+                title="Refresh creatives"
+                (click)="refreshCreatives()"
+              >
+                <mat-icon>refresh</mat-icon>
+              </button>
+              <button
+                type="button"
+                class="panel-close-btn"
+                (click)="closePanel()"
+              >
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <!-- Tab switcher -->
+          <div class="creative-tab-switcher">
+            <button
+              type="button"
+              class="creative-tab-btn"
+              [class.active]="creativePickerTab === 'existing'"
+              (click)="switchCreativeTab('existing')"
+            >
+              Select Existing Creative
+            </button>
+            <button
+              type="button"
+              class="creative-tab-btn"
+              [class.active]="creativePickerTab === 'asset-library'"
+              (click)="switchCreativeTab('asset-library')"
+            >
+              Create from Asset Library
+            </button>
+          </div>
+
+          <div class="side-panel-body">
+            <!-- ── Tab 1: Select Existing Creative ────────────────────────── -->
+            @if (creativePickerTab === "existing") {
+              @if (isLoadingCreatives) {
+                <div class="panel-loading">
+                  <mat-icon class="spin-icon">hourglass_empty</mat-icon>
+                  <span>Loading creatives...</span>
+                </div>
+              } @else if (creatives.length === 0) {
+                <div class="panel-empty">
+                  <mat-icon>image_not_supported</mat-icon>
+                  <span>No ad creatives found</span>
+                  <button
+                    type="button"
+                    class="btn-create-creative small"
+                    (click)="activePanelType = 'creator'"
+                  >
+                    <mat-icon>add_photo_alternate</mat-icon>
+                    Create one now
+                  </button>
+                </div>
+              } @else {
+                <div class="creative-grid">
+                  @for (c of creatives; track c.id) {
+                    <div
+                      class="creative-card"
+                      [class.selected]="selectedCreative?.id === c.id"
+                      [class.deleted]="c.object_type === 'POST_DELETED'"
+                      (click)="
+                        c.object_type !== 'POST_DELETED' && selectCreative(c)
+                      "
+                    >
+                      <div class="creative-card-thumb">
+                        @if (getCreativeThumbnail(c)) {
+                          <img [src]="getCreativeThumbnail(c)" [alt]="c.name" />
+                        } @else {
+                          <div class="creative-card-placeholder">
+                            <mat-icon>{{
+                              c.object_type === "POST_DELETED"
+                                ? "delete_outline"
+                                : "image"
+                            }}</mat-icon>
+                          </div>
+                        }
+                        @if (selectedCreative?.id === c.id) {
+                          <div class="creative-selected-check">
+                            <mat-icon>check_circle</mat-icon>
+                          </div>
+                        }
+                      </div>
+
+                      <div class="creative-card-info">
+                        <span class="creative-card-name" [title]="c.name">{{
+                          c.name
+                        }}</span>
+                        <div class="creative-card-meta">
+                          <span
+                            class="creative-type-badge"
+                            [attr.data-type]="c.object_type"
+                          >
+                            {{ getObjectTypeLabel(c.object_type) }}
+                          </span>
+                          <span
+                            class="creative-status-badge"
+                            [attr.data-status]="c.status"
+                          >
+                            {{ c.status }}
+                          </span>
+                        </div>
+                        <span class="creative-card-id">ID: {{ c.id }}</span>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            }
+
+            <!-- ── Tab 2: Create from Asset Library ───────────────────────── -->
+            @if (creativePickerTab === "asset-library") {
+              <!-- Section 1: Image Picker -->
+              <div class="asset-section-label">Select Image</div>
+
+              @if (isLoadingPickerAssets) {
+                <div class="panel-loading">
+                  <mat-icon class="spin-icon">hourglass_empty</mat-icon>
+                  <span>Loading assets...</span>
+                </div>
+              } @else if (pickerAssets.length === 0) {
+                <div class="panel-empty">
+                  <mat-icon>image_not_supported</mat-icon>
+                  <span>No assets found</span>
+                </div>
+              } @else {
+                <div class="creative-grid">
+                  @for (a of pickerAssets; track trackAssetById($index, a)) {
+                    @if (a.assetType === "IMAGE" && a.status === "READY") {
+                      <div
+                        class="creative-card"
+                        [class.selected]="selectedPickerAsset?.id === a.id"
+                        (click)="selectPickerAsset(a)"
+                      >
+                        <div class="creative-card-thumb">
+                          @if (getPickerAssetThumb(a)) {
+                            <img
+                              [src]="getPickerAssetThumb(a)"
+                              [alt]="a.originalFilename"
+                            />
+                          } @else {
+                            <div class="creative-card-placeholder">
+                              <mat-icon>image</mat-icon>
+                            </div>
+                          }
+                          @if (selectedPickerAsset?.id === a.id) {
+                            <div class="creative-selected-check">
+                              <mat-icon>check_circle</mat-icon>
+                            </div>
+                          }
+                        </div>
+
+                        <div class="creative-card-info">
+                          <span
+                            class="creative-card-name"
+                            [title]="a.originalFilename"
+                            >{{ a.originalFilename }}</span
+                          >
+                          <div class="creative-card-meta">
+                            <span class="creative-type-badge" data-type="PHOTO">
+                              {{ a.assetType }}
+                            </span>
+                            <span
+                              class="creative-status-badge"
+                              [attr.data-status]="a.status"
+                            >
+                              {{ a.variants.length }} variants
+                            </span>
+                          </div>
+                          <span class="creative-card-id">ID: {{ a.id }}</span>
+                        </div>
+                      </div>
+                    }
+                  }
+                </div>
+
+                <!-- Upload New Image Button -->
+                <div style="margin-top: 12px">
+                  <label
+                    class="btn btn-secondary"
+                    style="cursor: pointer; width: 100%"
+                    [class.disabled]="isUploadingPickerAsset"
+                  >
+                    @if (isUploadingPickerAsset) {
+                      <mat-icon class="spin-icon">hourglass_empty</mat-icon>
+                      Uploading...
+                    } @else {
+                      <mat-icon>upload</mat-icon>
+                      Upload New Image
+                    }
+                    <input
+                      type="file"
+                      accept="image/*"
+                      (change)="onUploadNewImage($event)"
+                      [disabled]="isUploadingPickerAsset"
+                      hidden
+                    />
+                  </label>
+                </div>
+              }
+
+              <!-- Selected Image Info -->
+              @if (selectedPickerAsset) {
+                <div
+                  style="
+                    padding: 10px;
+                    background: #e8f5e9;
+                    border: 1px solid #4caf50;
+                    border-radius: 6px;
+                    margin-bottom: 12px;
+                  "
+                >
+                  <div
+                    style="
+                      font-size: 11px;
+                      font-weight: 600;
+                      color: #2e7d32;
+                      margin-bottom: 4px;
+                    "
+                  >
+                    ✓ Selected Image
+                  </div>
+                  <div
+                    style="
+                      font-size: 11px;
+                      color: #1b5e20;
+                      word-break: break-all;
+                    "
+                  >
+                    <strong>File:</strong>
+                    {{ selectedPickerAsset.originalFilename }}
+                  </div>
+                </div>
+              }
+
+              <!-- Section 2: Creative Fields -->
+              <div class="asset-creative-form-section">
+                <div class="asset-section-label">Creative Details</div>
+
+                <form [formGroup]="assetCreativeForm" class="form">
+                  <!-- Page Selection -->
+                  <div class="form-row one-col">
+                    <div class="form-group">
+                      <label for="pageSelect"
+                        >Page *
+                        @if (isLoadingPages) {
+                          <span
+                            style="
+                              font-size: 10px;
+                              color: #f39c12;
+                              font-weight: normal;
+                            "
+                          >
+                            (Loading...)</span
+                          >
+                        }
+                        @if (!isLoadingPages && pages.length > 0) {
+                          <span
+                            style="
+                              font-size: 10px;
+                              color: #27ae60;
+                              font-weight: normal;
+                            "
+                          >
+                            ({{ pages.length }} available)</span
+                          >
+                        }
+                      </label>
+                      <app-searchable-dropdown
+                        formControlName="pageId"
+                        [class.error]="
+                          hasAssetCreativeFormError('pageId', 'required')
+                        "
+                        [options]="pageOptions"
+                        [loading]="isLoadingPages"
+                        [placeholder]="
+                          isLoadingPages
+                            ? 'Loading pages...'
+                            : pages.length === 0
+                              ? 'No pages available'
+                              : 'Select a page'
+                        "
+                        (selectionChange)="onPageChange($event)"
+                      ></app-searchable-dropdown>
+                      @if (hasAssetCreativeFormError("pageId", "required")) {
+                        <div class="error-message">Page is required</div>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="form-row one-col">
+                    <div class="form-group">
+                      <label>Headline *</label>
+                      <input
+                        type="text"
+                        formControlName="headline"
+                        placeholder="Ad headline"
+                        [class.error]="
+                          hasAssetCreativeFormError('headline', 'required')
+                        "
+                      />
+                      @if (hasAssetCreativeFormError("headline", "required")) {
+                        <div class="error-message">Headline is required</div>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="form-row one-col">
+                    <div class="form-group">
+                      <label>Message *</label>
+                      <textarea
+                        formControlName="message"
+                        placeholder="Ad message / post text"
+                        rows="3"
+                        [class.error]="
+                          hasAssetCreativeFormError('message', 'required')
+                        "
+                      ></textarea>
+                      @if (hasAssetCreativeFormError("message", "required")) {
+                        <div class="error-message">Message is required</div>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="form-row one-col">
+                    <div class="form-group">
+                      <label>Object URL *</label>
+                      <input
+                        type="url"
+                        formControlName="objectUrl"
+                        placeholder="https://example.com"
+                        [class.error]="
+                          hasAssetCreativeFormError('objectUrl', 'required') ||
+                          hasAssetCreativeFormError('objectUrl', 'pattern')
+                        "
+                      />
+                      @if (hasAssetCreativeFormError("objectUrl", "required")) {
+                        <div class="error-message">Object URL is required</div>
+                      }
+                      @if (hasAssetCreativeFormError("objectUrl", "pattern")) {
+                        <div class="error-message">
+                          Please enter a valid URL
+                        </div>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="form-row one-col">
+                    <div class="form-group">
+                      <label>URL Tags (Optional)</label>
+                      <input
+                        type="text"
+                        formControlName="urlTags"
+                        placeholder="utm_source=facebook&utm_campaign=summer"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="form-row one-col">
+                    <div class="form-group">
+                      <label>Object Type</label>
+                      <select formControlName="objectType">
+                        <option value="SHARE">Share (Link)</option>
+                        <option value="PHOTO">Photo</option>
+                        <option value="VIDEO">Video</option>
+                        <option value="STATUS">Status</option>
+                      </select>
+                    </div>
+                  </div>
+                </form>
+              </div>
+
+              <!-- Section 3: Submit -->
+              <div class="asset-creative-submit-row">
+                <button
+                  type="button"
+                  class="btn btn-success"
+                  [disabled]="
+                    !canSubmitAssetCreative || isSubmittingAssetCreative
+                  "
+                  (click)="submitAssetCreative()"
+                >
+                  @if (isSubmittingAssetCreative) {
+                    <mat-icon class="spin-icon">hourglass_empty</mat-icon>
+                  }
+                  {{ assetCreativeSubmitLabel }}
+                </button>
+              </div>
+            }
+            <!-- end Tab 2 -->
+          </div>
+        </div>
+      }
+
+      <!-- Creative Library Panel (embedded) -->
+      @if (activePanelType === "creator") {
+        <app-creative-library
+          [embeddedMode]="true"
+          (closePanel)="closePanel()"
+        ></app-creative-library>
+      }
+    </div>
+    <!-- end workflow-row -->
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     VARIANT SELECTION MODAL
+     ═══════════════════════════════════════════════════════════════════════ -->
+@if (isVariantModalOpen && selectedAssetForVariant) {
+  <div class="modal-overlay" (click)="closeVariantModal()">
+    <div class="variant-modal" (click)="$event.stopPropagation()">
+      <div class="variant-modal-header">
+        <div class="variant-modal-title">
+          <mat-icon>photo_size_select_large</mat-icon>
+          <span>Select Image Variant</span>
+        </div>
+        <button class="modal-close-btn" (click)="closeVariantModal()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <div class="variant-modal-body">
+        <div class="variant-info">
+          <strong>{{ selectedAssetForVariant.originalFilename }}</strong>
+          <span class="variant-count-text"
+            >{{ selectedAssetForVariant.variants.length }} variant(s)
+            available</span
+          >
+        </div>
+
+        <div class="variant-list">
+          @for (variant of selectedAssetForVariant.variants; track variant.id) {
+            <div
+              class="variant-item"
+              (click)="selectVariant(variant.variantKey)"
+            >
+              <div class="variant-preview">
+                @if (getPickerAssetThumb(selectedAssetForVariant)) {
+                  <img
+                    [src]="getPickerAssetThumb(selectedAssetForVariant)"
+                    [alt]="variant.variantKey"
+                  />
+                } @else {
+                  <div class="variant-placeholder">
+                    <mat-icon>image</mat-icon>
+                  </div>
+                }
+              </div>
+              <div class="variant-details">
+                <div class="variant-name">
+                  {{ getVariantLabel(variant.variantKey) }}
+                </div>
+                <div class="variant-dimensions">
+                  @if (variant.width && variant.height) {
+                    <span>{{ variant.width }} × {{ variant.height }}px</span>
+                  }
+                  <span class="variant-key">{{ variant.variantKey }}</span>
+                </div>
+              </div>
+              <div class="variant-action">
+                <mat-icon>chevron_right</mat-icon>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     CREATIVE MODE SELECTION MODAL
+     ═══════════════════════════════════════════════════════════════════════ -->
+@if (showCreativeModeModal) {
+  <div class="modal-overlay" (click)="showCreativeModeModal = false">
+    <div class="creative-mode-modal" (click)="$event.stopPropagation()">
+      <div class="variant-modal-header">
+        <div class="variant-modal-title">
+          <mat-icon>tune</mat-icon>
+          <span>How would you like to publish?</span>
+        </div>
+        <button class="modal-close-btn" (click)="showCreativeModeModal = false">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+      <div class="creative-mode-body">
+        <button
+          class="creative-mode-btn draft-btn"
+          (click)="confirmCreativeMode('draft')"
+        >
+          <mat-icon>save</mat-icon>
+          <div class="creative-mode-btn-text">
+            <span class="creative-mode-btn-title">Save as Draft</span>
+            <span class="creative-mode-btn-desc"
+              >Store the creative in your local database without posting to the
+              platform</span
+            >
+          </div>
+        </button>
+        <button
+          class="creative-mode-btn direct-btn"
+          (click)="confirmCreativeMode('direct')"
+        >
+          <mat-icon>rocket_launch</mat-icon>
+          <div class="creative-mode-btn-text">
+            <span class="creative-mode-btn-title"
+              >Post Directly to Platform</span
+            >
+            <span class="creative-mode-btn-desc"
+              >Create the creative and publish it live to Meta immediately</span
+            >
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+}

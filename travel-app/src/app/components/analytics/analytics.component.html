@@ -1,0 +1,307 @@
+<!-- Analytics Dashboard -->
+<div class="analytics-dashboard">
+  <!-- Main Analytics Layout (No Modal Layout) -->
+  <div
+    *ngIf="selectedItemData || preloadedItemData"
+    class="main-analytics-layout"
+  >
+    <!-- Analytics Header -->
+    <div class="analytics-header">
+      <h3>{{ getAnalyticsTitle() }}</h3>
+      <div class="time-selector">
+        <select
+          [value]="selectedTimePeriod"
+          (change)="onTimePeriodChange(+$any($event.target).value)"
+        >
+          <option value="7">Last 7 days</option>
+          <option value="30">Last 30 days</option>
+          <option value="90">Last 90 days</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Analytics Content Grid -->
+    <div class="analytics-content-grid">
+      <!-- Charts Section -->
+      <div class="analytics-widget charts-widget">
+        <div class="widget-header">
+          <h4>Performance Charts</h4>
+        </div>
+        <div class="widget-content">
+          <div class="charts-container">
+            <!-- Main Performance Chart -->
+            <div class="main-chart">
+              <canvas
+                #performanceChart
+                class="performance-chart"
+                width="600"
+                height="200"
+              ></canvas>
+            </div>
+
+            <!-- Secondary Charts Row -->
+            <div class="secondary-charts">
+              <div class="chart-item">
+                <h6>Device Distribution</h6>
+                <canvas
+                  #deviceChart
+                  class="device-chart"
+                  width="150"
+                  height="150"
+                ></canvas>
+              </div>
+              <div class="chart-item">
+                <h6>Age Groups</h6>
+                <div class="age-distribution">
+                  <div
+                    class="age-bar-item"
+                    *ngFor="let age of getSelectedItemAgeBreakdown()"
+                  >
+                    <span class="age-label">{{ age.range }}</span>
+                    <div class="age-bar-bg">
+                      <div
+                        class="age-bar-fill"
+                        [style.width.%]="age.percentage"
+                      ></div>
+                    </div>
+                    <span class="age-value">{{ age.percentage }}%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Engagement Insights Widget -->
+      <div class="analytics-widget engagement-widget">
+        <div class="widget-header">
+          <h4>Engagement Insights</h4>
+        </div>
+        <div class="widget-content">
+          <div class="engagement-container">
+            <!-- Engagement Rate Chart -->
+            <div class="engagement-chart">
+              <h6>Engagement Rate Trend</h6>
+              <canvas
+                #engagementChart
+                class="engagement-line-chart"
+                width="300"
+                height="150"
+              ></canvas>
+            </div>
+
+            <!-- Engagement Breakdown -->
+            <div class="engagement-breakdown">
+              <h6>Engagement Types</h6>
+              <div class="engagement-stats">
+                <div class="engagement-stat">
+                  <div class="stat-icon likes-icon">
+                    <mat-icon>favorite</mat-icon>
+                  </div>
+                  <div class="stat-info">
+                    <div class="stat-value">
+                      {{ getEngagementStats().likes | number }}
+                    </div>
+                    <div class="stat-label">Likes</div>
+                  </div>
+                </div>
+
+                <div class="engagement-stat">
+                  <div class="stat-icon comments-icon">
+                    <mat-icon>comment</mat-icon>
+                  </div>
+                  <div class="stat-info">
+                    <div class="stat-value">
+                      {{ getEngagementStats().comments | number }}
+                    </div>
+                    <div class="stat-label">Comments</div>
+                  </div>
+                </div>
+
+                <div class="engagement-stat">
+                  <div class="stat-icon shares-icon">
+                    <mat-icon>share</mat-icon>
+                  </div>
+                  <div class="stat-info">
+                    <div class="stat-value">
+                      {{ getEngagementStats().shares | number }}
+                    </div>
+                    <div class="stat-label">Shares</div>
+                  </div>
+                </div>
+
+                <div class="engagement-stat">
+                  <div class="stat-icon saves-icon">
+                    <mat-icon>bookmark</mat-icon>
+                  </div>
+                  <div class="stat-info">
+                    <div class="stat-value">
+                      {{ getEngagementStats().saves | number }}
+                    </div>
+                    <div class="stat-label">Saves</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Engagement Rate Summary -->
+              <div class="engagement-summary">
+                <div class="summary-item">
+                  <span class="summary-label">Overall Engagement Rate</span>
+                  <span class="summary-value"
+                    >{{ getEngagementStats().rate | number : "1.2-2" }}%</span
+                  >
+                </div>
+                <div class="summary-item">
+                  <span class="summary-label">Best Performing Time</span>
+                  <span class="summary-value">{{
+                    getEngagementStats().bestTime
+                  }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Performance Overview Widget - Outside main layout, under analytics dashboard -->
+  <div
+    *ngIf="selectedItemData || preloadedItemData"
+    class="analytics-widget performance-overview-widget standalone"
+  >
+    <div class="widget-header">
+      <h4>Performance Overview</h4>
+    </div>
+    <div class="widget-content">
+      <div class="performance-metrics-horizontal">
+        <div class="metric-item">
+          <div class="metric-icon impressions-icon">
+            <mat-icon>visibility</mat-icon>
+          </div>
+          <div class="metric-data">
+            <div class="metric-value">
+              {{ getSelectedItemMetrics().impressions | number }}
+            </div>
+            <div class="metric-label">Impressions</div>
+            <div
+              class="metric-change"
+              [class.positive]="getSelectedItemMetrics().impressionsChange > 0"
+              [class.negative]="getSelectedItemMetrics().impressionsChange < 0"
+            >
+              {{ getSelectedItemMetrics().impressionsChange > 0 ? "+" : ""
+              }}{{
+                getSelectedItemMetrics().impressionsChange | number : "1.1-1"
+              }}%
+            </div>
+          </div>
+        </div>
+
+        <div class="metric-item">
+          <div class="metric-icon reach-icon">
+            <mat-icon>group</mat-icon>
+          </div>
+          <div class="metric-data">
+            <div class="metric-value">
+              {{ getSelectedItemMetrics().reach | number }}
+            </div>
+            <div class="metric-label">Reach</div>
+            <div
+              class="metric-change"
+              [class.positive]="getSelectedItemMetrics().reachChange > 0"
+              [class.negative]="getSelectedItemMetrics().reachChange < 0"
+            >
+              {{ getSelectedItemMetrics().reachChange > 0 ? "+" : ""
+              }}{{ getSelectedItemMetrics().reachChange | number : "1.1-1" }}%
+            </div>
+          </div>
+        </div>
+
+        <div class="metric-item">
+          <div class="metric-icon clicks-icon">
+            <mat-icon>mouse</mat-icon>
+          </div>
+          <div class="metric-data">
+            <div class="metric-value">
+              {{ getSelectedItemMetrics().clicks | number }}
+            </div>
+            <div class="metric-label">Clicks</div>
+            <div
+              class="metric-change"
+              [class.positive]="getSelectedItemMetrics().clicksChange > 0"
+              [class.negative]="getSelectedItemMetrics().clicksChange < 0"
+            >
+              {{ getSelectedItemMetrics().clicksChange > 0 ? "+" : ""
+              }}{{ getSelectedItemMetrics().clicksChange | number : "1.1-1" }}%
+            </div>
+          </div>
+        </div>
+
+        <div class="metric-item">
+          <div class="metric-icon conversions-icon">
+            <mat-icon>trending_up</mat-icon>
+          </div>
+          <div class="metric-data">
+            <div class="metric-value">
+              {{ getSelectedItemMetrics().conversions | number }}
+            </div>
+            <div class="metric-label">Conversions</div>
+            <div
+              class="metric-change"
+              [class.positive]="getSelectedItemMetrics().conversionsChange > 0"
+              [class.negative]="getSelectedItemMetrics().conversionsChange < 0"
+            >
+              {{ getSelectedItemMetrics().conversionsChange > 0 ? "+" : ""
+              }}{{
+                getSelectedItemMetrics().conversionsChange | number : "1.1-1"
+              }}%
+            </div>
+          </div>
+        </div>
+
+        <div class="metric-item">
+          <div class="metric-icon cost-icon">
+            <mat-icon>attach_money</mat-icon>
+          </div>
+          <div class="metric-data">
+            <div class="metric-value">
+              ${{ getSelectedItemMetrics().cost | number : "1.2-2" }}
+            </div>
+            <div class="metric-label">Total Spent</div>
+            <div
+              class="metric-change"
+              [class.positive]="getSelectedItemMetrics().costChange < 0"
+              [class.negative]="getSelectedItemMetrics().costChange > 0"
+            >
+              {{ getSelectedItemMetrics().costChange > 0 ? "+" : ""
+              }}{{ getSelectedItemMetrics().costChange | number : "1.1-1" }}%
+            </div>
+          </div>
+        </div>
+
+        <div class="metric-item">
+          <div class="metric-icon ctr-icon">
+            <mat-icon>ads_click</mat-icon>
+          </div>
+          <div class="metric-data">
+            <div class="metric-value">
+              {{ getSelectedItemMetrics().ctr | number : "1.2-2" }}%
+            </div>
+            <div class="metric-label">CTR</div>
+            <div
+              class="metric-change"
+              [class.positive]="getSelectedItemMetrics().ctrChange > 0"
+              [class.negative]="getSelectedItemMetrics().ctrChange < 0"
+            >
+              {{ getSelectedItemMetrics().ctrChange > 0 ? "+" : ""
+              }}{{ getSelectedItemMetrics().ctrChange | number : "1.1-1" }}%
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Performance Graphs Section (shown when showPerformanceGraphs is true) -->
