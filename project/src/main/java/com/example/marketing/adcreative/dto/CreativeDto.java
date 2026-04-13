@@ -23,4 +23,7 @@ public class CreativeDto extends BasePlatformDto {
     // optional
     private String urlTags;
     private String objectType;
+
+    // Mode 3: video creative — Meta video_id
+    private String videoId;
 }

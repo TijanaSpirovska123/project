@@ -41,6 +41,7 @@ public class StoredAssetService {
     private final UserRepository userRepository;
     private final ObjectStorageClient storage;
     private final AdAssetRepository adAssetRepository;
+    private final VideoVariantService videoVariantService;
 
     @Value("${storage.bucket.assets:marketing-assets}")
     private String assetsBucket;
@@ -182,6 +183,102 @@ public class StoredAssetService {
 
         List<StoredAssetVariantEntity> variants = variantRepository.findAllByAssetIdOrderByCreatedAtDesc(asset.getId());
 
+        return toDto(asset, variants);
+    }
+
+    @Transactional
+    public StoredAssetDto uploadVideo(Long userId, MultipartFile file) {
+        if (file == null || file.isEmpty()) throw new IllegalArgumentException("No file uploaded");
+
+        String contentType = file.getContentType();
+        if (contentType == null || !isVideo(contentType)) {
+            throw new IllegalArgumentException("Invalid video content type: " + contentType);
+        }
+
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> BusinessException.notFound("User not found with id: " + userId));
+
+        String originalName = safeFilename(file.getOriginalFilename());
+        String extension = fileExtension(originalName, contentType);
+
+        byte[] bytes = readBytes(file);
+        long size = bytes.length;
+        if (size == 0) throw new IllegalArgumentException("Empty upload");
+
+        String hash = sha256Hex(bytes);
+
+        // Dedup: if exists and not FAILED, return existing
+        Optional<StoredAssetEntity> existing = assetRepository.findByUserAndHash(user, hash);
+        if (existing.isPresent()) {
+            StoredAssetEntity a = existing.get();
+            if (!"FAILED".equalsIgnoreCase(a.getStatus())) {
+                List<StoredAssetVariantEntity> variants =
+                        variantRepository.findAllByAssetIdOrderByCreatedAtDesc(a.getId());
+                return toDto(a, variants);
+            }
+        }
+
+        // 1) Create asset row (PROCESSING)
+        StoredAssetEntity asset = new StoredAssetEntity();
+        asset.setUser(user);
+        asset.setAssetType("VIDEO");
+        asset.setOriginalFilename(originalName);
+        asset.setMimeType(contentType);
+        asset.setSizeBytes(size);
+        asset.setHash(hash);
+        asset.setStatus("PROCESSING");
+        asset.setTags("");
+        asset.setCreatedAt(LocalDateTime.now());
+        asset.setUpdatedAt(LocalDateTime.now());
+        asset = assetRepository.save(asset);
+
+        // 2) Upload ORIGINAL variant to storage
+        final String variantKey = "ORIGINAL";
+        final String objectKey = buildObjectKey(userId, asset.getId(), variantKey, extension);
+
+        try {
+            storage.put(
+                    assetsBucket,
+                    objectKey,
+                    bytes,
+                    contentType,
+                    Map.of(
+                            "userId", String.valueOf(userId),
+                            "assetId", String.valueOf(asset.getId()),
+                            "variantKey", variantKey,
+                            "filename", originalName,
+                            "hash", hash));
+        } catch (Exception e) {
+            asset.setStatus("FAILED");
+            asset.setUpdatedAt(LocalDateTime.now());
+            assetRepository.save(asset);
+            throw new RuntimeException("Failed to upload video to storage", e);
+        }
+
+        // 3) Save ORIGINAL variant row
+        StoredAssetVariantEntity originalVariant = new StoredAssetVariantEntity();
+        originalVariant.setAsset(asset);
+        originalVariant.setVariantKey(variantKey);
+        originalVariant.setBucket(assetsBucket);
+        originalVariant.setObjectKey(objectKey);
+        originalVariant.setCreatedAt(LocalDateTime.now());
+        originalVariant.setUpdatedAt(LocalDateTime.now());
+
+        try {
+            variantRepository.save(originalVariant);
+        } catch (Exception e) {
+            try { storage.delete(assetsBucket, objectKey); } catch (Exception ignored) {}
+            asset.setStatus("FAILED");
+            asset.setUpdatedAt(LocalDateTime.now());
+            assetRepository.save(asset);
+            throw new RuntimeException("Failed to save ORIGINAL variant in DB", e);
+        }
+
+        // 4) Trigger async variant generation
+        videoVariantService.generateVariants(asset);
+
+        List<StoredAssetVariantEntity> variants =
+                variantRepository.findAllByAssetIdOrderByCreatedAtDesc(asset.getId());
         return toDto(asset, variants);
     }
 
@@ -767,6 +864,8 @@ public class StoredAssetService {
         dto.setHash(asset.getHash());
         dto.setStatus(asset.getStatus());
         dto.setTags(parseTags(asset.getTags()));
+        dto.setDurationSeconds(asset.getDurationSeconds());
+        dto.setThumbnailMinioKey(asset.getThumbnailMinioKey());
         dto.setCreatedAt(asset.getCreatedAt());
         dto.setUpdatedAt(asset.getUpdatedAt());
 
@@ -779,6 +878,7 @@ public class StoredAssetService {
             vd.setObjectKey(ve.getObjectKey());
             vd.setWidth(ve.getWidth());
             vd.setHeight(ve.getHeight());
+            vd.setMetaVideoId(ve.getMetaVideoId());
             vd.setCreatedAt(ve.getCreatedAt());
             vd.setUpdatedAt(ve.getUpdatedAt());
             out.add(vd);

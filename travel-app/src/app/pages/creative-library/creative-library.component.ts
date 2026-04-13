@@ -22,6 +22,7 @@ interface StoredAssetVariantDto {
   objectKey: string;
   width: number | null;
   height: number | null;
+  metaVideoId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -35,6 +36,9 @@ interface StoredAssetDto {
   sizeBytes: number;
   hash: string;
   status: 'PROCESSING' | 'READY' | 'FAILED';
+  durationSeconds?: number;
+  thumbnailMinioKey?: string;
+  thumbnailUrl?: string;
   createdAt: string;
   updatedAt: string;
   variants: StoredAssetVariantDto[];
@@ -104,9 +108,6 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
   selectedPlatforms: Set<string> = new Set();
   readonly platforms = [
     { key: 'META', label: 'Meta', icon: 'facebook' },
-    { key: 'TIKTOK', label: 'TikTok', icon: 'music_video' },
-    { key: 'PINTEREST', label: 'Pinterest', icon: 'push_pin' },
-    { key: 'GOOGLE', label: 'Google Ads', icon: 'ads_click' },
   ];
 
   readonly META_VARIANTS = [
@@ -115,6 +116,10 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
     { key: 'META_VERTICAL_1080', label: '4:5 Feed (1080×1350)' },
     { key: 'META_STORIES_1080', label: '9:16 Stories (1080×1920)' },
     { key: 'META_LANDSCAPE_1200', label: '1.91:1 Landscape (1200×628)' },
+    { key: 'META_VIDEO_SQUARE', label: '1:1 Square (1080×1080)' },
+    { key: 'META_VIDEO_VERTICAL', label: '4:5 Vertical (1080×1350)' },
+    { key: 'META_VIDEO_LANDSCAPE', label: '1.91:1 Landscape (1200×628)' },
+    { key: 'META_VIDEO_STORY', label: '9:16 Story/Reels (1080×1920)' },
   ];
 
   // Blob object URL cache
@@ -137,6 +142,10 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
     META_VERTICAL_1080: '4:5 Feed (1080×1350)',
     META_STORIES_1080: '9:16 Stories (1080×1920)',
     META_LANDSCAPE_1200: '1.91:1 Landscape (1200×628)',
+    META_VIDEO_SQUARE: '1:1 Square (1080×1080)',
+    META_VIDEO_VERTICAL: '4:5 Vertical (1080×1350)',
+    META_VIDEO_LANDSCAPE: '1.91:1 Landscape (1200×628)',
+    META_VIDEO_STORY: '9:16 Story/Reels (1080×1920)',
   };
 
   // ── Create from Post ────────────────────────────────────────────────────────
@@ -188,7 +197,11 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
           this.applyFilters();
           this.preloadThumbnails();
         },
-        error: (err: any) => this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to load assets')),
+        error: (err: any) => {
+          if (!this.authStore.isSessionExpiredRedirect()) {
+            this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to load assets'));
+          }
+        },
       });
   }
 
@@ -292,7 +305,9 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
         this.toastr.success('Asset deleted');
       },
       error: (err: any) => {
-        this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to delete asset'));
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to delete asset'));
+        }
       },
     });
   }
@@ -321,6 +336,16 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
   }
 
   uploadFile(file: File): void {
+    const isVideo = file.type.startsWith('video/');
+
+    if (isVideo) {
+      this.uploadVideoFile(file);
+    } else {
+      this.uploadImageFile(file);
+    }
+  }
+
+  private uploadImageFile(file: File): void {
     this.isUploading = true;
     this.assetService
       .upload(file)
@@ -348,9 +373,70 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
           }
         },
         error: (err: any) => {
-          this.toastr.error(CoreService.extractErrorMessage(err, 'Upload failed'));
+          if (!this.authStore.isSessionExpiredRedirect()) {
+            this.toastr.error(CoreService.extractErrorMessage(err, 'Upload failed'));
+          }
         },
       });
+  }
+
+  private uploadVideoFile(file: File): void {
+    this.isUploading = true;
+    const formData = new FormData();
+    formData.append('file', file);
+    this.assetService
+      .uploadVideo(formData)
+      .pipe(
+        finalize(() => {
+          this.isUploading = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (res: any) => {
+          const uploaded: StoredAssetDto = res?.data ?? res;
+          if (uploaded) {
+            this.assets.unshift(uploaded);
+            this.applyFilters();
+            this.toastr.info('Video uploaded. Processing variants in the background...');
+            this.pollAssetStatus(uploaded.id);
+          }
+        },
+        error: (err: any) => {
+          if (!this.authStore.isSessionExpiredRedirect()) {
+            this.toastr.error(CoreService.extractErrorMessage(err, 'Video upload failed'));
+          }
+        },
+      });
+  }
+
+  pollAssetStatus(assetId: number): void {
+    const pollInterval = setInterval(() => {
+      this.assetService.getAssetStatus(assetId).subscribe({
+        next: (status) => {
+          if (status.status === 'READY') {
+            clearInterval(pollInterval);
+            this.assetService.getById(assetId).subscribe(updated => {
+              const idx = this.assets.findIndex(a => a.id === assetId);
+              if (idx !== -1) {
+                this.assets[idx] = updated;
+                this.applyFilters();
+                this.cdr.detectChanges();
+              }
+            });
+            this.toastr.success('Video processed and ready to publish');
+          } else if (status.status === 'FAILED') {
+            clearInterval(pollInterval);
+            if (!this.authStore.isSessionExpiredRedirect()) {
+              this.toastr.error('Video processing failed. Please try again.');
+            }
+          }
+        },
+        error: () => clearInterval(pollInterval),
+      });
+    }, 5000);
+    // Stop polling after 10 minutes
+    setTimeout(() => clearInterval(pollInterval), 10 * 60 * 1000);
   }
 
   // ── Detail Modal ────────────────────────────────────────────────────────────
@@ -385,13 +471,21 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
   openPublishModal(asset: StoredAssetDto, event?: Event): void {
     event?.stopPropagation();
     this.publishAsset = asset;
-    const preferred = [
+    const preferredImage = [
       'META_SQUARE_1080',
       'META_VERTICAL_1080',
       'META_STORIES_1080',
       'META_LANDSCAPE_1200',
       'ORIGINAL',
     ];
+    const preferredVideo = [
+      'META_VIDEO_SQUARE',
+      'META_VIDEO_VERTICAL',
+      'META_VIDEO_LANDSCAPE',
+      'META_VIDEO_STORY',
+      'ORIGINAL',
+    ];
+    const preferred = asset.assetType === 'VIDEO' ? preferredVideo : preferredImage;
     const available = asset.variants.map((v) => v.variantKey);
     this.publishVariantKey =
       preferred.find((k) => available.includes(k)) ??
@@ -416,45 +510,85 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
       ? this.actId
       : `${this.actId}`;
 
-    this.creativeService
-      .uploadAdImageFromStoredAsset(
-        adAccountId,
-        this.publishAsset.id,
-        this.publishVariantKey,
-      )
-      .pipe(
-        switchMap(() => {
-          const body = {
-            name: this.publishCreativeName || undefined,
-            linkUrl: this.publishLinkUrl || undefined,
-          };
-          return this.creativeService.createCreativeFromStoredAsset(
-            this.publishAsset!.id,
-            this.publishVariantKey,
-            'META',
-            adAccountId,
-            body,
-          );
-        }),
-        finalize(() => {
-          this.isPublishing = false;
-          this.cdr.detectChanges();
-        }),
-      )
-      .subscribe({
-        next: () => {
-          this.toastr.success('Creative published to Meta successfully');
-          this.closePublishModal();
-          if (this.embeddedMode) {
-            this.closePanel.emit();
-          } else {
-            this.loadAssets();
-          }
-        },
-        error: (err: any) => {
-          this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to publish to Meta'));
-        },
-      });
+    const isVideo = this.publishAsset.assetType === 'VIDEO';
+    const body = {
+      name: this.publishCreativeName || undefined,
+      linkUrl: this.publishLinkUrl || undefined,
+    };
+
+    if (isVideo) {
+      // For VIDEO: skip image upload, go directly to createCreativeFromStoredAsset
+      // The backend handles Meta video upload internally
+      this.creativeService
+        .createCreativeFromStoredAsset(
+          this.publishAsset.id,
+          this.publishVariantKey,
+          'META',
+          adAccountId,
+          body,
+        )
+        .pipe(
+          finalize(() => {
+            this.isPublishing = false;
+            this.cdr.detectChanges();
+          }),
+        )
+        .subscribe({
+          next: () => {
+            this.toastr.success('Video creative published to Meta successfully');
+            this.closePublishModal();
+            if (this.embeddedMode) {
+              this.closePanel.emit();
+            } else {
+              this.loadAssets();
+            }
+          },
+          error: (err: any) => {
+            if (!this.authStore.isSessionExpiredRedirect()) {
+              this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to publish video to Meta'));
+            }
+          },
+        });
+    } else {
+      // IMAGE: existing flow unchanged
+      this.creativeService
+        .uploadAdImageFromStoredAsset(
+          adAccountId,
+          this.publishAsset.id,
+          this.publishVariantKey,
+        )
+        .pipe(
+          switchMap(() => {
+            return this.creativeService.createCreativeFromStoredAsset(
+              this.publishAsset!.id,
+              this.publishVariantKey,
+              'META',
+              adAccountId,
+              body,
+            );
+          }),
+          finalize(() => {
+            this.isPublishing = false;
+            this.cdr.detectChanges();
+          }),
+        )
+        .subscribe({
+          next: () => {
+            this.toastr.success('Creative published to Meta successfully');
+            this.closePublishModal();
+            if (this.embeddedMode) {
+              this.closePanel.emit();
+            } else {
+              this.loadAssets();
+            }
+          },
+          error: (err: any) => {
+            if (!this.authStore.isSessionExpiredRedirect()) {
+              this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to publish to Meta'));
+            }
+          },
+        });
+    }
   }
 
   // ── Platform Modal ──────────────────────────────────────────────────────────
@@ -517,7 +651,9 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       },
       error: (err: any) => {
-        this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to load posts'));
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to load posts'));
+        }
         this.isLoadingPosts = false;
         this.cdr.detectChanges();
       },
@@ -559,7 +695,9 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
 
   createFromPost(): void {
     if (!this.selectedPage || !this.selectedPost) {
-      this.toastr.error('Please select a page and a post');
+      if (!this.authStore.isSessionExpiredRedirect()) {
+        this.toastr.error('Please select a page and a post');
+      }
       return;
     }
     this.isCreatingFromPost = true;
@@ -587,7 +725,9 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
         },
         error: (err: any) => {
           setTimeout(() => {
-            this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to create creative'));
+            if (!this.authStore.isSessionExpiredRedirect()) {
+              this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to create creative'));
+            }
             this.isCreatingFromPost = false;
           });
         },
@@ -611,7 +751,23 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
     return asset.assetType === 'IMAGE';
   }
 
+  isVideo(asset: StoredAssetDto): boolean {
+    return asset.assetType === 'VIDEO';
+  }
+
+  formatDuration(seconds: number): string {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+
+  filterByType(type: 'ALL' | 'IMAGE' | 'VIDEO'): void {
+    this.filterType = type;
+    this.applyFilters();
+  }
+
   trackById(_: number, a: StoredAssetDto): number {
     return a.id;
   }
 }
+

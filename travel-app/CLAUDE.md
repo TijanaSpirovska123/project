@@ -121,3 +121,50 @@ npm test         # Karma unit tests
 - Meta standard events list (`SE_LIST`) lives in `meta.component.ts` (100+ conversion events)
 - Image variants are generated server-side: `ORIGINAL`, `META_SQUARE_1080`, `META_PORTRAIT_1080`, `META_LANDSCAPE_1080`, `META_STORY_1080`
 - Platform key is `'META'` (uppercase enum value) throughout
+
+## Dark Mode & Light Mode — Mandatory Rule
+
+This app always runs in two modes: **light** (default) and **dark** (`[data-theme="dark"]`).
+
+**Every new component, panel, modal, drawer, or UI element MUST have dark mode styles at the time it is created — not as an afterthought.**
+
+### Where to add dark mode styles
+
+All dark mode overrides live in `src/styles.scss` inside the `[data-theme="dark"] { }` block.
+Component `.scss` files use hardcoded SCSS variables for light mode — do NOT add `:host` or component-level dark overrides. Keep all dark mode in `styles.scss`.
+
+### Pattern for every new element
+
+1. Write the light mode styles in the component `.scss` file using the existing SCSS variables (`$bg-card`, `$text-primary`, `$border`, etc.)
+2. Immediately add a matching dark mode block in `src/styles.scss` under `[data-theme="dark"]` using the design palette variables:
+   - Backgrounds: `$clr-surface-tonal-a0` (card), `$clr-surface-a0` (page), `$clr-surface-tonal-a10` (input/subtle)
+   - Text: `$clr-primary-a50` (body), `$clr-primary-a40` (heading), `$clr-surface-tonal-a50` (muted/secondary)
+   - Borders: `$clr-surface-tonal-a20`
+   - Accent: `$clr-primary-a0` (teal)
+
+### Checklist before finishing any new UI work
+
+- [ ] Opened the app in dark mode and verified every element is visible
+- [ ] No white/light backgrounds in dark mode
+- [ ] No dark text on dark backgrounds
+- [ ] Added dark mode block in `styles.scss` under the correct component comment section
+- [ ] Slide-in panels, modals, and drawers styled for both modes
+
+## Session Expiry Behavior
+
+When a 401 is received from the backend due to JWT expiry:
+1. AuthStoreService.markSessionExpired() is called
+2. All existing toasts are cleared (toastr.clear())
+3. User is redirected to /login
+4. No error toast messages are shown during this redirect
+
+When showing error toasts in any service or component, always check before showing:
+
+  if (!this.authStore.isSessionExpiredRedirect()) {
+    this.toastr.error('message');
+  }
+
+The sessionExpired flag resets automatically when the user logs in again.
+
+Note: META_TOKEN_EXPIRED (401 with code META_TOKEN_EXPIRED) is handled
+separately — it does not log the user out and has its own notification flow.

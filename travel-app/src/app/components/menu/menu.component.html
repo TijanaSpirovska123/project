@@ -84,4 +84,12 @@
     <span class="material-symbols-outlined">{{ item.icon }}</span>
     <span class="mob-label">{{ item.label }}</span>
   </a>
+  <button class="mob-tab mob-tab-button" (click)="theme.toggle()" type="button">
+    <span class="material-symbols-outlined">{{ theme.isDark ? 'light_mode' : 'dark_mode' }}</span>
+    <span class="mob-label">{{ theme.isDark ? 'Light' : 'Dark' }}</span>
+  </button>
+  <button class="mob-tab mob-tab-button" (click)="logout()" type="button">
+    <span class="material-symbols-outlined">{{ isLoggedIn ? 'logout' : 'login' }}</span>
+    <span class="mob-label">{{ isLoggedIn ? 'Log Out' : 'Sign In' }}</span>
+  </button>
 </nav>

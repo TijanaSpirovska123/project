@@ -15,6 +15,7 @@ import com.example.marketing.asset.entity.StoredAssetEntity;
 import com.example.marketing.asset.entity.StoredAssetVariantEntity;
 import com.example.marketing.asset.repository.StoredAssetRepository;
 import com.example.marketing.asset.repository.StoredAssetVariantRepository;
+import com.example.marketing.asset.service.MetaVideoUploadService;
 import com.example.marketing.asset.storage.ObjectStorageClient;
 import com.example.marketing.exception.BusinessException;
 import com.example.marketing.exception.StatusErrorResponse;
@@ -66,6 +67,7 @@ public class AdCreativeService {
     private final StoredAssetRepository storedAssetRepository;
     private final StoredAssetVariantRepository storedAssetVariantRepository;
     private final ObjectStorageClient storage;
+    private final MetaVideoUploadService metaVideoUploadService;
 
     @Value("${facebook.login.marketing.ad-account-id:}")
     private String defaultAdAccountId;
@@ -83,7 +85,8 @@ public class AdCreativeService {
             CreativeStrategyRegistry strategyRegistry,
             StoredAssetRepository storedAssetRepository,
             StoredAssetVariantRepository storedAssetVariantRepository,
-            ObjectStorageClient storage
+            ObjectStorageClient storage,
+            MetaVideoUploadService metaVideoUploadService
     ) {
         this.creativeRepository = creativeRepository;
         this.creativeMapper = creativeMapper;
@@ -98,6 +101,7 @@ public class AdCreativeService {
         this.storedAssetRepository = storedAssetRepository;
         this.storedAssetVariantRepository = storedAssetVariantRepository;
         this.storage = storage;
+        this.metaVideoUploadService = metaVideoUploadService;
     }
 
     /* =========================
@@ -257,8 +261,11 @@ public class AdCreativeService {
         if (!Objects.equals(asset.getUser().getId(), userId))
             throw BusinessException.forbidden("You do not own stored asset with id " + storedAssetId);
 
-        if (!"IMAGE".equalsIgnoreCase(asset.getAssetType()))
-            throw BusinessException.badRequest("Only IMAGE assets are supported. Asset " + storedAssetId
+        boolean isVideo = "VIDEO".equalsIgnoreCase(asset.getAssetType());
+        boolean isImage = "IMAGE".equalsIgnoreCase(asset.getAssetType());
+
+        if (!isImage && !isVideo)
+            throw BusinessException.badRequest("Only IMAGE or VIDEO assets are supported. Asset " + storedAssetId
                     + " is of type " + asset.getAssetType());
 
         if ("ARCHIVED".equalsIgnoreCase(asset.getStatus()))
@@ -274,11 +281,13 @@ public class AdCreativeService {
                 ? in.getName()
                 : "Creative_" + UUID.randomUUID();
 
+        String scopedAdAccountId = resolveAdAccountId(adAccountId);
+
         CreativeEntity e = new CreativeEntity();
         e.setName(safeName);
         e.setPlatform(platform.name());
         e.setUser(user);
-        e.setAdAccountId(resolveAdAccountId(adAccountId));
+        e.setAdAccountId(scopedAdAccountId);
         e.setLinkUrl(in.getObjectUrl());
         e.setPageId(in.getPageId());
         e = creativeRepository.save(e);
@@ -287,10 +296,38 @@ public class AdCreativeService {
                 .creative(e)
                 .asset(asset)
                 .variant(variant)
-                .role(CreativeAssetEntity.Role.PRIMARY_IMAGE)
+                .role(isVideo ? CreativeAssetEntity.Role.VIDEO : CreativeAssetEntity.Role.PRIMARY_IMAGE)
                 .sortOrder(0)
                 .build();
         creativeAssetRepository.save(ca);
+
+        // For VIDEO assets, upload to Meta and create video creative on platform
+        if (platform == Provider.META && isVideo) {
+            String metaVideoId;
+            if (variant.getMetaVideoId() != null && !variant.getMetaVideoId().isBlank()) {
+                // Already uploaded to Meta — reuse existing video_id
+                metaVideoId = variant.getMetaVideoId();
+                log.info("Reusing existing Meta video_id {} for asset {} variant {}",
+                        metaVideoId, storedAssetId, vKey);
+            } else {
+                log.info("Uploading video asset {} variant {} to Meta for account {}",
+                        storedAssetId, vKey, scopedAdAccountId);
+                metaVideoId = metaVideoUploadService.uploadVideoToMeta(variant, userId, scopedAdAccountId);
+            }
+
+            CreativeDto videoCreativeDto = new CreativeDto();
+            videoCreativeDto.setName(safeName);
+            videoCreativeDto.setPageId(in.getPageId());
+            videoCreativeDto.setVideoId(metaVideoId);
+            videoCreativeDto.setObjectUrl(in.getObjectUrl());
+            videoCreativeDto.setUserId(userId);
+            videoCreativeDto.setAdAccountId(scopedAdAccountId);
+            videoCreativeDto.setPlatform(platform.name());
+
+            String platformCreativeId = createCreativeOnPlatform(user, videoCreativeDto, platform);
+            e.setExternalId(platformCreativeId);
+            e = creativeRepository.save(e);
+        }
 
         return creativeMapper.convertToBaseDto(e);
     }

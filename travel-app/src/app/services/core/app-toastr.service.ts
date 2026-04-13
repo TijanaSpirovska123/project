@@ -20,4 +20,8 @@ export class AppToastrService {
   info(message: string, title?: string): void {
     this.toastr.info(message, title, { timeOut: 4000 });
   }
+
+  clear(): void {
+    this.toastr.clear();
+  }
 }

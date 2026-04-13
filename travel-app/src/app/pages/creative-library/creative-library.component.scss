@@ -339,6 +339,45 @@
   }
 }
 
+.asset-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.overlay-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  color: #20233a;
+  font-size: 13px;
+
+  &:hover:not(:disabled) {
+    background: white;
+    transform: scale(1.1);
+  }
+
+  &.overlay-btn-danger {
+    &:hover:not(:disabled) {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+  }
+}
+
 .upload-card-inner {
   display: flex;
   flex-direction: column;
@@ -1186,4 +1225,78 @@
   border-top-color: white;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
+}
+
+// ─── Video / Processing / Failed Overlays ─────────────────────────────────────
+.video-thumb-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+
+  svg {
+    width: 32px;
+    height: 32px;
+    color: white;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+  }
+}
+
+.duration-badge {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.75);
+  color: white;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.processing-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.failed-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 235, 238, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #C62828;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.type-tag-video {
+  background: #EDE7F6;
+  color: #4527A0;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
 }

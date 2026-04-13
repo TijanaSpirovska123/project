@@ -18,6 +18,10 @@ public class StoredAssetDto {
     private String status;
     private List<String> tags;
 
+    // Video-specific fields
+    private Integer durationSeconds;
+    private String thumbnailMinioKey;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

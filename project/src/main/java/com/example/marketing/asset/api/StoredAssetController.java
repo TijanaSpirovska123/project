@@ -32,6 +32,28 @@ public class StoredAssetController extends BaseController {
         return ok(service.uploadOriginal(userId, file));
     }
 
+    @PostMapping(value = "/upload/video", consumes = MULTIPART_FORM_DATA_VALUE)
+    public BaseResponse<StoredAssetDto> uploadVideo(Authentication auth,
+                                                    @RequestParam("file") MultipartFile file) {
+        Long userId = extractUserId(auth);
+        String contentType = file.getContentType();
+        if (contentType == null || !isValidVideoType(contentType)) {
+            throw new IllegalArgumentException("Invalid video type. Supported: MP4, MOV, AVI");
+        }
+        if (file.getSize() > 4L * 1024 * 1024 * 1024) {
+            throw new IllegalArgumentException("Video file too large. Maximum size is 4GB");
+        }
+        return ok(service.uploadVideo(userId, file));
+    }
+
+    private static boolean isValidVideoType(String contentType) {
+        return contentType.equals("video/mp4")
+                || contentType.equals("video/quicktime")
+                || contentType.equals("video/avi")
+                || contentType.equals("video/x-msvideo")
+                || contentType.equals("video/mov");
+    }
+
     @GetMapping
     public BaseResponse<List<StoredAssetDto>> list(Authentication auth,
                                                     @RequestParam(required = false) List<String> tags) {

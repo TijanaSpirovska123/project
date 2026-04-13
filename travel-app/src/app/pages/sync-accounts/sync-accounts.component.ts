@@ -135,7 +135,9 @@ export class SyncAccountsComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           this.isConnecting = false;
-          this.toastr.error(CoreService.extractErrorMessage(err, 'Meta connection failed'), 'Error');
+          if (!this.authStore.isSessionExpiredRedirect()) {
+            this.toastr.error(CoreService.extractErrorMessage(err, 'Meta connection failed'), 'Error');
+          }
         },
       });
     }
@@ -190,7 +192,9 @@ export class SyncAccountsComponent implements OnInit, OnDestroy {
               error: (err: any) => {
                 platform.syncing = false; this.syncStep = ''; this.syncStepNum = 0;
                 this.cdr.detectChanges();
-                this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to sync ads'));
+                if (!this.authStore.isSessionExpiredRedirect()) {
+                  this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to sync ads'));
+                }
               },
             });
           },
@@ -204,7 +208,9 @@ export class SyncAccountsComponent implements OnInit, OnDestroy {
       error: (err: any) => {
         platform.syncing = false; this.syncStep = ''; this.syncStepNum = 0;
         this.cdr.detectChanges();
-        this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to sync campaigns'));
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to sync campaigns'));
+        }
       },
     });
   }
@@ -242,7 +248,9 @@ export class SyncAccountsComponent implements OnInit, OnDestroy {
           this.cdr.detectChanges();
         },
         error: (err) => {
-          this.toastr.error(CoreService.extractErrorMessage(err, 'Disconnect failed'), 'Error');
+          if (!this.authStore.isSessionExpiredRedirect()) {
+            this.toastr.error(CoreService.extractErrorMessage(err, 'Disconnect failed'), 'Error');
+          }
         },
       });
     }

@@ -36,7 +36,7 @@
     gap: 20px;
     width: 100%;
     li {
-      margin: 0; /* No margin between items */
+      margin: 0;
       width: calc(100% - 5px);
 
       .menu-item {
@@ -215,15 +215,14 @@
   height: 50px;
   width: 45px;
   margin-left: 5px;
-  margin-bottom: 20px; /* Add margin at the bottom */
-  position: absolute; /* Position the button */
-  bottom: 0; /* Align it to the bottom of the container */
-  left: 0; /* Align it to the left of the container */
+  margin-bottom: 20px;
+  position: absolute;
+  bottom: 0;
+  left: 0;
   transition: width 0.5s ease !important;
 
   &.theme-toggle {
     bottom: 56px;
-    // Divider above the bottom button group
     &::before {
       content: '';
       position: absolute;
@@ -274,7 +273,6 @@
   }
 }
 
-// ─── Mobile Bottom Navigation Bar ────────────────────────────────────────────
 .mobile-bottom-nav {
   display: none;
   position: fixed;
@@ -286,10 +284,19 @@
   border-top: 1px solid #E5E7EB;
   z-index: 1000;
   padding-bottom: env(safe-area-inset-bottom);
-
+  padding-inline: 6px;
   display: flex;
   align-items: center;
-  justify-content: space-around;
+  justify-content: center;
+  gap: 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 
   .mob-tab {
     display: flex;
@@ -297,14 +304,21 @@
     align-items: center;
     gap: 2px;
     padding: 4px 8px;
-    min-width: 44px;
+    min-width: 58px;
     min-height: 44px;
+    flex: 0 0 auto;
     justify-content: center;
     cursor: pointer;
     border-top: 2px solid transparent;
     color: #6B7280;
     text-decoration: none;
+    background: transparent;
     transition: color 0.15s, border-color 0.15s;
+
+    &.mob-tab-button {
+      border: none;
+      font: inherit;
+    }
 
     &.active {
       color: #10B981;
@@ -317,6 +331,7 @@
       font-size: 10px;
       font-weight: 500;
       letter-spacing: 0.02em;
+      white-space: nowrap;
     }
   }
 
@@ -333,3 +348,4 @@
     display: flex !important;
   }
 }
+

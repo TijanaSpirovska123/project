@@ -46,6 +46,9 @@ public class StoredAssetVariantEntity {
     @Column(name = "height")
     private Integer height;
 
+    @Column(name = "meta_video_id")
+    private String metaVideoId;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 

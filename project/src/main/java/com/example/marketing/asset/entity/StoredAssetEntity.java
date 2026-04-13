@@ -50,6 +50,12 @@ public class StoredAssetEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private UserEntity user;
 
+    @Column(name = "duration_seconds")
+    private Integer durationSeconds;
+
+    @Column(name = "thumbnail_minio_key", length = 500)
+    private String thumbnailMinioKey;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 

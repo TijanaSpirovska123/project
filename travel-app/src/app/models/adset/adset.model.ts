@@ -5,6 +5,7 @@ export interface StoredAssetVariantDto {
   objectKey: string;
   width: number | null;
   height: number | null;
+  metaVideoId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -18,9 +19,34 @@ export interface StoredAssetDto {
   sizeBytes: number;
   hash: string;
   status: 'PROCESSING' | 'READY' | 'FAILED';
+  durationSeconds?: number;
+  thumbnailMinioKey?: string;
+  thumbnailUrl?: string;
   createdAt: string;
   updatedAt: string;
   variants: StoredAssetVariantDto[];
+}
+
+export interface StoredAssetStatusDto {
+  id: number;
+  status: string;
+  assetType: string;
+  variantCount: number;
+}
+
+export function getVariantDisplayName(variantType: string): string {
+  const names: Record<string, string> = {
+    'ORIGINAL':              'Original',
+    'META_SQUARE_1080':      '1:1 Square (1080×1080)',
+    'META_VERTICAL_1080':    '4:5 Vertical (1080×1350)',
+    'META_STORIES_1080':     '9:16 Story (1080×1920)',
+    'META_LANDSCAPE_1200':   '1.91:1 Landscape (1200×628)',
+    'META_VIDEO_SQUARE':     '1:1 Square (1080×1080)',
+    'META_VIDEO_VERTICAL':   '4:5 Vertical (1080×1350)',
+    'META_VIDEO_LANDSCAPE':  '1.91:1 Landscape (1200×628)',
+    'META_VIDEO_STORY':      '9:16 Story/Reels (1080×1920)',
+  };
+  return names[variantType] ?? variantType;
 }
 
 export interface AdAssetDto {

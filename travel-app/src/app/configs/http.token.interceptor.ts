@@ -57,6 +57,8 @@ export class AuthInterceptor implements HttpInterceptor {
           }
 
           // Regular 401 — app JWT expired or invalid, full logout
+          this.authStore.markSessionExpired();
+          this.toastr.clear();
           this.authStore.logout();
           this.router.navigate(['/login']);
         }

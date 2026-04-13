@@ -2619,7 +2619,9 @@ export class MetaComponent implements OnInit {
         }
       },
       error: (err: any) => {
-        this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to fetch campaigns'));
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to fetch campaigns'));
+        }
         this.finishRequest();
       },
     });
@@ -2647,7 +2649,9 @@ export class MetaComponent implements OnInit {
         }
       },
       error: (err: any) => {
-        this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to fetch ad sets'));
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to fetch ad sets'));
+        }
         this.finishRequest();
       },
     });
@@ -2675,7 +2679,9 @@ export class MetaComponent implements OnInit {
         }
       },
       error: (err: any) => {
-        this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to fetch ads'));
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to fetch ads'));
+        }
         this.finishRequest();
       },
     });
@@ -2829,7 +2835,9 @@ export class MetaComponent implements OnInit {
     )?.value;
 
     if (!platform || !externalId) {
-      this.toastr.error('Missing platform or external ID for this item');
+      if (!this.authStore.isSessionExpiredRedirect()) {
+        this.toastr.error('Missing platform or external ID for this item');
+      }
       return;
     }
 
@@ -2879,7 +2887,9 @@ export class MetaComponent implements OnInit {
         if (statusRow) statusRow.value = currentStatus;
         if (badgeRow) badgeRow.value = currentStatus;
         if (toggleRow) toggleRow.value = currentStatus;
-        this.toastr.error(CoreService.extractErrorMessage(err, `Failed to update ${entityLabel} status`));
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error(CoreService.extractErrorMessage(err, `Failed to update ${entityLabel} status`));
+        }
         this.cdr.detectChanges();
       },
     });
@@ -2893,7 +2903,11 @@ export class MetaComponent implements OnInit {
         this.toastr.success('Campaign deleted successfully!');
         this.fetchCampaigns();
       },
-      error: (err: any) => this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to delete campaign')),
+      error: (err: any) => {
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to delete campaign'));
+        }
+      },
     });
   }
 
@@ -2969,7 +2983,9 @@ export class MetaComponent implements OnInit {
 
   onSubmit(): void {
     if (!this.formGroup.valid) {
-      this.toastr.error('Please fill all required fields');
+      if (!this.authStore.isSessionExpiredRedirect()) {
+        this.toastr.error('Please fill all required fields');
+      }
       return;
     }
 
@@ -2994,10 +3010,13 @@ export class MetaComponent implements OnInit {
         this.isModalOpen = false;
         this.fetchCampaigns();
       },
-      error: (err: any) =>
-        this.toastr.error(
-          CoreService.extractErrorMessage(err, `Failed to ${this.isEdit ? 'update' : 'create'} campaign`),
-        ),
+      error: (err: any) => {
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error(
+            CoreService.extractErrorMessage(err, `Failed to ${this.isEdit ? 'update' : 'create'} campaign`),
+          );
+        }
+      },
     });
   }
 

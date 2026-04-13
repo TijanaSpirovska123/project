@@ -71,7 +71,7 @@
       Upload
       <input
         type="file"
-        accept="image/*,video/mp4"
+        accept="image/*,video/mp4,video/quicktime,video/avi"
         (change)="onFileInputChange($event)"
         hidden
       />
@@ -142,7 +142,7 @@
         </app-empty-state>
         <label class="upload-btn secondary">
           Browse Files
-          <input type="file" accept="image/*,video/mp4" (change)="onFileInputChange($event)" hidden />
+          <input type="file" accept="image/*,video/mp4,video/quicktime,video/avi" (change)="onFileInputChange($event)" hidden />
         </label>
         <p class="drop-hint">Supports: JPG, PNG, WebP, MP4 · Max 25 MB</p>
       </div>
@@ -173,7 +173,7 @@
         <span>Upload</span>
         <input
           type="file"
-          accept="image/*,video/mp4"
+          accept="image/*,video/mp4,video/quicktime,video/avi"
           (change)="onFileInputChange($event)"
           hidden
         />
@@ -187,39 +187,64 @@
       (click)="openDetail(asset)"
     >
       <div class="asset-thumb">
+        <!-- IMAGE: show cached thumbnail blob -->
         <img
-          *ngIf="
-            isImage(asset) && asset.status === 'READY' && getThumbUrl(asset)
-          "
+          *ngIf="isImage(asset) && asset.status === 'READY' && getThumbUrl(asset)"
           [src]="getThumbUrl(asset)"
           [alt]="asset.originalFilename"
         />
+
+        <!-- VIDEO READY: show placeholder with play overlay and duration badge -->
+        <ng-container *ngIf="isVideo(asset) && asset.status === 'READY'">
+          <div class="asset-thumb-placeholder video-thumb-wrap">
+            <mat-icon>videocam</mat-icon>
+          </div>
+          <div class="play-overlay">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+          </div>
+          <span class="duration-badge" *ngIf="asset.durationSeconds">
+            {{ formatDuration(asset.durationSeconds) }}
+          </span>
+        </ng-container>
+
+        <!-- IMAGE placeholder (no blob yet or not READY) -->
         <div
           class="asset-thumb-placeholder"
-          *ngIf="
-            !isImage(asset) || asset.status !== 'READY' || !getThumbUrl(asset)
-          "
+          *ngIf="isImage(asset) && (asset.status !== 'READY' || !getThumbUrl(asset))"
         >
-          <mat-icon>{{
-            asset.assetType === "VIDEO" ? "videocam" : "image"
-          }}</mat-icon>
+          <mat-icon>image</mat-icon>
         </div>
-        <span class="status-badge" [class]="asset.status.toLowerCase()">
+
+        <!-- PROCESSING overlay -->
+        <div class="processing-overlay" *ngIf="asset.status === 'PROCESSING'">
+          <div class="spinner" style="width:24px;height:24px;border-width:3px;"></div>
+          <span>Processing…</span>
+        </div>
+
+        <!-- FAILED overlay -->
+        <div class="failed-overlay" *ngIf="asset.status === 'FAILED'">
+          <mat-icon style="color:#C62828;margin-right:4px;">error_outline</mat-icon>
+          <span>Failed</span>
+        </div>
+
+        <span class="status-badge" [class]="asset.status.toLowerCase()" *ngIf="asset.status === 'READY'">
           {{ asset.status }}
         </span>
-        <span class="variant-count" *ngIf="asset.variants.length > 0">
+        <span class="variant-count" *ngIf="asset.variants.length > 0 && asset.status === 'READY'">
           {{ getVariantCountForPlatform(asset) }}
           {{ filterPlatform !== 'ALL' ? filterPlatform + ' ' : '' }}variant{{ getVariantCountForPlatform(asset) !== 1 ? 's' : '' }}
         </span>
         <!-- Hover overlay with quick actions -->
         <div class="asset-card-overlay">
-          <button class="overlay-btn" (click)="openPublishModal(asset, $event)" title="Publish">
+          <button class="overlay-btn" (click)="openPlatformModal(asset, $event)" title="Publish">
             <i class="fa fa-share-alt"></i>
           </button>
           <button class="overlay-btn" title="Edit Tags (coming soon)" disabled style="opacity:0.4; cursor:default;">
             <i class="fa fa-tag"></i>
           </button>
-          <button class="overlay-btn overlay-btn-danger" (click)="deleteAsset(asset, $event)" title="Delete">
+          <button *ngIf="isVideo(asset)" class="overlay-btn overlay-btn-danger" (click)="deleteAsset(asset, $event)" title="Delete">
             <i class="fa fa-trash"></i>
           </button>
         </div>
@@ -227,10 +252,7 @@
       <div class="asset-footer">
         <span class="asset-name">{{ asset.originalFilename }}</span>
         <div class="asset-meta">
-          <span
-            class="asset-type-badge"
-            [class]="asset.assetType.toLowerCase()"
-          >
+          <span class="asset-type-badge" [class]="asset.assetType.toLowerCase()">
             {{ asset.assetType }}
           </span>
           <span class="asset-size">{{ formatFileSize(asset.sizeBytes) }}</span>
@@ -378,9 +400,23 @@
       class="platform-modal-body"
       style="display: flex; flex-direction: column; gap: 16px"
     >
-      <p style="margin: 0; font-size: 0.85rem; color: #64748b">
+      <p style="margin: 0; font-size: 0.85rem; color: #64748b; display:flex; align-items:center; gap:8px;">
         Publishing: <strong>{{ publishAsset?.originalFilename }}</strong>
+        <span
+          class="asset-type-badge"
+          [class]="publishAsset?.assetType?.toLowerCase()"
+          style="position:static;"
+        >{{ publishAsset?.assetType }}</span>
       </p>
+
+      <!-- VIDEO-specific note -->
+      <div
+        *ngIf="publishAsset?.assetType === 'VIDEO'"
+        style="background:#EDE7F6; color:#4527A0; border-radius:8px; padding:10px 14px; font-size:0.82rem; display:flex; align-items:flex-start; gap:8px;"
+      >
+        <mat-icon style="font-size:16px;width:16px;height:16px;margin-top:1px;flex-shrink:0;">info</mat-icon>
+        <span>Video will be uploaded and processed by Meta before the ad goes live.</span>
+      </div>
 
       <div class="publish-field">
         <label class="publish-label">Ad variant</label>
@@ -434,7 +470,8 @@
           *ngIf="isPublishing"
           style="display: flex; align-items: center; gap: 6px"
         >
-          <span class="mini-spinner"></span> Publishing…
+          <span class="mini-spinner"></span>
+          {{ publishAsset?.assetType === 'VIDEO' ? 'Uploading video to Meta…' : 'Publishing…' }}
         </span>
       </button>
       <button class="btn-cancel" (click)="closePublishModal()">Cancel</button>
@@ -616,3 +653,4 @@
     </div>
   </div>
 </div>
+

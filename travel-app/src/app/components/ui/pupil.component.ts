@@ -1,8 +1,8 @@
 import {
   Component, Input, OnInit, OnDestroy, AfterViewInit, OnChanges,
-  SimpleChanges, ViewChild, ElementRef, ChangeDetectorRef,
+  SimpleChanges, ViewChild, ElementRef, ChangeDetectorRef, Inject, PLATFORM_ID,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 
 @Component({
   selector: 'app-pupil',
@@ -29,8 +29,14 @@ export class PupilComponent implements OnInit, OnDestroy, AfterViewInit, OnChang
   pos = { x: 0, y: 0 };
   private mouseX = 0;
   private mouseY = 0;
+  private readonly isBrowser: boolean;
 
-  constructor(private cdr: ChangeDetectorRef) {}
+  constructor(
+    private cdr: ChangeDetectorRef,
+    @Inject(PLATFORM_ID) platformId: Object,
+  ) {
+    this.isBrowser = isPlatformBrowser(platformId);
+  }
 
   private onMouseMove = (e: MouseEvent) => {
     this.mouseX = e.clientX;
@@ -39,9 +45,24 @@ export class PupilComponent implements OnInit, OnDestroy, AfterViewInit, OnChang
     this.cdr.markForCheck();
   };
 
-  ngOnInit() { window.addEventListener('mousemove', this.onMouseMove); }
-  ngAfterViewInit() { this.update(); }
-  ngOnDestroy() { window.removeEventListener('mousemove', this.onMouseMove); }
+  ngOnInit() {
+    if (this.isBrowser) {
+      window.addEventListener('mousemove', this.onMouseMove);
+    }
+  }
+
+  ngAfterViewInit() {
+    if (this.isBrowser) {
+      this.update();
+    }
+  }
+
+  ngOnDestroy() {
+    if (this.isBrowser) {
+      window.removeEventListener('mousemove', this.onMouseMove);
+    }
+  }
+
   ngOnChanges(c: SimpleChanges) {
     if (c['forceLookX'] || c['forceLookY']) this.update();
   }
@@ -60,3 +81,4 @@ export class PupilComponent implements OnInit, OnDestroy, AfterViewInit, OnChang
     this.pos = { x: Math.cos(angle) * dist, y: Math.sin(angle) * dist };
   }
 }
+

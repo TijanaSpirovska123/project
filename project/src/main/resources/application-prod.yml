@@ -1,0 +1,35 @@
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+server:
+  forward-headers-strategy: framework
+
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS}
+
+meta:
+  redirect-uri: ${META_REDIRECT_URI}
+
+frontend:
+  success-redirect-url: ${FRONTEND_SUCCESS_URL}
+  failure-redirect-url: ${FRONTEND_FAILURE_URL}
+  login-url: ${FRONTEND_LOGIN_URL}
+
+logging:
+  level:
+    com.example.marketing: INFO
+    org.springframework: WARN
+    root: WARN

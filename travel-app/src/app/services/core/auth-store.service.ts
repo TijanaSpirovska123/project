@@ -10,6 +10,20 @@ export class AuthStoreService {
   private readonly loggedInSubject: BehaviorSubject<boolean> =
     new BehaviorSubject<boolean>(false);
 
+  private sessionExpired = false;
+
+  markSessionExpired(): void {
+    this.sessionExpired = true;
+  }
+
+  isSessionExpiredRedirect(): boolean {
+    return this.sessionExpired;
+  }
+
+  resetSessionExpired(): void {
+    this.sessionExpired = false;
+  }
+
   // Public observable for components to subscribe to
   public readonly isLoggedIn$: Observable<boolean> =
     this.loggedInSubject.asObservable();
@@ -76,6 +90,7 @@ export class AuthStoreService {
 
   // Login method with optional parameters
   public login(token: string, userId?: string, actId?: string | null): void {
+    this.resetSessionExpired();
     if (!token) {
       throw new Error('Token is required for login');
     }

@@ -308,10 +308,12 @@ export class LoginPageComponent implements OnInit, OnDestroy {
         this.router.navigate([redirect]);
       },
       error: (err) => {
-        this.toastr.error(
-          CoreService.extractErrorMessage(err, 'Invalid credentials. Please try again.'),
-          'Login Failed',
-        );
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error(
+            CoreService.extractErrorMessage(err, 'Invalid credentials. Please try again.'),
+            'Login Failed',
+          );
+        }
       },
     });
   }
@@ -322,10 +324,12 @@ export class LoginPageComponent implements OnInit, OnDestroy {
         window.location.href = res.authorizationUrl;
       },
       error: (err) => {
-        this.toastr.error(
-          CoreService.extractErrorMessage(err, 'Meta connection failed'),
-          'Error',
-        );
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error(
+            CoreService.extractErrorMessage(err, 'Meta connection failed'),
+            'Error',
+          );
+        }
       },
     });
   }
@@ -351,7 +355,9 @@ export class LoginPageComponent implements OnInit, OnDestroy {
         this.isResetPassword = false;
       },
       error: (err) => {
-        this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to send token'), 'Error');
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to send token'), 'Error');
+        }
       },
     });
   }
@@ -372,7 +378,9 @@ export class LoginPageComponent implements OnInit, OnDestroy {
         );
       },
       error: (err) => {
-        this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to reset password'), 'Error');
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to reset password'), 'Error');
+        }
       },
     });
   }

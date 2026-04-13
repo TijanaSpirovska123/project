@@ -27,5 +27,7 @@
     <include file="classpath:db.changelog/changes/22.create_user_config_table.xml"/>
     <include file="classpath:db.changelog/changes/23.add_oauth_connect_request_fields.xml"/>
     <include file="classpath:db.changelog/changes/24.add_token_status_to_oauth_accounts.xml"/>
+    <include file="classpath:db.changelog/changes/25.add_meta_video_id_to_stored_asset_variant.xml"/>
+    <include file="classpath:db.changelog/changes/26.add_video_fields_to_stored_asset.xml"/>
 
 </databaseChangeLog>

@@ -166,9 +166,11 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
           this.pages = Array.isArray(pages) ? pages : (pages?.data ?? []);
         },
         error: (err: any) => {
-          this.toastr.error(
-            CoreService.extractErrorMessage(err, 'Failed to load form data'),
-          );
+          if (!this.authStore.isSessionExpiredRedirect()) {
+            this.toastr.error(
+              CoreService.extractErrorMessage(err, 'Failed to load form data'),
+            );
+          }
         },
       });
   }
@@ -246,9 +248,11 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
           this.allAdSets = adSets?.data ?? [];
         },
         error: (err: any) => {
-          this.toastr.error(
-            CoreService.extractErrorMessage(err, 'Failed to reload data'),
-          );
+          if (!this.authStore.isSessionExpiredRedirect()) {
+            this.toastr.error(
+              CoreService.extractErrorMessage(err, 'Failed to reload data'),
+            );
+          }
         },
       });
   }
@@ -275,12 +279,14 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
         },
         error: (err: any) => {
           this.ngZone.run(() => {
-            this.toastr.error(
-              CoreService.extractErrorMessage(
-                err,
-                'Failed to load ad creatives',
-              ),
-            );
+            if (!this.authStore.isSessionExpiredRedirect()) {
+              this.toastr.error(
+                CoreService.extractErrorMessage(
+                  err,
+                  'Failed to load ad creatives',
+                ),
+              );
+            }
           });
         },
       });
@@ -339,7 +345,9 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
   async publish(): Promise<void> {
     if (!this.adForm.valid) {
       this.adForm.markAllAsTouched();
-      this.toastr.error('Please fill all required fields');
+      if (!this.authStore.isSessionExpiredRedirect()) {
+        this.toastr.error('Please fill all required fields');
+      }
       return;
     }
     this.isPublishing = true;
@@ -355,7 +363,9 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     } catch {
       this.isPublishing = false;
       this.cdr.markForCheck();
-      this.toastr.error('Failed to create ad');
+      if (!this.authStore.isSessionExpiredRedirect()) {
+        this.toastr.error('Failed to create ad');
+      }
     } finally {
       this.isPublishing = false;
     }
@@ -401,9 +411,11 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
           this.pages = Array.isArray(res) ? res : (res?.data ?? []);
         },
         error: (err: any) => {
-          this.toastr.error(
-            CoreService.extractErrorMessage(err, 'Failed to load pages'),
-          );
+          if (!this.authStore.isSessionExpiredRedirect()) {
+            this.toastr.error(
+              CoreService.extractErrorMessage(err, 'Failed to load pages'),
+            );
+          }
         },
       });
   }
@@ -437,9 +449,11 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
         },
         error: (err: any) => {
           this.ngZone.run(() => {
-            this.toastr.error(
-              CoreService.extractErrorMessage(err, 'Failed to load assets'),
-            );
+            if (!this.authStore.isSessionExpiredRedirect()) {
+              this.toastr.error(
+                CoreService.extractErrorMessage(err, 'Failed to load assets'),
+              );
+            }
           });
         },
       });
@@ -527,9 +541,11 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
       },
       error: (err: any) => {
         this.ngZone.run(() => {
-          this.toastr.error(
-            CoreService.extractErrorMessage(err, 'Upload failed'),
-          );
+          if (!this.authStore.isSessionExpiredRedirect()) {
+            this.toastr.error(
+              CoreService.extractErrorMessage(err, 'Upload failed'),
+            );
+          }
           this.isUploadingPickerAsset = false;
         });
       },
@@ -665,9 +681,11 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
         },
         error: (err: any) => {
           this.ngZone.run(() => {
-            this.toastr.error(
-              CoreService.extractErrorMessage(err, 'Failed to create creative'),
-            );
+            if (!this.authStore.isSessionExpiredRedirect()) {
+              this.toastr.error(
+                CoreService.extractErrorMessage(err, 'Failed to create creative'),
+              );
+            }
           });
         },
       });

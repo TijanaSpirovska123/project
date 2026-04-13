@@ -69,8 +69,21 @@ public class MetaCreativeStrategy implements CreativeStrategy {
             return p;
         }
 
+        // MODE 3: video creative — video_id based
+        if (isNotBlank(dto.getPageId()) && isNotBlank(dto.getVideoId())) {
+            String specJson = buildVideoDataSpecJson(
+                    dto.getPageId(),
+                    dto.getVideoId(),
+                    dto.getObjectUrl(),
+                    dto.getName()
+            );
+            add(p, "object_story_spec", specJson);
+            if (isNotBlank(dto.getUrlTags())) add(p, "url_tags", dto.getUrlTags());
+            return p;
+        }
+
         throw new IllegalArgumentException(
-                "Invalid creative input. Provide either objectStoryId OR (pageId + objectUrl + imageHash)."
+                "Invalid creative input. Provide either objectStoryId OR (pageId + objectUrl + imageHash) OR (pageId + videoId)."
         );
     }
 
@@ -129,6 +142,31 @@ public class MetaCreativeStrategy implements CreativeStrategy {
             return OM.writeValueAsString(spec);
         } catch (Exception e) {
             throw new IllegalArgumentException("Failed to build object_story_spec JSON", e);
+        }
+    }
+
+    private static String buildVideoDataSpecJson(
+            String pageId,
+            String videoId,
+            String destinationUrl,
+            String creativeName
+    ) {
+        try {
+            Map<String, Object> videoData = new LinkedHashMap<>();
+            videoData.put("video_id", videoId);
+            videoData.put("call_to_action", Map.of(
+                    "type", "LEARN_MORE",
+                    "value", Map.of("link", destinationUrl != null ? destinationUrl : "")
+            ));
+            if (isNotBlank(creativeName)) videoData.put("title", creativeName);
+
+            Map<String, Object> spec = new LinkedHashMap<>();
+            spec.put("page_id", pageId);
+            spec.put("video_data", videoData);
+
+            return OM.writeValueAsString(spec);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Failed to build video object_story_spec JSON", e);
         }
     }
 

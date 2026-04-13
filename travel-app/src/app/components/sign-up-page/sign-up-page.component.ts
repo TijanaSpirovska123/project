@@ -8,6 +8,7 @@ import { RegisterService } from '../../services/core/register.service';
 import { UserDto } from '../../models/core/user.model';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { AppToastrService } from '../../services/core/app-toastr.service';
+import { AuthStoreService } from '../../services/core/auth-store.service';
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { Eye, EyeOff, Sparkles } from 'lucide-angular';
 
@@ -111,6 +112,7 @@ export class SignUpPageComponent implements OnInit, OnDestroy {
     private readonly formBuilder: FormBuilder,
     private readonly router: Router,
     public toastr: AppToastrService,
+    private readonly authStore: AuthStoreService,
     @Inject(DOCUMENT) private document: Document,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {
@@ -169,7 +171,9 @@ export class SignUpPageComponent implements OnInit, OnDestroy {
         this.router.navigate(['/login']);
       },
       error: (err) => {
-        this.toastr.error(CoreService.extractErrorMessage(err, 'Registration failed'), 'Error');
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error(CoreService.extractErrorMessage(err, 'Registration failed'), 'Error');
+        }
       },
     });
   }

@@ -1042,3 +1042,174 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
     &:hover { background: $bg-input; }
   }
 }
+
+// ─── Dark Mode — Slide Panels ─────────────────────────────────────────────────
+// Uses :host-context so the override lives inside the component scope
+// and cannot be beaten by Angular's emulated view encapsulation.
+:host-context([data-theme="dark"]),
+:host-context(body.dark-mode) {
+
+  .panel-toggle-btn {
+    background: #303838;
+    border-color: #464d4d;
+    color: #bbf2ed;
+
+    mat-icon { color: #919595; }
+
+    &:hover {
+      background: #464d4d;
+      border-color: #48e0d6;
+      color: #48e0d6;
+
+      mat-icon { color: #48e0d6; }
+    }
+
+    &.active {
+      background: linear-gradient(135deg, #48e0d6, #22946e);
+      border-color: #48e0d6;
+      color: #121212;
+
+      mat-icon { color: #121212; }
+    }
+  }
+
+  .slide-panel {
+    background: #1b2323;
+    border-left-color: #464d4d;
+    box-shadow: -4px 0 32px rgba(0, 0, 0, 0.5);
+  }
+
+  .slide-panel-header {
+    border-bottom-color: #464d4d;
+    background: linear-gradient(135deg, #1f2b2b, #2f3a3a);
+    color: #bbf2ed;
+  }
+
+  .slide-panel-close {
+    color: #bbf2ed;
+
+    &:hover {
+      background: rgba(72, 224, 214, 0.12);
+    }
+  }
+
+  .slide-panel-body {
+    background: #1b2323;
+    color: #bbf2ed;
+  }
+
+  .insights-table {
+    thead tr  { background: #303838; }
+
+    th {
+      color: #919595;
+      border-bottom-color: #464d4d;
+    }
+
+    td {
+      color: #bbf2ed;
+      border-bottom-color: #303838;
+    }
+
+    tbody tr:hover td { background: #303838; }
+
+    .performer-name { color: #a9efe8; }
+    .no-data-row    { color: #919595; }
+  }
+
+  .score-badge {
+    &.score-green  { background: rgba(71, 213, 166, 0.15); color: #67e4da; }
+    &.score-yellow { background: rgba(168, 122, 42, 0.25); color: #d7ac61; }
+    &.score-red    { background: rgba(217, 74, 74, 0.20); color: #d94a4a; }
+  }
+
+  .spend-chart-wrapper { background: #1b2323; }
+
+  .metric-overlay {
+    background: rgba(0, 0, 0, 0.68);
+  }
+
+  .metric-modal {
+    background: #1b2323;
+    border: 1px solid #464d4d;
+    color: #bbf2ed;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  }
+
+  .metric-modal-header {
+    border-bottom-color: #464d4d;
+    background: linear-gradient(135deg, #1f2b2b, #2f3a3a);
+    color: #bbf2ed;
+
+    .close-btn:hover {
+      background: rgba(72, 224, 214, 0.12);
+    }
+  }
+
+  .metric-modal-body {
+    .metric-select-label {
+      color: #a9efe8;
+    }
+
+    .metric-select {
+      background: #303838;
+      border-color: #464d4d;
+      color: #bbf2ed;
+    }
+
+    .metric-select:focus {
+      border-color: #48e0d6;
+      box-shadow: 0 0 0 3px rgba(72, 224, 214, 0.14);
+    }
+
+    .metric-hint {
+      color: #919595;
+    }
+  }
+
+  .fields-modal-body {
+    .field-item {
+      color: #bbf2ed;
+
+      &:hover {
+        background: #303838;
+      }
+
+      &.selected {
+        background: rgba(72, 224, 214, 0.12);
+      }
+    }
+  }
+
+  .metric-modal-footer {
+    border-top-color: #464d4d;
+
+    .btn-apply {
+      background: linear-gradient(135deg, #48e0d6, #22946e);
+      color: #121212;
+    }
+
+    .btn-cancel {
+      background: #303838;
+      border-color: #464d4d;
+      color: #bbf2ed;
+
+      &:hover {
+        background: #464d4d;
+      }
+    }
+  }
+
+  .sel-mini-btn {
+    background: #303838;
+    border-color: #464d4d;
+    color: #bbf2ed;
+
+    &:hover {
+      background: #464d4d;
+      border-color: #48e0d6;
+      color: #48e0d6;
+    }
+  }
+}
+

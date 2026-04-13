@@ -452,7 +452,9 @@ export class InsightsComponent implements OnInit, OnDestroy {
           tempCampaign.push(...(res?.data ?? []));
         },
         error: (err: any) => {
-          this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to sync campaign insights'));
+          if (!this.authStore.isSessionExpiredRedirect()) {
+            this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to sync campaign insights'));
+          }
         },
       });
 
@@ -487,7 +489,9 @@ export class InsightsComponent implements OnInit, OnDestroy {
           tempAdSet.push(...(res?.data ?? []));
         },
         error: (err: any) => {
-          this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to sync ad set insights'));
+          if (!this.authStore.isSessionExpiredRedirect()) {
+            this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to sync ad set insights'));
+          }
         },
       });
 
@@ -522,7 +526,9 @@ export class InsightsComponent implements OnInit, OnDestroy {
           tempAd.push(...(res?.data ?? []));
         },
         error: (err: any) => {
-          this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to sync ad insights'));
+          if (!this.authStore.isSessionExpiredRedirect()) {
+            this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to sync ad insights'));
+          }
         },
       });
   }
@@ -567,7 +573,9 @@ export class InsightsComponent implements OnInit, OnDestroy {
         error: () => {
           this.isLoading = false;
           this.cdr.detectChanges();
-          this.toastr.error('Failed to fetch campaign insights');
+          if (!this.authStore.isSessionExpiredRedirect()) {
+            this.toastr.error('Failed to fetch campaign insights');
+          }
         },
       });
   }
@@ -596,7 +604,9 @@ export class InsightsComponent implements OnInit, OnDestroy {
         error: () => {
           this.isLoading = false;
           this.cdr.detectChanges();
-          this.toastr.error('Failed to fetch ad set insights');
+          if (!this.authStore.isSessionExpiredRedirect()) {
+            this.toastr.error('Failed to fetch ad set insights');
+          }
         },
       });
   }
@@ -617,7 +627,9 @@ export class InsightsComponent implements OnInit, OnDestroy {
         error: () => {
           this.isLoading = false;
           this.cdr.detectChanges();
-          this.toastr.error('Failed to fetch ad insights');
+          if (!this.authStore.isSessionExpiredRedirect()) {
+            this.toastr.error('Failed to fetch ad insights');
+          }
         },
       });
   }
@@ -659,7 +671,9 @@ export class InsightsComponent implements OnInit, OnDestroy {
     const onFail = (msg: string) => {
       this.isLoading = false;
       this.cdr.detectChanges();
-      this.toastr.error(msg);
+      if (!this.authStore.isSessionExpiredRedirect()) {
+        this.toastr.error(msg);
+      }
     };
     const onFinalize = () => {
       // Dismiss spinner immediately before any rendering work

@@ -1,0 +1,32 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5444/project-db
+    username: project
+    password: project
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ''
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+app:
+  cors:
+    allowed-origins: http://localhost:5000,http://localhost:4200,http://localhost:8080
+
+meta:
+  redirect-uri: http://localhost:8080/api/oauth/meta/callback
+
+frontend:
+  success-redirect-url: http://localhost:5000/oauth-success
+  failure-redirect-url: http://localhost:5000/sync-accounts
+  login-url: http://localhost:5000/login
+
+logging:
+  level:
+    com.example.marketing: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
