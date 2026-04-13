@@ -14,7 +14,9 @@ RUN yum install -y which tar xz 2>/dev/null || true && \
      mv ffmpeg-*-amd64-static/ffmpeg /usr/local/bin/ && \
      mv ffmpeg-*-amd64-static/ffprobe /usr/local/bin/ && \
      rm -rf ffmpeg-*-amd64-static)
-RUN groupadd -g 1001 appgroup && useradd -u 1001 -g appgroup -s /bin/sh -M appuser
+RUN yum install -y shadow-utils && \
+    groupadd -g 1001 appgroup && \
+    useradd -u 1001 -g appgroup -s /bin/sh -M appuser
 USER appuser
 COPY --from=builder /app/target/*.jar app.jar
 EXPOSE 8080
