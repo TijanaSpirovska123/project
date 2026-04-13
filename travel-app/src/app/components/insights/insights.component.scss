@@ -1211,5 +1211,20 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
       color: #48e0d6;
     }
   }
+
+  // Selected campaign / ad set / ad rows in the object-selection-panel
+  .sel-item {
+    color: #bbf2ed;
+
+    &:hover   { background: #303838; }
+
+    &.selected {
+      background: rgba(72, 224, 214, 0.15);
+      color: #a9efe8;
+
+      .sel-name { color: #a9efe8; }
+      .sel-id   { color: #67e4da; }
+    }
+  }
 }
 
