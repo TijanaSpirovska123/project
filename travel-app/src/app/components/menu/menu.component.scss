@@ -281,7 +281,7 @@
   right: 0;
   height: 56px;
   background: var(--card-bg, #ffffff);
-  border-top: 1px solid #E5E7EB;
+  border-top: 1px solid var(--input-border, #E5E7EB);
   z-index: 1000;
   padding-bottom: env(safe-area-inset-bottom);
   padding-inline: 6px;
@@ -310,7 +310,7 @@
     justify-content: center;
     cursor: pointer;
     border-top: 2px solid transparent;
-    color: #6B7280;
+    color: var(--tbl-muted, #6B7280);
     text-decoration: none;
     background: transparent;
     transition: color 0.15s, border-color 0.15s;

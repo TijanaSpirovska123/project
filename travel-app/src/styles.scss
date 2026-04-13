@@ -319,6 +319,25 @@ body {
     }
   }
 
+  // ── Mobile Bottom Nav ─────────────────────────────────────────────────
+  .mobile-bottom-nav {
+    background: $clr-surface-a10 !important;
+    border-top-color: $clr-surface-tonal-a20 !important;
+
+    .mob-tab {
+      color: $clr-surface-tonal-a50 !important;
+
+      &.active {
+        color: $clr-primary-a0 !important;
+        border-top-color: $clr-primary-a0 !important;
+      }
+    }
+
+    .mob-tab-button {
+      color: $clr-surface-tonal-a50 !important;
+    }
+  }
+
   // ── Page backgrounds ───────────────────────────────────────────────────
   .page,
   .page.with-menu {
