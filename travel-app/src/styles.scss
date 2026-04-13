@@ -49,6 +49,14 @@ $clr-info-a20: #92b2e5;
 html,
 body {
   overscroll-behavior-x: none;
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 // ── Form validation styles ────────────────────────────────────────────────────

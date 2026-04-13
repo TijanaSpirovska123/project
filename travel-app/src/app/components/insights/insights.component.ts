@@ -27,9 +27,11 @@ import { AdSetResponse, AdResponse } from '../../models/adset/adset.model';
 import {
   InsightSnapshot,
   MetricBlock,
+  MetricConfig,
   ALL_INSIGHT_METRICS,
   DEFAULT_METRICS,
   METRIC_ICONS,
+  METRIC_CONFIG,
 } from '../../models/insights/insight.model';
 import { DateRange } from '../shared/date-range-picker.component';
 
@@ -43,42 +45,69 @@ const CHART_COLORS = [
 ];
 
 const CAMPAIGN_FIELDS = [
-  'impressions',
-  'clicks',
-  'conversions',
-  'cpc',
-  'cpm',
-  'cpp',
-  'ctr',
-  'frequency',
-  'reach',
-  'spend',
-  'account_currency',
+  // Core
+  'impressions', 'reach', 'frequency', 'clicks', 'unique_clicks',
+  'spend', 'cpm', 'cpc', 'ctr', 'unique_ctr', 'cpp', 'cost_per_unique_click', 'social_spend',
+  // Engagement
+  'inline_link_clicks', 'inline_post_engagement', 'unique_inline_link_clicks',
+  'inline_link_click_ctr', 'outbound_clicks', 'unique_outbound_clicks', 'website_ctr',
+  // Video
+  'video_play_actions', 'video_thruplay_watched_actions', 'video_avg_time_watched_actions',
+  'video_p25_watched_actions', 'video_p50_watched_actions', 'video_p75_watched_actions',
+  'video_p95_watched_actions', 'video_p100_watched_actions', 'video_30_sec_watched_actions',
+  'video_continuous_2_sec_watched_actions',
+  // Conversions / Actions
+  'actions', 'unique_actions', 'action_values',
+  'cost_per_action_type', 'cost_per_unique_action_type',
+  'conversions', 'conversion_values', 'purchase_roas', 'cost_per_conversion',
+  // Estimated
+  'estimated_ad_recall_rate', 'estimated_ad_recallers',
+  // Date / Account
+  'account_currency', 'date_start', 'date_stop',
 ];
 
 const ADSET_FIELDS = [
-  'impressions',
-  'clicks',
-  'spend',
-  'reach',
-  'frequency',
-  'cpm',
-  'cpc',
-  'ctr',
-  'actions',
-  'action_values',
+  // Core
+  'impressions', 'reach', 'frequency', 'clicks', 'unique_clicks',
+  'spend', 'cpm', 'cpc', 'ctr', 'unique_ctr', 'cpp', 'cost_per_unique_click', 'social_spend',
+  // Engagement
+  'inline_link_clicks', 'inline_post_engagement', 'unique_inline_link_clicks',
+  'inline_link_click_ctr', 'outbound_clicks', 'unique_outbound_clicks', 'website_ctr',
+  // Video
+  'video_play_actions', 'video_thruplay_watched_actions', 'video_avg_time_watched_actions',
+  'video_p25_watched_actions', 'video_p50_watched_actions', 'video_p75_watched_actions',
+  'video_p95_watched_actions', 'video_p100_watched_actions', 'video_30_sec_watched_actions',
+  'video_continuous_2_sec_watched_actions',
+  // Conversions / Actions
+  'actions', 'unique_actions', 'action_values',
+  'cost_per_action_type', 'cost_per_unique_action_type',
+  'conversions', 'conversion_values', 'purchase_roas', 'cost_per_conversion',
+  // Estimated
+  'estimated_ad_recall_rate', 'estimated_ad_recallers',
+  // Date
+  'date_start', 'date_stop',
 ];
 
 const AD_FIELDS = [
-  'ad_id',
-  'clicks',
-  'impressions',
-  'spend',
-  'outbound_clicks',
-  'actions',
-  'action_values',
-  'cost_per_unique_action_type',
-  'reach',
+  // Core
+  'impressions', 'reach', 'frequency', 'clicks', 'unique_clicks',
+  'spend', 'cpm', 'cpc', 'ctr', 'unique_ctr', 'cpp', 'cost_per_unique_click', 'social_spend',
+  // Engagement
+  'inline_link_clicks', 'inline_post_engagement', 'unique_inline_link_clicks',
+  'inline_link_click_ctr', 'outbound_clicks', 'unique_outbound_clicks', 'website_ctr',
+  // Video
+  'video_play_actions', 'video_thruplay_watched_actions', 'video_avg_time_watched_actions',
+  'video_p25_watched_actions', 'video_p50_watched_actions', 'video_p75_watched_actions',
+  'video_p95_watched_actions', 'video_p100_watched_actions', 'video_30_sec_watched_actions',
+  'video_continuous_2_sec_watched_actions',
+  // Conversions / Actions
+  'actions', 'unique_actions', 'action_values',
+  'cost_per_action_type', 'cost_per_unique_action_type',
+  'conversions', 'conversion_values', 'purchase_roas', 'cost_per_conversion',
+  // Estimated
+  'estimated_ad_recall_rate', 'estimated_ad_recallers',
+  // Date
+  'date_start', 'date_stop',
 ];
 
 @Component({
@@ -802,6 +831,28 @@ export class InsightsComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Extracts a numeric value from a rawData entry for a given metric key.
+   * Handles both flat fields (e.g. "spend") and dot-notation array fields
+   * (e.g. "video_play_actions.video_view", "actions.offsite_conversion.fb_pixel_purchase").
+   */
+  private extractMetricValue(entry: any, metricKey: string): { value: number; found: boolean } {
+    const dotIdx = metricKey.indexOf('.');
+    if (dotIdx === -1) {
+      const val = entry[metricKey];
+      if (val === undefined || val === null || val === '') return { value: 0, found: false };
+      return { value: parseFloat(String(val)) || 0, found: true };
+    }
+    // Dot-notation: fieldName.action_type (action_type may itself contain dots)
+    const fieldName = metricKey.substring(0, dotIdx);
+    const actionType = metricKey.substring(dotIdx + 1);
+    const arr = entry[fieldName];
+    if (!Array.isArray(arr)) return { value: 0, found: false };
+    const item = arr.find((a: any) => a.action_type === actionType);
+    if (!item) return { value: 0, found: false };
+    return { value: parseFloat(String(item.value)) || 0, found: true };
+  }
+
   private aggregateMetricRaw(
     metricKey: string,
     snapshots: InsightSnapshot[],
@@ -809,9 +860,8 @@ export class InsightsComponent implements OnInit, OnDestroy {
     let total = 0;
     for (const snap of snapshots) {
       for (const entry of snap.rawData?.data ?? []) {
-        const val = entry[metricKey];
-        if (val !== undefined && val !== null && val !== '')
-          total += parseFloat(String(val)) || 0;
+        const { value } = this.extractMetricValue(entry, metricKey);
+        total += value;
       }
     }
     return total;
@@ -827,15 +877,36 @@ export class InsightsComponent implements OnInit, OnDestroy {
     for (const snap of snapshots) {
       const entries: any[] = snap.rawData?.data ?? [];
       for (const entry of entries) {
-        const val = entry[metricKey];
-        if (val !== undefined && val !== null && val !== '') {
+        const { value, found } = this.extractMetricValue(entry, metricKey);
+        if (found) {
           hasData = true;
-          total += Number.parseFloat(String(val)) || 0;
+          total += value;
         }
       }
     }
     if (!hasData) return '—';
-    return this.formatNumber(total);
+    return this.formatValue(total, this.getMetricFormat(metricKey));
+  }
+
+  formatValue(value: number, format: 'number' | 'currency' | 'percent' | 'decimal2'): string {
+    switch (format) {
+      case 'currency': return '$' + this.formatNumber(value);
+      case 'percent': return value.toFixed(2) + '%';
+      case 'decimal2': return value.toFixed(2);
+      default: return this.formatNumber(value);
+    }
+  }
+
+  getMetricFormat(key: string): 'number' | 'currency' | 'percent' | 'decimal2' {
+    return METRIC_CONFIG.find(m => m.key === key)?.format ?? 'number';
+  }
+
+  getMetricCategories(): string[] {
+    return [...new Set(METRIC_CONFIG.map(m => m.category))];
+  }
+
+  getMetricsByCategory(category: string): MetricConfig[] {
+    return METRIC_CONFIG.filter(m => m.category === category);
   }
 
   // ---------- Metric Modal ----------
@@ -975,10 +1046,8 @@ export class InsightsComponent implements OnInit, OnDestroy {
       data: dates.map((d) => {
         const entries = dateMap.get(d) ?? [];
         return entries.reduce((sum: number, e: any) => {
-          const v = e[block.metricKey!];
-          return (
-            sum + (v !== undefined && v !== '' ? parseFloat(String(v)) || 0 : 0)
-          );
+          const { value } = this.extractMetricValue(e, block.metricKey!);
+          return sum + value;
         }, 0);
       }),
       borderColor: CHART_COLORS[si % CHART_COLORS.length],
@@ -1292,6 +1361,8 @@ export class InsightsComponent implements OnInit, OnDestroy {
   }
 
   formatMetricLabel(key: string): string {
+    const config = METRIC_CONFIG.find(m => m.key === key);
+    if (config) return config.label;
     return key
       .replaceAll('.', ' › ')
       .replaceAll('_', ' ')

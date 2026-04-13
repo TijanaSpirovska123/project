@@ -38,6 +38,16 @@ export class MenuComponent implements OnInit, OnDestroy {
     public theme: ThemeService,
   ) {}
 
+  private onResize = () => {
+    if (typeof document !== 'undefined') {
+      if (window.innerWidth < 768) {
+        document.documentElement.style.setProperty('--sidebar-width', '0px');
+      } else if (!this.isExpanded) {
+        document.documentElement.style.setProperty('--sidebar-width', '64px');
+      }
+    }
+  };
+
   ngOnInit(): void {
     this.menuItems = [
       {
@@ -84,7 +94,9 @@ export class MenuComponent implements OnInit, OnDestroy {
 
     // Initialise the CSS variable used by page containers for margin-left
     if (typeof document !== 'undefined') {
-      document.documentElement.style.setProperty('--sidebar-width', '64px');
+      const isMobile = window.innerWidth < 768;
+      document.documentElement.style.setProperty('--sidebar-width', isMobile ? '0px' : '64px');
+      window.addEventListener('resize', this.onResize);
     }
 
     // Set initial active states based on current route
@@ -106,6 +118,9 @@ export class MenuComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.routerSubscription) {
       this.routerSubscription.unsubscribe();
+    }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('resize', this.onResize);
     }
   }
 
@@ -194,7 +209,7 @@ export class MenuComponent implements OnInit, OnDestroy {
   toggleExpand() {
     this.isExpanded = !this.isExpanded;
     this.expanded.emit(this.isExpanded);
-    if (typeof document !== 'undefined') {
+    if (typeof document !== 'undefined' && window.innerWidth >= 768) {
       document.documentElement.style.setProperty(
         '--sidebar-width',
         this.isExpanded ? '220px' : '64px',

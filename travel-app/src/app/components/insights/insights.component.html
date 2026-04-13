@@ -434,13 +434,16 @@
       <label class="metric-select-label">Choose a metric:</label>
       <select class="metric-select" [(ngModel)]="tempMetricSelection">
         <option value="">— No metric —</option>
-        <option
-          *ngFor="let m of getAvailableMetrics()"
-          [value]="m"
-          [selected]="m === tempMetricSelection"
-        >
-          {{ formatMetricLabel(m) }}
-        </option>
+        <optgroup *ngFor="let cat of getMetricCategories()" [label]="cat">
+          <ng-container *ngFor="let mc of getMetricsByCategory(cat)">
+            <option
+              *ngIf="getAvailableMetrics().includes(mc.key)"
+              [value]="mc.key"
+            >
+              {{ mc.label }}
+            </option>
+          </ng-container>
+        </optgroup>
       </select>
       <p class="metric-hint">
         Metrics already selected in other blocks are not shown.

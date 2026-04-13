@@ -34,6 +34,10 @@ public class MetaInsightsFetchStrategy implements InsightsFetchStrategy {
             "cost_per_unique_action_type",
             "outbound_clicks",
             "unique_outbound_clicks",
+            "website_ctr",
+            "purchase_roas",
+            "cost_per_inline_link_click",
+            "cost_per_inline_post_engagement",
             "video_play_actions",
             "video_thruplay_watched_actions",
             "video_avg_time_watched_actions",
@@ -53,48 +57,108 @@ public class MetaInsightsFetchStrategy implements InsightsFetchStrategy {
     public static final List<String> AD_BATCH_FIELDS = List.of(
             "date_start", "date_stop", "account_id", "account_name",
             "ad_id", "ad_name", "adset_id", "adset_name", "campaign_id", "campaign_name",
-            "actions", "unique_actions", "action_values", "impressions", "clicks",
-            "unique_clicks", "spend", "frequency", "inline_link_clicks",
-            "inline_post_engagement", "reach", "website_ctr",
-            "video_thruplay_watched_actions", "video_avg_time_watched_actions",
-            "video_p25_watched_actions", "video_p50_watched_actions",
-            "video_p75_watched_actions", "video_p95_watched_actions",
-            "video_p100_watched_actions", "video_30_sec_watched_actions",
-            "video_play_actions", "video_continuous_2_sec_watched_actions",
-            "unique_video_continuous_2_sec_watched_actions",
-            "estimated_ad_recallers", "estimated_ad_recall_rate",
-            "unique_outbound_clicks", "outbound_clicks",
-            "conversions", "conversion_values", "social_spend");
+            // Core
+            "impressions", "reach", "frequency", "clicks", "unique_clicks",
+            "spend", "cpm", "cpc", "ctr", "unique_ctr", "cpp", "cost_per_unique_click", "social_spend",
+            // Engagement
+            "inline_link_clicks", "inline_post_engagement", "unique_inline_link_clicks",
+            "inline_link_click_ctr", "outbound_clicks", "unique_outbound_clicks", "website_ctr",
+            // Video
+            "video_play_actions", "video_thruplay_watched_actions", "video_avg_time_watched_actions",
+            "video_p25_watched_actions", "video_p50_watched_actions", "video_p75_watched_actions",
+            "video_p95_watched_actions", "video_p100_watched_actions", "video_30_sec_watched_actions",
+            "video_continuous_2_sec_watched_actions", "unique_video_continuous_2_sec_watched_actions",
+            // Conversions / Actions
+            "actions", "unique_actions", "action_values",
+            "cost_per_action_type", "cost_per_unique_action_type",
+            "conversions", "conversion_values", "purchase_roas", "cost_per_conversion",
+            // Estimated
+            "estimated_ad_recallers", "estimated_ad_recall_rate");
 
     public static final List<String> AD_FIELDS = List.of(
-            "ad_id", "clicks", "impressions", "spend", "outbound_clicks",
-            "actions", "action_values", "cost_per_unique_action_type", "reach");
+            // Core
+            "impressions", "reach", "frequency", "clicks", "unique_clicks",
+            "spend", "cpm", "cpc", "ctr", "unique_ctr", "cpp", "cost_per_unique_click", "social_spend",
+            // Engagement
+            "inline_link_clicks", "inline_post_engagement", "unique_inline_link_clicks",
+            "inline_link_click_ctr", "outbound_clicks", "unique_outbound_clicks", "website_ctr",
+            // Video
+            "video_play_actions", "video_thruplay_watched_actions", "video_avg_time_watched_actions",
+            "video_p25_watched_actions", "video_p50_watched_actions", "video_p75_watched_actions",
+            "video_p95_watched_actions", "video_p100_watched_actions", "video_30_sec_watched_actions",
+            "video_continuous_2_sec_watched_actions",
+            // Conversions / Actions
+            "actions", "unique_actions", "action_values",
+            "cost_per_action_type", "cost_per_unique_action_type",
+            "conversions", "conversion_values", "purchase_roas", "cost_per_conversion",
+            // Estimated
+            "estimated_ad_recall_rate", "estimated_ad_recallers",
+            // Date
+            "date_start", "date_stop");
 
     public static final List<String> ADSET_FIELDS = List.of(
-            "impressions", "clicks", "spend", "reach", "frequency",
-            "cpm", "cpc", "ctr", "actions", "action_values");
+            // Core
+            "impressions", "reach", "frequency", "clicks", "unique_clicks",
+            "spend", "cpm", "cpc", "ctr", "unique_ctr", "cpp", "cost_per_unique_click", "social_spend",
+            // Engagement
+            "inline_link_clicks", "inline_post_engagement", "unique_inline_link_clicks",
+            "inline_link_click_ctr", "outbound_clicks", "unique_outbound_clicks", "website_ctr",
+            // Video
+            "video_play_actions", "video_thruplay_watched_actions", "video_avg_time_watched_actions",
+            "video_p25_watched_actions", "video_p50_watched_actions", "video_p75_watched_actions",
+            "video_p95_watched_actions", "video_p100_watched_actions", "video_30_sec_watched_actions",
+            "video_continuous_2_sec_watched_actions",
+            // Conversions / Actions
+            "actions", "unique_actions", "action_values",
+            "cost_per_action_type", "cost_per_unique_action_type",
+            "conversions", "conversion_values", "purchase_roas", "cost_per_conversion",
+            // Estimated
+            "estimated_ad_recall_rate", "estimated_ad_recallers",
+            // Date
+            "date_start", "date_stop");
 
     public static final List<String> CAMPAIGN_FIELDS = List.of(
-            "impressions", "clicks", "conversions", "cpc", "cpm", "cpp",
-            "ctr", "frequency", "reach", "social_spend",
-            "video_play_actions", "spend", "account_currency");
+            // Core
+            "impressions", "reach", "frequency", "clicks", "unique_clicks",
+            "spend", "cpm", "cpc", "ctr", "unique_ctr", "cpp", "cost_per_unique_click", "social_spend",
+            // Engagement
+            "inline_link_clicks", "inline_post_engagement", "unique_inline_link_clicks",
+            "inline_link_click_ctr", "outbound_clicks", "unique_outbound_clicks", "website_ctr",
+            // Video
+            "video_play_actions", "video_thruplay_watched_actions", "video_avg_time_watched_actions",
+            "video_p25_watched_actions", "video_p50_watched_actions", "video_p75_watched_actions",
+            "video_p95_watched_actions", "video_p100_watched_actions", "video_30_sec_watched_actions",
+            "video_continuous_2_sec_watched_actions",
+            // Conversions / Actions
+            "actions", "unique_actions", "action_values",
+            "cost_per_action_type", "cost_per_unique_action_type",
+            "conversions", "conversion_values", "purchase_roas", "cost_per_conversion",
+            // Estimated
+            "estimated_ad_recall_rate", "estimated_ad_recallers",
+            // Date / Account
+            "account_currency", "date_start", "date_stop");
 
     public static final List<String> ACCOUNT_FIELDS = List.of(
-            "impressions", "clicks", "conversions", "cpc", "cpm", "cpp",
-            "ctr", "frequency", "reach", "social_spend",
-            "video_play_actions", "spend", "account_currency",
-            "account_id", "account_name", "actions", "unique_actions",
-            "action_values", "cost_per_action_type", "cost_per_unique_action_type",
-            "inline_link_clicks", "unique_inline_link_clicks",
-            "inline_post_engagement", "cost_per_inline_link_click",
-            "cost_per_inline_post_engagement", "outbound_clicks",
-            "unique_outbound_clicks", "website_ctr",
-            "video_thruplay_watched_actions", "video_avg_time_watched_actions",
-            "video_p25_watched_actions", "video_p50_watched_actions",
-            "video_p75_watched_actions", "video_p95_watched_actions",
-            "video_p100_watched_actions", "video_30_sec_watched_actions",
-            "video_continuous_2_sec_watched_actions",
-            "unique_video_continuous_2_sec_watched_actions");
+            // Core
+            "impressions", "reach", "frequency", "clicks", "unique_clicks",
+            "spend", "cpm", "cpc", "ctr", "unique_ctr", "cpp", "cost_per_unique_click", "social_spend",
+            // Engagement
+            "inline_link_clicks", "inline_post_engagement", "unique_inline_link_clicks",
+            "inline_link_click_ctr", "cost_per_inline_link_click", "cost_per_inline_post_engagement",
+            "outbound_clicks", "unique_outbound_clicks", "website_ctr",
+            // Video
+            "video_play_actions", "video_thruplay_watched_actions", "video_avg_time_watched_actions",
+            "video_p25_watched_actions", "video_p50_watched_actions", "video_p75_watched_actions",
+            "video_p95_watched_actions", "video_p100_watched_actions", "video_30_sec_watched_actions",
+            "video_continuous_2_sec_watched_actions", "unique_video_continuous_2_sec_watched_actions",
+            // Conversions / Actions
+            "actions", "unique_actions", "action_values",
+            "cost_per_action_type", "cost_per_unique_action_type",
+            "conversions", "conversion_values", "purchase_roas", "cost_per_conversion",
+            // Estimated
+            "estimated_ad_recall_rate", "estimated_ad_recallers",
+            // Account info
+            "account_id", "account_name", "account_currency");
 
     // -------------------------------------------------------------------------
     // Default fields lookup by object type

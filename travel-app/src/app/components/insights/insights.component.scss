@@ -45,7 +45,7 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
 // ─── Page Layout ──────────────────────────────────────────────────────────────
 .page {
   display: flex;
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: $bg-page;
 }
@@ -763,7 +763,7 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
   top: 0;
   right: 0;
   width: 440px;
-  height: 100vh;
+  height: 100dvh;
   background: $bg-card;
   box-shadow: -4px 0 32px rgba(0, 0, 0, 0.14);
   border-left: 1px solid $border;
@@ -775,6 +775,11 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
 
   &.open    { transform: translateX(0); }
   &.shifted { right: 440px; }
+
+  @media (max-width: 767px) {
+    width: 100vw;
+    &.shifted { right: 100vw; }
+  }
 }
 
 .slide-panel-header {

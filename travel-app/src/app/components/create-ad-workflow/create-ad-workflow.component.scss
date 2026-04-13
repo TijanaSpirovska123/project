@@ -1,6 +1,6 @@
 .page.with-menu {
   display: flex;
-  min-height: 100vh;
+  min-height: 100dvh;
 
   .create-ad-workflow {
     flex: 1;
@@ -11,6 +11,12 @@
     padding: 16px 24px;
     box-sizing: border-box;
     overflow-y: auto;
+
+    @media (max-width: 767px) {
+      margin-left: 0;
+      padding: 12px;
+      padding-bottom: 70px;
+    }
   }
 }
 
