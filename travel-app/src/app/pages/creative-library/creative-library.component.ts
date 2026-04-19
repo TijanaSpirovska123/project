@@ -106,6 +106,10 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
   isPlatformModalOpen = false;
   platformAsset: StoredAssetDto | null = null;
   selectedPlatforms: Set<string> = new Set();
+
+  // Variant picker modal (step 2 after platform selection)
+  isVariantPickerOpen = false;
+  variantPickerPlatform = '';
   readonly platforms = [
     { key: 'META', label: 'Meta', icon: 'facebook' },
   ];
@@ -498,8 +502,10 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
 
   closePublishModal(): void {
     this.isPublishModalOpen = false;
+    this.isVariantPickerOpen = false;
     this.publishAsset = null;
     this.isPublishing = false;
+    this.cdr.detectChanges();
   }
 
   publishToMeta(): void {
@@ -614,12 +620,34 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
     if (this.selectedPlatforms.has('META') && this.platformAsset) {
       const asset = this.platformAsset;
       this.closePlatformModal();
-      this.openPublishModal(asset);
+      this.openVariantPicker(asset, 'META');
       return;
     }
     const names = Array.from(this.selectedPlatforms).join(', ');
     this.toastr.info(`Push to ${names} — coming soon`);
     this.closePlatformModal();
+  }
+
+  openVariantPicker(asset: StoredAssetDto, platform: string): void {
+    this.publishAsset = asset;
+    this.variantPickerPlatform = platform;
+    const preferredImage = ['META_SQUARE_1080', 'META_VERTICAL_1080', 'META_STORIES_1080', 'META_LANDSCAPE_1200', 'ORIGINAL'];
+    const preferredVideo = ['META_VIDEO_SQUARE', 'META_VIDEO_VERTICAL', 'META_VIDEO_LANDSCAPE', 'META_VIDEO_STORY', 'ORIGINAL'];
+    const preferred = asset.assetType === 'VIDEO' ? preferredVideo : preferredImage;
+    const available = asset.variants.map(v => v.variantKey);
+    this.publishVariantKey = preferred.find(k => available.includes(k)) ?? available[0] ?? 'ORIGINAL';
+    this.publishCreativeName = '';
+    this.publishLinkUrl = '';
+    if (asset.assetType === 'IMAGE') {
+      asset.variants.forEach(v => this.fetchAndCacheBlob(asset.id, v.variantKey));
+    }
+    this.isVariantPickerOpen = true;
+  }
+
+  closeVariantPicker(): void {
+    this.isVariantPickerOpen = false;
+    this.publishAsset = null;
+    this.isPublishing = false;
   }
 
   // ── Create from Post ────────────────────────────────────────────────────────

@@ -318,14 +318,6 @@ body {
     }
   }
 
-  .button {
-    span.material-symbols-outlined {
-      color: $clr-surface-a0 !important;
-    }
-    .label {
-      color: $clr-surface-a0 !important;
-    }
-  }
 
   // ── Mobile Bottom Nav ─────────────────────────────────────────────────
   .mobile-bottom-nav {
@@ -982,6 +974,7 @@ body {
 
   .platform-modal-body {
     background: $clr-surface-tonal-a0 !important;
+    color: $clr-primary-a50 !important;
   }
   .platform-hint {
     color: $clr-surface-tonal-a50 !important;
@@ -1012,8 +1005,22 @@ body {
     }
   }
 
-  .platform-modal-body {
-    color: $clr-primary-a50 !important;
+  .vpc-preview {
+    background: $clr-surface-tonal-a10 !important;
+    .vpc-preview-placeholder { color: $clr-surface-tonal-a50 !important; }
+    .vpc-preview-label { color: $clr-surface-tonal-a50 !important; }
+  }
+  .vpc-variant-btn {
+    background: $clr-surface-tonal-a10 !important;
+    border-color: $clr-surface-tonal-a20 !important;
+    .vpc-btn-label { color: $clr-primary-a50 !important; }
+    .vpc-btn-dims  { color: $clr-surface-tonal-a50 !important; }
+    &:hover { background: $clr-surface-tonal-a20 !important; border-color: $clr-primary-a0 !important; }
+    &.selected {
+      background: rgba($clr-primary-a0, 0.1) !important;
+      border-color: $clr-primary-a0 !important;
+      .vpc-btn-label { color: $clr-primary-a0 !important; }
+    }
   }
   .publish-label {
     color: $clr-surface-tonal-a50 !important;
@@ -1208,41 +1215,6 @@ body {
   background-color: $clr-surface-a0;
 }
 
-// .mat-datepicker-content .mat-calendar {
-//   width: 296px;
-//   height: 354px;
-//   background-color: var(--user-info-tooltip-background);
-//   border-radius: 30px;
-// }
-// .mat-datepicker-content {
-//   background-color: var(--green-button-hover) !important;
-//   border-radius: 30px !important;
-// }
-// .mat-mdc-icon-button img,
-// .mat-mdc-icon-button svg {
-//   width: var(--mdc-icon-button-icon-size, 24px);
-//   height: var(--mdc-icon-button-icon-size, 24px);
-//   vertical-align: baseline;
-//   color: var(--green-button);
-// }
-
-// .mat-calendar-body-selected {
-//   background-color: var(--green-button, var(--green-button)) !important;
-//   color: var(
-//     --mat-datepicker-calendar-date-selected-state-text-color,
-//     var(--mat-sys-on-primary)
-//   );
-// }
-
-// .mat-calendar-body-selected.mat-calendar-body-today {
-//   box-shadow: inset 0 0 0 1px var(--green-button, var(--green-button)) !important;
-// }
-
-// .mat-calendar-body-today:not(.mat-calendar-body-selected):not(
-//     .mat-calendar-body-comparison-identical
-//   ) {
-//   border-color: var(--green-button, var(--green-button));
-// }
 // ── Global Badge Styles ────────────────────────────────────────────────────
 .badge {
   display: inline-flex;
@@ -1337,25 +1309,6 @@ textarea {
     border: 1px solid var(--selected-input-field-frame);
   }
 }
-// /* Apply to all tables */
-// table {
-//   border-collapse: collapse;
-//   width: 100%;
-// }
-
-// /* Change all borders from green to grey */
-// table,
-// table th,
-// table td {
-//   border: 1px solid #999; /* light grey */
-// }
-
-// /* Optional: make header darker grey */
-// table th {
-//   background-color: #f5f5f5;
-//   border: 1px solid #999; /* medium grey */
-// }
-
 
 .field {
   position: relative;

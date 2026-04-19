@@ -525,6 +525,72 @@
   </div>
 </div>
 
+<!-- ─── Variant Picker Modal ─────────────────────────────────────────────── -->
+<div class="modal-overlay" *ngIf="isVariantPickerOpen" (click)="closeVariantPicker()">
+  <div class="platform-modal variant-picker-modal" (click)="$event.stopPropagation()" *ngIf="publishAsset">
+    <div class="platform-modal-header">
+      <h4><mat-icon>photo_library</mat-icon> Select Variant — {{ variantPickerPlatform }}</h4>
+      <button class="close-btn" (click)="closeVariantPicker()"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <div class="platform-modal-body variant-picker-body">
+      <p class="platform-hint">
+        Choose a variant of <strong>{{ publishAsset.originalFilename }}</strong> to push:
+      </p>
+
+      <div class="variant-picker-layout">
+        <!-- Left: image preview of selected variant -->
+        <div class="vpc-preview">
+          @if (isImage(publishAsset) && getModalVariantUrl(publishAsset.id, publishVariantKey)) {
+            <img [src]="getModalVariantUrl(publishAsset.id, publishVariantKey)" [alt]="publishVariantKey" />
+          } @else if (isImage(publishAsset)) {
+            <div class="vpc-preview-placeholder">
+              <mat-icon>hourglass_empty</mat-icon>
+              <span>Loading preview…</span>
+            </div>
+          } @else {
+            <div class="vpc-preview-placeholder">
+              <mat-icon>videocam</mat-icon>
+              <span>Video</span>
+            </div>
+          }
+          <span class="vpc-preview-label">{{ getVariantLabel(publishVariantKey) }}</span>
+        </div>
+
+        <!-- Right: variant selector buttons -->
+        <div class="vpc-buttons">
+          @for (v of publishAsset.variants; track v.variantKey) {
+            <button
+              class="vpc-variant-btn"
+              [class.selected]="publishVariantKey === v.variantKey"
+              (click)="publishVariantKey = v.variantKey"
+            >
+              <span class="vpc-btn-label">{{ getVariantLabel(v.variantKey) }}</span>
+              @if (v.width && v.height) {
+                <span class="vpc-btn-dims">{{ v.width }}×{{ v.height }}</span>
+              }
+            </button>
+          }
+        </div>
+      </div>
+
+    </div>
+
+    <div class="platform-modal-footer">
+      <button class="btn-push" [disabled]="isPublishing || !publishVariantKey" (click)="publishToMeta()">
+        <ng-container *ngIf="!isPublishing">
+          <mat-icon>send</mat-icon> Push to {{ variantPickerPlatform }}
+        </ng-container>
+        <span *ngIf="isPublishing" style="display:flex;align-items:center;gap:6px;">
+          <span class="mini-spinner"></span>
+          {{ publishAsset.assetType === 'VIDEO' ? 'Uploading video…' : 'Publishing…' }}
+        </span>
+      </button>
+      <button class="btn-cancel" (click)="closeVariantPicker()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- ─── Create from Post Modal ───────────────────────────────────────────── -->
 <div
   class="modal-overlay"

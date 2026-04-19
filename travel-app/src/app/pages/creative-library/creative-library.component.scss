@@ -977,6 +977,119 @@
   }
 }
 
+// ─── Variant Picker Modal ─────────────────────────────────────────────────────
+.variant-picker-modal {
+  width: min(700px, 95vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.variant-picker-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.variant-picker-layout {
+  display: flex;
+  gap: 16px;
+  min-height: 300px;
+}
+
+.vpc-preview {
+  flex: 1;
+  background: #f1f5f9;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  gap: 10px;
+  overflow: hidden;
+  min-width: 0;
+
+  img {
+    max-width: 100%;
+    max-height: 280px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    border-radius: 4px;
+  }
+
+  .vpc-preview-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: #94a3b8;
+    mat-icon { font-size: 40px; width: 40px; height: 40px; }
+    span { font-size: 0.85rem; }
+  }
+
+  .vpc-preview-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #64748b;
+    text-align: center;
+  }
+}
+
+.vpc-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 180px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  max-height: 340px;
+  padding-right: 2px;
+}
+
+.vpc-variant-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 9px 12px;
+  border: 2px solid #e8ebf2;
+  border-radius: 8px;
+  background: #f8fafc;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+  font-family: inherit;
+  flex-shrink: 0;
+  width: 100%;
+
+  .vpc-btn-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #334155;
+    line-height: 1.3;
+  }
+
+  .vpc-btn-dims {
+    font-size: 0.68rem;
+    color: #94a3b8;
+  }
+
+  &:hover {
+    border-color: #1ca698;
+    background: #f0faf9;
+  }
+
+  &.selected {
+    border-color: #1ca698;
+    background: #f0faf9;
+    .vpc-btn-label { color: #1ca698; }
+  }
+}
+
 @keyframes popIn {
   from {
     transform: scale(0.92) translateY(-8px);
