@@ -215,6 +215,10 @@ export class InsightsComponent implements OnInit, OnDestroy {
   adSetSearch = '';
   adSearch = '';
 
+  // Expand/collapse state (independent of selection)
+  expandedCampaignIds: Set<string> = new Set();
+  expandedAdSetIds: Set<string> = new Set();
+
   colsExpanded = true;
   // Tracks the date range that was last synced (POST) — persists across navigation
   private static syncedRange: { start: string; stop: string } | null = null;
@@ -963,9 +967,18 @@ export class InsightsComponent implements OnInit, OnDestroy {
   }
 
   get filteredAdSets(): AdSetResponse[] {
+    let source = this.availableAdSets;
+    if (this.selectedCampaignIds.size > 0) {
+      const selectedCampaignDbIds = new Set(
+        this.availableCampaigns
+          .filter(c => c.id != null && c.externalId != null && this.selectedCampaignIds.has(c.externalId))
+          .map(c => c.id as number),
+      );
+      source = source.filter(a => selectedCampaignDbIds.has(a.campaignId));
+    }
     const q = this.adSetSearch.toLowerCase().trim();
-    if (!q) return this.availableAdSets;
-    return this.availableAdSets.filter(
+    if (!q) return source;
+    return source.filter(
       (a) =>
         a.name?.toLowerCase().includes(q) ||
         a.externalId?.toLowerCase().includes(q),
@@ -973,9 +986,40 @@ export class InsightsComponent implements OnInit, OnDestroy {
   }
 
   get filteredAds(): AdResponse[] {
+    let source = this.availableAds;
+    if (this.selectedAdSetIds.size > 0) {
+      const selectedAdSetDbIds = new Set(
+        this.availableAdSets
+          .filter(a => a.externalId != null && this.selectedAdSetIds.has(a.externalId))
+          .map(a => a.id),
+      );
+      source = source.filter(a => selectedAdSetDbIds.has(a.adSetId));
+    }
     const q = this.adSearch.toLowerCase().trim();
-    if (!q) return this.availableAds;
-    return this.availableAds.filter((a) => a.name?.toLowerCase().includes(q));
+    if (!q) return source;
+    return source.filter((a) => a.name?.toLowerCase().includes(q));
+  }
+
+  get adSetsCascadeActive(): boolean {
+    return this.selectedCampaignIds.size > 0;
+  }
+
+  get adsCascadeActive(): boolean {
+    return this.selectedAdSetIds.size > 0;
+  }
+
+  getAdSetsForCampaign(c: Campaign): AdSetResponse[] {
+    return this.availableAdSets.filter(a => a.campaignId === c.id);
+  }
+
+  getAdsForAdSet(a: AdSetResponse): AdResponse[] {
+    return this.availableAds.filter(ad => ad.adSetId === a.id);
+  }
+
+  clearAll(): void {
+    this.clearCampaigns();
+    this.clearAdSets();
+    this.clearAds();
   }
 
   // ---------- Date Range ----------
@@ -1230,9 +1274,41 @@ export class InsightsComponent implements OnInit, OnDestroy {
     else this.selectedAdIds.add(id);
   }
 
+  isCampaignExpanded(c: Campaign): boolean {
+    return this.expandedCampaignIds.has(c.externalId ?? '');
+  }
+
+  isAdSetExpanded(a: AdSetResponse): boolean {
+    return this.expandedAdSetIds.has(a.externalId ?? '');
+  }
+
+  toggleCampaignExpand(c: Campaign, event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const id = c.externalId ?? '';
+    if (!id) return;
+    if (this.expandedCampaignIds.has(id)) this.expandedCampaignIds.delete(id);
+    else this.expandedCampaignIds.add(id);
+  }
+
+  toggleAdSetExpand(a: AdSetResponse, event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const id = a.externalId ?? '';
+    if (!id) return;
+    if (this.expandedAdSetIds.has(id)) this.expandedAdSetIds.delete(id);
+    else this.expandedAdSetIds.add(id);
+  }
+
   selectAllCampaigns(): void {
     this.availableCampaigns.forEach((c) => {
       if (c.externalId) this.selectedCampaignIds.add(c.externalId);
+    });
+    this.availableAdSets.forEach((a) => {
+      if (a.externalId) this.selectedAdSetIds.add(a.externalId);
+    });
+    this.availableAds.forEach((a) => {
+      if (a.externalId) this.selectedAdIds.add(a.externalId);
     });
   }
 

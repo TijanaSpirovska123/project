@@ -691,6 +691,26 @@ body {
     .selection-col-header {
       border-bottom-color: $clr-surface-tonal-a20 !important;
     }
+    .cascade-hint {
+      background: rgba($clr-primary-a0, 0.15) !important;
+      color: $clr-primary-a0 !important;
+    }
+    .selection-tree {
+      .tree-item {
+        color: $clr-primary-a50 !important;
+        &:hover { background: $clr-surface-tonal-a10 !important; }
+        &.selected {
+          background: rgba($clr-primary-a0, 0.08) !important;
+          border-color: rgba($clr-primary-a0, 0.25) !important;
+          .tree-type-icon { color: $clr-primary-a0 !important; }
+        }
+        .tree-name { color: $clr-primary-a50 !important; }
+        .tree-id { color: $clr-surface-tonal-a50 !important; }
+        .tree-type-icon { color: $clr-surface-tonal-a50 !important; }
+        .tree-arrow { color: $clr-primary-a0 !important; }
+      }
+      .tree-empty { color: $clr-surface-tonal-a50 !important; }
+    }
     .sel-action-btn {
       background: $clr-surface-tonal-a10 !important;
       border-color: $clr-surface-tonal-a20 !important;
@@ -720,6 +740,13 @@ body {
       .sel-id {
         color: $clr-surface-tonal-a50 !important;
       }
+    }
+    .sel-item-adset,
+    .sel-item-ad {
+      border-left-color: $clr-surface-tonal-a20 !important;
+    }
+    .sel-expand-btn {
+      color: $clr-surface-tonal-a50 !important;
     }
     .selection-actions {
       border-top-color: $clr-surface-tonal-a20 !important;

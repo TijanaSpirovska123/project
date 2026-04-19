@@ -162,152 +162,79 @@
             <mat-icon [class.rotated]="colsExpanded">expand_more</mat-icon>
           </button>
         </div>
-        <div class="selection-columns">
-          <!-- Campaigns -->
+        @if (colsExpanded) {
           <div class="selection-col">
             <div class="selection-col-header">
               <mat-icon>campaign</mat-icon>
-              <span class="col-title">Campaigns</span>
-              <span class="col-summary">{{ selectionSummary("campaign") }}</span>
-              <button
-                class="sel-action-btn"
-                (click)="openFieldsModal('campaign')"
-                title="Configure fields"
-              >
-                <mat-icon>tune</mat-icon>
-                {{ fieldsSummary("campaign") }}
+              <span class="col-title">Campaigns · Ad Sets · Ads</span>
+              <span class="col-summary">
+                {{ selectionSummary("campaign") }}
+              </span>
+              <button class="sel-action-btn" (click)="openFieldsModal('campaign')" title="Campaign fields">
+                <mat-icon>tune</mat-icon>{{ fieldsSummary("campaign") }}
               </button>
-
+              <button class="sel-action-btn" (click)="openFieldsModal('adset')" title="Ad Set fields">
+                <mat-icon>tune</mat-icon>{{ fieldsSummary("adset") }}
+              </button>
+              <button class="sel-action-btn" (click)="openFieldsModal('ad')" title="Ad fields">
+                <mat-icon>tune</mat-icon>{{ fieldsSummary("ad") }}
+              </button>
             </div>
-            <ng-container *ngIf="colsExpanded">
-              <div class="sel-quick">
-                <button class="sel-mini-btn" (click)="selectAllCampaigns()">All</button>
-                <button class="sel-mini-btn" (click)="clearCampaigns()">Clear</button>
-                <input
-                  class="sel-search"
-                  type="text"
-                  placeholder="Search…"
-                  [(ngModel)]="campaignSearch"
-                  (click)="$event.stopPropagation()"
-                />
-              </div>
-              <div class="selection-list">
-                <label
-                  *ngFor="let c of filteredCampaigns"
-                  class="sel-item"
-                  [class.selected]="isCampaignSelected(c)"
-                >
-                  <input
-                    type="checkbox"
-                    [checked]="isCampaignSelected(c)"
-                    (change)="toggleCampaign(c)"
-                  />
+            <div class="sel-quick">
+              <button class="sel-mini-btn" (click)="selectAllCampaigns()">All</button>
+              <button class="sel-mini-btn" (click)="clearAll()">Clear</button>
+              <input
+                class="sel-search"
+                type="text"
+                placeholder="Search campaigns…"
+                [(ngModel)]="campaignSearch"
+                (click)="$event.stopPropagation()"
+              />
+            </div>
+            <div class="selection-list selection-list-hierarchy">
+              @for (c of filteredCampaigns; track c.id) {
+                <label class="sel-item" [class.selected]="isCampaignSelected(c)">
+                  <button class="sel-expand-btn" [class.expanded]="isCampaignExpanded(c)" (click)="toggleCampaignExpand(c, $event)">
+                    <mat-icon>chevron_right</mat-icon>
+                  </button>
+                  <input type="checkbox" [checked]="isCampaignSelected(c)" (change)="toggleCampaign(c)" />
                   <span class="sel-name">{{ c.name }}</span>
                   <span class="sel-id">{{ c.externalId }}</span>
                 </label>
-                <span class="sel-empty" *ngIf="!filteredCampaigns.length">No campaigns found</span>
-              </div>
-            </ng-container>
-          </div>
-
-          <div class="selection-col-divider"></div>
-
-          <!-- Ad Sets -->
-          <div class="selection-col">
-            <div class="selection-col-header">
-              <mat-icon>layers</mat-icon>
-              <span class="col-title">Ad Sets</span>
-              <span class="col-summary">{{ selectionSummary("adset") }}</span>
-              <button
-                class="sel-action-btn"
-                (click)="openFieldsModal('adset')"
-                title="Configure fields"
-              >
-                <mat-icon>tune</mat-icon>
-                {{ fieldsSummary("adset") }}
-              </button>
-
+                @if (isCampaignExpanded(c)) {
+                  @for (a of getAdSetsForCampaign(c); track a.id) {
+                    <label class="sel-item sel-item-adset" [class.selected]="isAdSetSelected(a)">
+                      <button class="sel-expand-btn" [class.expanded]="isAdSetExpanded(a)" (click)="toggleAdSetExpand(a, $event)">
+                        <mat-icon>chevron_right</mat-icon>
+                      </button>
+                      <input type="checkbox" [checked]="isAdSetSelected(a)" (change)="toggleAdSet(a)" />
+                      <span class="sel-name">{{ a.name }}</span>
+                      <span class="sel-id">{{ a.externalId }}</span>
+                    </label>
+                    @if (isAdSetExpanded(a)) {
+                      @for (ad of getAdsForAdSet(a); track ad.id) {
+                        <label class="sel-item sel-item-ad" [class.selected]="isAdSelected(ad)">
+                          <input type="checkbox" [checked]="isAdSelected(ad)" (change)="toggleAd(ad)" />
+                          <span class="sel-name">{{ ad.name }}</span>
+                          <span class="sel-id">{{ ad.externalId }}</span>
+                        </label>
+                      }
+                      @if (!getAdsForAdSet(a).length) {
+                        <span class="sel-empty sel-empty-indent-ad">No ads</span>
+                      }
+                    }
+                  }
+                  @if (!getAdSetsForCampaign(c).length) {
+                    <span class="sel-empty sel-empty-indent-adset">No ad sets</span>
+                  }
+                }
+              }
+              @if (!filteredCampaigns.length) {
+                <span class="sel-empty">No campaigns found</span>
+              }
             </div>
-            <ng-container *ngIf="colsExpanded">
-              <div class="sel-quick">
-                <button class="sel-mini-btn" (click)="selectAllAdSets()">All</button>
-                <button class="sel-mini-btn" (click)="clearAdSets()">Clear</button>
-                <input
-                  class="sel-search"
-                  type="text"
-                  placeholder="Search…"
-                  [(ngModel)]="adSetSearch"
-                  (click)="$event.stopPropagation()"
-                />
-              </div>
-              <div class="selection-list">
-                <label
-                  *ngFor="let a of filteredAdSets"
-                  class="sel-item"
-                  [class.selected]="isAdSetSelected(a)"
-                >
-                  <input
-                    type="checkbox"
-                    [checked]="isAdSetSelected(a)"
-                    (change)="toggleAdSet(a)"
-                  />
-                  <span class="sel-name">{{ a.name }}</span>
-                  <span class="sel-id">{{ a.externalId }}</span>
-                </label>
-                <span class="sel-empty" *ngIf="!filteredAdSets.length">No ad sets found</span>
-              </div>
-            </ng-container>
           </div>
-
-          <div class="selection-col-divider"></div>
-
-          <!-- Ads -->
-          <div class="selection-col">
-            <div class="selection-col-header">
-              <mat-icon>web_asset</mat-icon>
-              <span class="col-title">Ads</span>
-              <span class="col-summary">{{ selectionSummary("ad") }}</span>
-              <button
-                class="sel-action-btn"
-                (click)="openFieldsModal('ad')"
-                title="Configure fields"
-              >
-                <mat-icon>tune</mat-icon>
-                {{ fieldsSummary("ad") }}
-              </button>
-
-            </div>
-            <ng-container *ngIf="colsExpanded">
-              <div class="sel-quick">
-                <button class="sel-mini-btn" (click)="selectAllAds()">All</button>
-                <button class="sel-mini-btn" (click)="clearAds()">Clear</button>
-                <input
-                  class="sel-search"
-                  type="text"
-                  placeholder="Search…"
-                  [(ngModel)]="adSearch"
-                  (click)="$event.stopPropagation()"
-                />
-              </div>
-              <div class="selection-list">
-                <label
-                  *ngFor="let a of filteredAds"
-                  class="sel-item"
-                  [class.selected]="isAdSelected(a)"
-                >
-                  <input
-                    type="checkbox"
-                    [checked]="isAdSelected(a)"
-                    (change)="toggleAd(a)"
-                  />
-                  <span class="sel-name">{{ a.name }}</span>
-                  <span class="sel-id">{{ a.externalId }}</span>
-                </label>
-                <span class="sel-empty" *ngIf="!filteredAds.length">No ads found</span>
-              </div>
-            </ng-container>
-          </div>
-        </div>
+        }
       </ng-container>
     </div>
 

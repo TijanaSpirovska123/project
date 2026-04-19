@@ -548,6 +548,20 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
       &.rotated { transform: rotate(180deg); }
     }
 
+    .cascade-hint {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: rgba($primary, 0.1);
+      color: $primary;
+      font-size: 0.7rem;
+      font-weight: 500;
+
+      mat-icon { font-size: 12px; width: 12px; height: 12px; }
+    }
+
     .sel-action-btn {
       display: flex;
       align-items: center;
@@ -601,6 +615,22 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
       &:hover   { background: $bg-input; }
       &.selected { background: $primary-hover; }
 
+      .sel-expand-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        color: $text-muted;
+        flex-shrink: 0;
+        line-height: 1;
+
+        mat-icon { font-size: 16px; width: 16px; height: 16px; transition: transform 0.2s ease; }
+        &.expanded mat-icon { transform: rotate(90deg); }
+      }
+
       input[type="checkbox"] { accent-color: $primary; cursor: pointer; flex-shrink: 0; }
 
       .sel-name {
@@ -613,7 +643,142 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
       .sel-id { font-size: 0.72rem; color: $text-muted; flex-shrink: 0; }
     }
 
-    .sel-empty { font-size: 0.78rem; color: $text-muted; padding: 8px 6px; text-align: center; }
+    .sel-empty {
+      font-size: 0.78rem;
+      color: $text-muted;
+      padding: 8px 6px;
+      text-align: center;
+
+      &.sel-empty-indent-adset { padding-left: 20px; text-align: left; }
+      &.sel-empty-indent-ad    { padding-left: 36px; text-align: left; }
+    }
+
+    .sel-item-adset {
+      margin-left: 10px;
+      padding-left: 20px;
+      border-left: 2px solid $border-light;
+      font-size: 0.8rem;
+    }
+
+    .sel-item-ad {
+      margin-left: 26px;
+      padding-left: 20px;
+      border-left: 2px solid $border-light;
+      font-size: 0.78rem;
+    }
+  }
+
+  .selection-list-hierarchy { max-height: 300px; }
+}
+
+// ─── Hierarchical Selection Tree ─────────────────────────────────────────────
+.selection-tree {
+  padding: 0 16px 12px;
+
+  .tree-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 0 10px;
+    flex-wrap: wrap;
+
+    .tree-toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .tree-toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+  }
+
+  .tree-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .tree-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s;
+    border: 1px solid transparent;
+    user-select: none;
+
+    input[type='checkbox'] { flex-shrink: 0; cursor: pointer; accent-color: $primary; }
+
+    .tree-type-icon {
+      font-size: 15px; width: 15px; height: 15px;
+      color: $text-muted; flex-shrink: 0;
+    }
+
+    .tree-name {
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: $text-primary;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .tree-id {
+      font-size: 0.7rem;
+      color: $text-muted;
+      flex-shrink: 0;
+    }
+
+    .tree-arrow {
+      font-size: 16px; width: 16px; height: 16px;
+      color: $primary; flex-shrink: 0; margin-left: auto;
+    }
+
+    &:hover { background: $bg-input; }
+    &.selected {
+      background: rgba($primary, 0.06);
+      border-color: rgba($primary, 0.2);
+      .tree-type-icon { color: $primary; }
+    }
+  }
+
+  .tree-campaign {
+    font-weight: 600;
+    .tree-name { font-size: 0.84rem; }
+  }
+
+  .tree-adset {
+    padding-left: 28px;
+    .tree-name { font-size: 0.81rem; }
+  }
+
+  .tree-ad {
+    padding-left: 52px;
+    .tree-name { font-size: 0.79rem; font-weight: 400; }
+  }
+
+  .tree-empty {
+    font-size: 0.75rem;
+    color: $text-muted;
+    padding: 4px 10px;
+    font-style: italic;
+
+    &.tree-adset-level { padding-left: 28px; }
+    &.tree-ad-level    { padding-left: 52px; }
   }
 }
 
