@@ -11,7 +11,6 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
 import java.net.URI;
 import java.time.Duration;
@@ -30,8 +29,7 @@ public class S3ObjectStorageClient implements ObjectStorageClient {
             @Value("${s3.public-endpoint:}") String publicEndpoint,
             @Value("${s3.region}") String region,
             @Value("${s3.accessKey}") String accessKey,
-            @Value("${s3.secretKey}") String secretKey
-    ) {
+            @Value("${s3.secretKey}") String secretKey) {
         this.internalEndpoint = endpoint;
         this.publicEndpoint = publicEndpoint.isBlank() ? null : publicEndpoint.stripTrailing();
         var creds = StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey));
@@ -57,23 +55,36 @@ public class S3ObjectStorageClient implements ObjectStorageClient {
 
     @Override
     public void put(String bucket, String key, byte[] bytes, String contentType, Map<String, String> metadata) {
-        if (bucket == null || bucket.isBlank()) throw new IllegalArgumentException("bucket is required");
-        if (key == null || key.isBlank()) throw new IllegalArgumentException("key is required");
-        if (bytes == null || bytes.length == 0) throw new IllegalArgumentException("bytes empty");
+        if (bucket == null || bucket.isBlank())
+            throw new IllegalArgumentException("bucket is required");
+        if (key == null || key.isBlank())
+            throw new IllegalArgumentException("key is required");
+        if (bytes == null || bytes.length == 0)
+            throw new IllegalArgumentException("bytes empty");
 
         PutObjectRequest.Builder req = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(key)
                 .contentType(contentType);
 
-        if (metadata != null && !metadata.isEmpty()) req.metadata(metadata);
+        if (metadata != null && !metadata.isEmpty())
+            req.metadata(metadata);
 
         s3.putObject(req.build(), RequestBody.fromBytes(bytes));
     }
 
     @Override
     public String presignGet(String bucket, String key, Duration ttl) {
-        if (ttl == null) ttl = Duration.ofMinutes(10);
+        // Return direct public URL — bucket is set to public in MinIO
+        // Presigned URLs break after endpoint rewriting because the
+        // signature was computed against the internal endpoint
+        if (publicEndpoint != null) {
+            return publicEndpoint + "/" + bucket + "/" + key;
+        }
+
+        // Fallback for local development — use presigned URL against internal endpoint
+        if (ttl == null)
+            ttl = Duration.ofMinutes(10);
 
         GetObjectRequest getReq = GetObjectRequest.builder()
                 .bucket(bucket)
@@ -85,26 +96,24 @@ public class S3ObjectStorageClient implements ObjectStorageClient {
                 .getObjectRequest(getReq)
                 .build();
 
-        String url = presigner.presignGetObject(presignReq).url().toString();
-
-        // Rewrite internal endpoint to public-facing URL when configured
-        if (publicEndpoint != null) {
-            url = url.replace(internalEndpoint, publicEndpoint);
-        }
-        return url;
+        return presigner.presignGetObject(presignReq).url().toString();
     }
 
     @Override
     public void delete(String bucket, String key) {
-        if (bucket == null || bucket.isBlank()) throw new IllegalArgumentException("bucket is required");
-        if (key == null || key.isBlank()) throw new IllegalArgumentException("key is required");
+        if (bucket == null || bucket.isBlank())
+            throw new IllegalArgumentException("bucket is required");
+        if (key == null || key.isBlank())
+            throw new IllegalArgumentException("key is required");
         s3.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
     }
 
     @Override
     public byte[] getBytes(String bucket, String key) {
-        if (bucket == null || bucket.isBlank()) throw new IllegalArgumentException("bucket is required");
-        if (key == null || key.isBlank()) throw new IllegalArgumentException("key is required");
+        if (bucket == null || bucket.isBlank())
+            throw new IllegalArgumentException("bucket is required");
+        if (key == null || key.isBlank())
+            throw new IllegalArgumentException("key is required");
 
         GetObjectRequest req = GetObjectRequest.builder()
                 .bucket(bucket)

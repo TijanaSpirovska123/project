@@ -94,7 +94,7 @@ export class ReusableTableComponent implements OnChanges {
 
   // Pagination
   currentPage: number = 1;
-  itemsPerPage: number = 10;
+  itemsPerPage: number = 5;
   totalItems: number = 0;
   totalPages: number = 0;
   paginatedData: TableData[] = [];
