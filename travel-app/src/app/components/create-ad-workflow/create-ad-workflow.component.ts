@@ -160,7 +160,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
       creativeId: ['', [Validators.required]],
       platform: [Provider.META, [Validators.required]],
       adAccountId: [this.actId ? `act_${this.actId}` : ''],
-      pageId: ['', [Validators.required]],
+      pageId: [''],
     });
 
     this.assetCreativeForm = this.formBuilder.group({

@@ -114,31 +114,6 @@
                 </div>
               </div>
 
-              <!-- Row 3: Page -->
-              <div class="form-row one-col">
-                <div class="form-group">
-                  <label
-                    >Facebook Page <span class="required-star">*</span></label
-                  >
-                  <app-searchable-dropdown
-                    formControlName="pageId"
-                    [class.error]="hasError('pageId', 'required')"
-                    [options]="pageOptions"
-                    [loading]="isLoadingPages"
-                    [placeholder]="
-                      isLoadingPages
-                        ? 'Loading pages…'
-                        : pages.length === 0
-                          ? 'No pages found'
-                          : 'Select a page'
-                    "
-                  ></app-searchable-dropdown>
-                  @if (hasError("pageId", "required")) {
-                    <div class="error-message">Facebook page is required</div>
-                  }
-                </div>
-              </div>
-
               <!-- Row 4: Ad Set + Status -->
               <div class="form-row two-col">
                 <div class="form-group">
@@ -235,14 +210,6 @@
                       >
                         <mat-icon>image_search</mat-icon>
                         Choose Creative
-                      </button>
-                      <button
-                        type="button"
-                        class="btn-create-creative"
-                        (click)="openPanel('creator')"
-                      >
-                        <mat-icon>add_photo_alternate</mat-icon>
-                        Create Ad Creative
                       </button>
                     </div>
                     @if (hasError("creativeId", "required")) {

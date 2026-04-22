@@ -486,7 +486,40 @@ body {
     background: $clr-surface-a0 !important;
   }
 
+  // ── PrimeNG Datepicker ─────────────────────────────────────────────────
+  .p-datepicker-header {
+    background: $clr-surface-tonal-a0 !important;
+    color: $clr-primary-a40 !important;
+    border-bottom-color: $clr-surface-tonal-a20 !important;
+    .p-datepicker-prev,
+    .p-datepicker-next {
+      color: $clr-primary-a40 !important;
+      background: $clr-surface-tonal-a10 !important;
+      border-color: $clr-surface-tonal-a20 !important;
+      &:hover { background: $clr-surface-tonal-a20 !important; }
+    }
+  }
+  .p-highlight {
+    background: $clr-primary-a0 !important;
+    color: $clr-surface-a0 !important;
+  }
+
   // ── Modal / form panels ────────────────────────────────────────────────
+  .modal-header {
+    background: $clr-surface-tonal-a0 !important;
+    color: $clr-primary-a40 !important;
+    border-bottom-color: $clr-surface-tonal-a20 !important;
+    .close-btn {
+      color: $clr-surface-tonal-a50 !important;
+      &:hover { background: rgba(255, 255, 255, 0.08) !important; }
+    }
+  }
+  .analytics-modal .modal-header {
+    background: $clr-surface-tonal-a0 !important;
+    border-bottom-color: $clr-surface-tonal-a20 !important;
+    h4 { color: $clr-primary-a40 !important; }
+    .modal-subtitle { color: $clr-surface-tonal-a50 !important; }
+  }
   .modal-panel {
     background: $clr-surface-tonal-a0 !important;
     color: $clr-primary-a50 !important;
@@ -583,8 +616,79 @@ body {
         background: $clr-surface-tonal-a10 !important;
         color: $clr-primary-a40 !important;
       }
+      &.active {
+        background: $clr-primary-a0 !important;
+        color: $clr-surface-a0 !important;
+      }
     }
   }
+
+  .sync-btn {
+    background: $clr-primary-a0 !important;
+    color: $clr-surface-a0 !important;
+    &:disabled {
+      background: $clr-surface-tonal-a20 !important;
+      color: $clr-surface-tonal-a50 !important;
+    }
+  }
+
+  // ── Sync Accounts — Sync Data button ──────────────────────────────────
+  .action-btn.sync-btn {
+    background: $clr-surface-tonal-a20 !important;
+    color: $clr-surface-tonal-a50 !important;
+    border-color: $clr-surface-tonal-a30 !important;
+
+    &.sync-btn-enabled {
+      background: $clr-primary-a0 !important;
+      color: $clr-surface-a0 !important;
+      border-color: transparent !important;
+    }
+  }
+
+  // ── Date Range Picker ──────────────────────────────────────────────────
+  .drp-pill {
+    background: $clr-surface-tonal-a10 !important;
+    border-color: $clr-surface-tonal-a20 !important;
+    color: $clr-primary-a50 !important;
+    &:hover { color: $clr-primary-a0 !important; border-color: $clr-primary-a0 !important; }
+  }
+  .drp-pill-active {
+    background: $clr-primary-a0 !important;
+    color: $clr-surface-a0 !important;
+    border-color: $clr-primary-a0 !important;
+  }
+  .drp-label { color: $clr-surface-tonal-a50 !important; }
+  .drp-arrow { color: $clr-surface-tonal-a50 !important; }
+  .drp-input-wrap {
+    background: $clr-surface-tonal-a10 !important;
+    border-color: $clr-surface-tonal-a20 !important;
+    .drp-input-text { color: $clr-primary-a50 !important; }
+    .drp-placeholder { color: $clr-surface-tonal-a50 !important; }
+    .drp-cal-icon { color: $clr-surface-tonal-a40 !important; }
+    &:hover { border-color: $clr-surface-tonal-a30 !important; }
+  }
+  .drp-panel {
+    background: $clr-surface-tonal-a10 !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4) !important;
+  }
+  .drp-month-badge {
+    background: $clr-surface-tonal-a20 !important;
+    border-color: $clr-surface-tonal-a30 !important;
+    color: $clr-primary-a40 !important;
+  }
+  .drp-chevron {
+    background: $clr-surface-tonal-a20 !important;
+    border-color: $clr-surface-tonal-a30 !important;
+    color: $clr-primary-a40 !important;
+    &:hover { background: $clr-surface-tonal-a30 !important; }
+  }
+  .drp-wd { color: $clr-surface-tonal-a50 !important; }
+  .drp-day-inner { color: $clr-primary-a40 !important; }
+  .drp-day-outside { color: $clr-surface-tonal-a30 !important; }
+  .drp-day-in-range::before,
+  .drp-day-start-half::after,
+  .drp-day-end-half::before { background: rgba($clr-primary-a0, 0.15) !important; }
+  .drp-day-in-range .drp-day-inner:not(.drp-day-selected) { color: $clr-primary-a0 !important; }
 
   .graph-section {
     background: $clr-surface-tonal-a0 !important;
@@ -643,7 +747,9 @@ body {
   .metric-modal {
     background: $clr-surface-tonal-a0 !important;
     .metric-modal-header {
+      background: $clr-surface-tonal-a0 !important;
       border-bottom-color: $clr-surface-tonal-a20 !important;
+      color: $clr-primary-a40 !important;
     }
     .metric-modal-body {
       .metric-select-label {
@@ -665,7 +771,21 @@ body {
         border-color: $clr-surface-tonal-a20 !important;
         color: $clr-surface-tonal-a50 !important;
       }
+      .btn-apply {
+        background: $clr-primary-a0 !important;
+        color: $clr-surface-a0 !important;
+      }
     }
+  }
+
+  .slide-panel-header {
+    background: $clr-surface-tonal-a0 !important;
+    color: $clr-primary-a40 !important;
+    border-bottom-color: $clr-surface-tonal-a20 !important;
+  }
+  .slide-panel-close {
+    color: $clr-surface-tonal-a50 !important;
+    &:hover { color: $clr-primary-a40 !important; }
   }
 
   .object-selection-panel {
@@ -850,6 +970,18 @@ body {
     }
   }
 
+  .platform-pill {
+    background: $clr-surface-tonal-a10 !important;
+    border-color: $clr-surface-tonal-a20 !important;
+    color: $clr-primary-a50 !important;
+    &:hover { border-color: $clr-primary-a0 !important; color: $clr-primary-a0 !important; }
+    &.active {
+      background: $clr-primary-a0 !important;
+      color: $clr-surface-a0 !important;
+      border-color: $clr-primary-a0 !important;
+    }
+  }
+
   .filter-toggle-group {
     background: $clr-surface-a10 !important;
     button {
@@ -859,14 +991,25 @@ body {
         color: $clr-primary-a40 !important;
       }
       &.active {
-        background: $clr-surface-tonal-a10 !important;
-        color: $clr-primary-a0 !important;
+        background: $clr-primary-a0 !important;
+        color: $clr-surface-a0 !important;
+        box-shadow: 0 2px 8px rgba(72, 224, 214, 0.25) !important;
       }
     }
   }
 
   .results-count {
     color: $clr-surface-tonal-a50 !important;
+  }
+
+  .upload-btn {
+    background: $clr-primary-a0 !important;
+    &:hover:not(:disabled) { background: $clr-primary-a10 !important; }
+  }
+
+  .btn-push {
+    background: $clr-primary-a0 !important;
+    &:hover:not(:disabled) { background: $clr-primary-a10 !important; }
   }
 
   .drop-zone {
@@ -916,6 +1059,11 @@ body {
     .detail-preview {
       border-right-color: $clr-surface-tonal-a20 !important;
     }
+  }
+  .detail-modal-header {
+    background: $clr-surface-tonal-a0 !important;
+    color: $clr-primary-a40 !important;
+    border-bottom-color: $clr-surface-tonal-a20 !important;
   }
 
   .variant-tabs {
@@ -969,7 +1117,9 @@ body {
   }
 
   .platform-modal-header {
-    border-bottom-color: rgba(255, 255, 255, 0.15) !important;
+    background: $clr-surface-tonal-a0 !important;
+    border-bottom-color: $clr-surface-tonal-a20 !important;
+    h4 { color: $clr-primary-a40 !important; }
   }
 
   .platform-modal-body {
@@ -1038,6 +1188,20 @@ body {
   }
 
   // ── Create-ad-workflow ─────────────────────────────────────────────────
+  .btn-publish {
+    background: $clr-primary-a0 !important;
+    color: $clr-surface-a0 !important;
+    &:hover:not(:disabled) { background: $clr-primary-a10 !important; }
+    &:disabled {
+      background: $clr-surface-tonal-a20 !important;
+      color: $clr-surface-tonal-a50 !important;
+    }
+  }
+  .variant-modal-header {
+    background: $clr-surface-tonal-a0 !important;
+    color: $clr-primary-a40 !important;
+    border-bottom-color: $clr-surface-tonal-a20 !important;
+  }
   .workflow-card,
   .ad-form-card {
     background: $clr-surface-tonal-a0 !important;
@@ -1063,6 +1227,15 @@ body {
   // ── Column Customiser Modal ────────────────────────────────────────────
   .col-customiser-modal {
     background: $clr-surface-tonal-a0 !important;
+  }
+  .col-customiser-header {
+    background: $clr-surface-tonal-a0 !important;
+    color: $clr-primary-a40 !important;
+    border-bottom-color: $clr-surface-tonal-a20 !important;
+    .close-btn {
+      color: $clr-surface-tonal-a50 !important;
+      &:hover { background: rgba(255, 255, 255, 0.08) !important; }
+    }
   }
 
   .col-customiser-search input {

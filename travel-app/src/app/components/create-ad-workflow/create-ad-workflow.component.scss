@@ -264,14 +264,14 @@
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
-  background: #10b981;
+  background: #1ca698;
   color: #fff;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 2px 8px rgba(28, 166, 152, 0.3);
 
   &:hover:not(:disabled) {
-    background: #059669;
+    background: #0d8c7d;
     transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+    box-shadow: 0 4px 14px rgba(28, 166, 152, 0.4);
   }
 
   &:disabled {
@@ -1125,8 +1125,8 @@
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid var(--tbl-border);
-  background: linear-gradient(135deg, #1ca698, #27ae60);
-  color: white;
+  background: white;
+  color: #20233a;
 }
 
 .variant-modal-title {

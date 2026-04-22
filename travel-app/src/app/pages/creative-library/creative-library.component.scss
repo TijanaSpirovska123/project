@@ -88,7 +88,7 @@
   border-radius: 10px;
   border: none;
   cursor: pointer;
-  background: linear-gradient(135deg, #1ca698, #27ae60);
+  background: #1ca698;
   color: white;
   font-size: 0.9rem;
   font-weight: 700;
@@ -134,13 +134,13 @@
     transition: all 0.15s;
 
     &:hover {
-      border-color: #10b981;
-      color: #10b981;
+      border-color: #1ca698;
+      color: #1ca698;
     }
     &.active {
-      background: #10b981;
+      background: #1ca698;
       color: white;
-      border-color: #10b981;
+      border-color: #1ca698;
     }
   }
 }
@@ -223,9 +223,9 @@
       color: #20233a;
     }
     &.active {
-      background: white;
-      color: #1ca698;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+      background: #1ca698;
+      color: white;
+      box-shadow: 0 2px 8px rgba(28, 166, 152, 0.3);
     }
   }
 }
@@ -595,8 +595,8 @@
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid #e8ebf2;
-  background: linear-gradient(135deg, #1ca698, #27ae60);
-  color: white;
+  background: white;
+  color: #20233a;
   gap: 12px;
   flex-shrink: 0;
 
@@ -838,14 +838,14 @@
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid #e8ebf2;
-  background: linear-gradient(135deg, #1ca698, #27ae60);
+  background: white;
   border-radius: 16px 16px 0 0;
 
   h4 {
     margin: 0;
     font-size: 1rem;
     font-weight: 700;
-    color: white;
+    color: #20233a;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -941,7 +941,7 @@
     padding: 9px 22px;
     border: none;
     border-radius: 8px;
-    background: linear-gradient(135deg, #1ca698, #27ae60);
+    background: #1ca698;
     color: white;
     font-size: 0.9rem;
     font-weight: 600;

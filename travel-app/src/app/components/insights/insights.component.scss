@@ -393,7 +393,7 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
     &:hover { background: #f1f5f9; color: $text-primary; }
 
     &.active {
-      background: $primary-grad;
+      background: $primary;
       color: white;
       box-shadow: 0 2px 8px rgba(28, 166, 152, 0.3);
     }
@@ -408,7 +408,7 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
   padding: 9px 22px;
   border: none;
   border-radius: 10px;
-  background: $primary-grad;
+  background: $primary;
   color: white;
   cursor: pointer;
   font-size: 0.88rem;
@@ -953,8 +953,8 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid $border;
-  background: $primary-grad;
-  color: white;
+  background: $bg-card;
+  color: $text-primary;
   flex-shrink: 0;
 }
 
@@ -971,7 +971,7 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
 .slide-panel-close {
   background: none;
   border: none;
-  color: white;
+  color: $text-secondary;
   cursor: pointer;
   padding: 4px;
   border-radius: 6px;
@@ -1084,9 +1084,9 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
   justify-content: space-between;
   padding: 18px 20px 14px;
   border-bottom: 1px solid $border;
-  background: $primary-grad;
+  background: $bg-card;
   border-radius: 16px 16px 0 0;
-  color: white;
+  color: $text-primary;
 
   h4 {
     margin: 0;
@@ -1187,7 +1187,7 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
     padding: 9px 22px;
     border: none;
     border-radius: 8px;
-    background: $primary-grad;
+    background: $primary;
     color: white;
     font-size: 0.9rem;
     font-weight: 600;

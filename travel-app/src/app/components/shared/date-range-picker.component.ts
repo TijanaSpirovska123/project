@@ -176,8 +176,8 @@ const MONTHS_SHORT = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT
       transition: background 150ms, color 150ms, border-color 150ms;
       font-family: inherit;
     }
-    .drp-pill:hover { border-color: #10B981; color: #10B981; }
-    .drp-pill-active { background: #10B981 !important; color: white !important; border-color: #10B981 !important; }
+    .drp-pill:hover { border-color: #1ca698; color: #1ca698; }
+    .drp-pill-active { background: #1ca698 !important; color: white !important; border-color: #1ca698 !important; }
 
     /* ── Trigger row ── */
     .drp-inputs { display: flex; align-items: flex-end; gap: 8px; }
@@ -210,8 +210,8 @@ const MONTHS_SHORT = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT
       outline: none;
     }
     .drp-input-wrap:hover { border-color: #9CA3AF; }
-    .drp-input-wrap:focus-visible { border: 2px solid #10B981; }
-    .drp-input-active { border: 2px solid #10B981 !important; }
+    .drp-input-wrap:focus-visible { border: 2px solid #1ca698; }
+    .drp-input-active { border: 2px solid #1ca698 !important; }
 
     .drp-input-text { font-size: 14px; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .drp-placeholder { color: #9CA3AF; }
@@ -357,7 +357,7 @@ const MONTHS_SHORT = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT
     }
 
     .drp-day-selected {
-      border: 2px solid #10B981 !important;
+      border: 2px solid #1ca698 !important;
       background: transparent !important;
       color: #111827 !important;
       font-weight: 500;
@@ -365,7 +365,7 @@ const MONTHS_SHORT = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT
     }
 
     .drp-day-today {
-      border: 2px solid #10B981;
+      border: 2px solid #1ca698;
       border-radius: 50%;
     }
 
@@ -383,7 +383,7 @@ const MONTHS_SHORT = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT
     .drp-foot-btn {
       font-size: 13px;
       font-weight: 500;
-      color: #10B981;
+      color: #1ca698;
       background: transparent;
       border: none;
       cursor: pointer;

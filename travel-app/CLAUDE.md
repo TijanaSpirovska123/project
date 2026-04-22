@@ -133,6 +133,21 @@ This app always runs in two modes: **light** (default) and **dark** (`[data-them
 All dark mode overrides live in `src/styles.scss` inside the `[data-theme="dark"] { }` block.
 Component `.scss` files use hardcoded SCSS variables for light mode — do NOT add `:host` or component-level dark overrides. Keep all dark mode in `styles.scss`.
 
+### Active / selected button rule
+
+All active/selected state buttons must use **solid teal** (`#1ca698` / `$primary` / `$clr-primary-a0`) — never the gradient `linear-gradient(135deg, #1ca698, #27ae60)`. This keeps them consistent with the platform tab (Meta, TikTok, etc.) active state.
+
+- **Light mode:** `background: #1ca698; color: white; border-color: #1ca698;`
+- **Dark mode** (in `styles.scss`): `background: $clr-primary-a0 !important; color: $clr-surface-a0 !important;`
+- Applies to: tab buttons, preset/period pills, sync/action buttons, any toggle that has an active state
+
+### Modal header rule
+
+Modal headers must **never** use the teal/green gradient. They must blend with the modal background:
+- **Light mode:** `background: white; color: #20233a; border-bottom: 1px solid #e8ebf2;`
+- **Dark mode** (in `styles.scss`): `background: $clr-surface-tonal-a0; color: $clr-primary-a40; border-bottom-color: $clr-surface-tonal-a20;`
+- Close buttons: light → `color: #64748b`, hover `rgba(0,0,0,0.08)`; dark → `color: $clr-surface-tonal-a50`, hover `rgba(255,255,255,0.08)`
+
 ### Pattern for every new element
 
 1. Write the light mode styles in the component `.scss` file using the existing SCSS variables (`$bg-card`, `$text-primary`, `$border`, etc.)
