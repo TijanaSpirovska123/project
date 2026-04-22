@@ -23,10 +23,11 @@ export class OauthSuccessComponent implements OnInit, OnDestroy {
       next: (params) => {
         const token = params['token'];
         const userId = params['userId'];
+        const actId = params['actId'];
 
         if (token) {
           try {
-            this.authStore.login(token, userId);
+            this.authStore.login(token, userId, actId ?? null);
             // Redirect to meta after OAuth connection
             this.router.navigate(['/meta']).catch((error) => {
               console.error('Navigation to meta failed:', error);
@@ -38,6 +39,9 @@ export class OauthSuccessComponent implements OnInit, OnDestroy {
           }
         } else if (this.authStore.isAuthenticated()) {
           // Reconnect flow: user already logged in, Meta token was refreshed
+          if (actId) {
+            this.authStore.setActId(actId);
+          }
           this.router.navigate(['/meta']);
         } else {
           console.warn('No token provided in query params');

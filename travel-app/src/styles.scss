@@ -936,6 +936,99 @@ body {
     }
   }
 
+  // ── Insights — Date range picker (adflow-date-range-picker) ───────────
+  adflow-date-range-picker {
+    .date-trigger {
+      background: $clr-surface-tonal-a10 !important;
+      border-color: $clr-surface-tonal-a20 !important;
+      color: $clr-primary-a50 !important;
+
+      .trigger-icon,
+      .trigger-chevron { color: $clr-surface-tonal-a50 !important; }
+      .trigger-caption { color: $clr-surface-tonal-a40 !important; }
+
+      &:hover, &.active {
+        border-color: $clr-primary-a0 !important;
+        background: rgba(72, 224, 214, 0.08) !important;
+        color: $clr-primary-a0 !important;
+      }
+    }
+
+    .picker-popover {
+      background: $clr-surface-tonal-a0 !important;
+      border-color: $clr-surface-tonal-a20 !important;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+    }
+
+    .picker-section + .picker-section {
+      border-top-color: $clr-surface-tonal-a20 !important;
+    }
+
+    .preset-row,
+    .custom-toggle {
+      color: $clr-primary-a50 !important;
+
+      mat-icon { color: $clr-surface-tonal-a50 !important; }
+
+      &:hover, &:focus-visible {
+        background: $clr-surface-tonal-a10 !important;
+      }
+
+      &.active {
+        color: $clr-primary-a0 !important;
+        background: rgba(72, 224, 214, 0.07) !important;
+
+        mat-icon { color: $clr-primary-a0 !important; }
+      }
+    }
+
+    .compare-title { color: $clr-primary-a50 !important; }
+    .compare-helper { color: $clr-surface-tonal-a50 !important; }
+
+    // ── Inline calendar dark mode ──
+    app-date-range-picker {
+      .drp-inline { background: transparent !important; }
+
+      .drp-month-badge {
+        background: $clr-surface-tonal-a10 !important;
+        border-color: $clr-surface-tonal-a20 !important;
+        color: $clr-primary-a50 !important;
+      }
+
+      .drp-chevron {
+        background: $clr-surface-tonal-a10 !important;
+        border-color: $clr-surface-tonal-a20 !important;
+        color: $clr-primary-a50 !important;
+        &:hover { background: $clr-surface-tonal-a20 !important; }
+      }
+
+      .drp-wd { color: $clr-surface-tonal-a50 !important; }
+
+      .drp-day-inner:not(.drp-day-selected) { color: $clr-primary-a50 !important; }
+      .drp-day-outside .drp-day-inner { color: $clr-surface-tonal-a30 !important; }
+      .drp-day-outside:not(.drp-day-disabled):hover .drp-day-inner { background: $clr-surface-tonal-a20 !important; }
+
+      .drp-day-selected {
+        background: $clr-primary-a0 !important;
+        color: $clr-surface-a0 !important;
+      }
+
+      .drp-day-today .drp-day-inner {
+        border-color: $clr-primary-a0 !important;
+      }
+
+      .drp-day-in-range::before,
+      .drp-day-start-half::after,
+      .drp-day-end-half::before {
+        background: rgba(72, 224, 214, 0.12) !important;
+      }
+
+      .drp-day-in-range .drp-day-inner:not(.drp-day-selected) {
+        color: $clr-primary-a40 !important;
+      }
+    }
+  }
+
   // ── Creative Library component ─────────────────────────────────────────
   .library-container {
     background: $clr-surface-a0 !important;

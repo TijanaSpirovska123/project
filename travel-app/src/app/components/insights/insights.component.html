@@ -42,11 +42,45 @@
         </div>
       </div>
       <div class="header-controls">
-        <app-date-range-picker
-          (rangeChange)="onCustomRangeChange($event)"
-          (quickSelectChange)="onQuickSelectChange($event)">
-        </app-date-range-picker>
-      </div>
+        <!-- Saved Views dropdown -->
+        <div class="saved-views-wrap">
+          <button class="saved-views-btn" [class.active]="savedViewsDropdownOpen" (click)="toggleSavedViewsDropdown()">
+            <mat-icon>bookmark</mat-icon>
+            <span>{{ savedViewsButtonLabel }}</span>
+            <mat-icon class="sv-chevron" [class.rotated]="savedViewsDropdownOpen">expand_more</mat-icon>
+          </button>
+          @if (savedViewsDropdownOpen) {
+            <div class="saved-views-dropdown">
+              <button class="sv-action-item" (click)="openSaveDialog()">
+                <mat-icon>add</mat-icon> Save current view…
+              </button>
+              <button class="sv-action-item" (click)="openManageDrawer()">
+                <mat-icon>settings</mat-icon> Manage views…
+              </button>
+              @if (savedViews.length > 0) {
+                <div class="sv-divider"></div>
+                @if (savedViewsLoading) {
+                  <div class="sv-loading">Loading…</div>
+                } @else {
+                  @for (v of savedViews; track v.id) {
+                    <div class="sv-item" [class.sv-active]="activeSavedView?.id === v.id" (click)="applySavedView(v)">
+                      <mat-icon class="sv-pin-icon" *ngIf="v.pinned">push_pin</mat-icon>
+                      <span class="sv-name">{{ v.name }}</span>
+                      @if (activeSavedView?.id === v.id) {
+                        <span class="sv-badge">{{ savedViewsModified ? '●' : '✓' }}</span>
+                      }
+                    </div>
+                  }
+                }
+              }
+            </div>
+          }
+        </div>
+        <adflow-date-range-picker
+          [value]="dateSelection"
+          (valueChange)="onDateSelectionChange($event)"
+        ></adflow-date-range-picker>
+</div>
     </div>
 
     <!-- Lower Panel Buttons -->
@@ -117,6 +151,33 @@
         </div>
       }
     </div>
+
+    <!-- Breadcrumb — shown when drilled into campaigns or ad sets -->
+    @if (breadcrumbVisible) {
+      <div class="insights-breadcrumb">
+        @if (selectedCampaignIds.size > 1) {
+          <span class="bc-seg bc-seg-muted">Campaigns: {{ selectedCampaignIds.size }} selected</span>
+        } @else {
+          <button class="bc-seg bc-seg-link" (click)="breadcrumbNavigateHome()">All campaigns</button>
+        }
+        @if (selectedCampaignIds.size > 0) {
+          <span class="bc-sep">›</span>
+          @if (selectedCampaignIds.size === 1 && breadcrumbCampaignName) {
+            @if (activeTabIndex === 2) {
+              <button class="bc-seg bc-seg-link" (click)="breadcrumbNavigateToCampaign()">{{ breadcrumbCampaignName }}</button>
+            } @else {
+              <span class="bc-seg">{{ breadcrumbCampaignName }}</span>
+            }
+          } @else if (selectedCampaignIds.size > 1) {
+            <span class="bc-seg bc-seg-muted">All ad sets</span>
+          }
+        }
+        @if (breadcrumbAdSetName) {
+          <span class="bc-sep">›</span>
+          <span class="bc-seg">Ad Set: {{ breadcrumbAdSetName }}</span>
+        }
+      </div>
+    }
 
     <!-- Filter Controls Row: toggle + tabs + sync -->
     <div class="filter-controls-row">
@@ -198,7 +259,7 @@
                     <mat-icon>chevron_right</mat-icon>
                   </button>
                   <input type="checkbox" [checked]="isCampaignSelected(c)" (change)="toggleCampaign(c)" />
-                  <span class="sel-name">{{ c.name }}</span>
+                  <span class="sel-name"><button class="drill-link" (click)="drillIntoCampaign(c); $event.stopPropagation(); $event.preventDefault()">{{ c.name }}</button></span>
                   <span class="sel-id">{{ c.externalId }}</span>
                 </label>
                 @if (isCampaignExpanded(c)) {
@@ -208,7 +269,7 @@
                         <mat-icon>chevron_right</mat-icon>
                       </button>
                       <input type="checkbox" [checked]="isAdSetSelected(a)" (change)="toggleAdSet(a)" />
-                      <span class="sel-name">{{ a.name }}</span>
+                      <span class="sel-name"><button class="drill-link" (click)="drillIntoAdSet(a); $event.stopPropagation(); $event.preventDefault()">{{ a.name }}</button></span>
                       <span class="sel-id">{{ a.externalId }}</span>
                     </label>
                     @if (isAdSetExpanded(a)) {
@@ -434,3 +495,69 @@
     </div>
   </div>
 </div>
+
+<!-- Save View Dialog -->
+<div *ngIf="saveDialogOpen" class="metric-overlay" (click)="closeSaveDialog()">
+  <div class="metric-modal save-view-modal" (click)="$event.stopPropagation()">
+    <div class="metric-modal-header">
+      <h4><mat-icon>bookmark_add</mat-icon> Save current view</h4>
+      <button class="close-btn" (click)="closeSaveDialog()"><span>&times;</span></button>
+    </div>
+    <div class="metric-modal-body">
+      <label class="metric-select-label">Name *</label>
+      <input class="sv-dialog-input" type="text" maxlength="128" placeholder="e.g. Monday check" [(ngModel)]="saveDialogName" />
+      <label class="metric-select-label" style="margin-top:10px">Description</label>
+      <input class="sv-dialog-input" type="text" maxlength="512" placeholder="Optional description" [(ngModel)]="saveDialogDescription" />
+      <label class="sv-dialog-checkbox">
+        <input type="checkbox" [(ngModel)]="saveDialogPin" /> Pin to top of list
+      </label>
+      <p class="field-error" *ngIf="saveDialogError">{{ saveDialogError }}</p>
+    </div>
+    <div class="metric-modal-footer">
+      <button class="btn-apply" (click)="submitSaveDialog()" [disabled]="saveDialogSaving">{{ saveDialogSaving ? 'Saving…' : 'Save' }}</button>
+      <button class="btn-cancel" (click)="closeSaveDialog()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Manage Views Drawer -->
+<div class="slide-panel manage-views-panel" [class.open]="manageDrawerOpen">
+  <div class="slide-panel-header">
+    <div class="slide-panel-title">
+      <mat-icon>bookmarks</mat-icon>
+      <span>Manage saved views — {{ activePlatform }}</span>
+    </div>
+    <button class="slide-panel-close" (click)="closeManageDrawer()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+  <div class="slide-panel-body">
+    @if (manageDrawerLoading) {
+      <div class="sv-loading">Loading…</div>
+    } @else if (!manageDrawerViews.length) {
+      <p class="sv-empty">No saved views yet. Use "Save current view…" to create one.</p>
+    } @else {
+      <div class="sv-manage-list">
+        @for (v of manageDrawerViews; track v.id) {
+          <div class="sv-manage-item">
+            <mat-icon class="sv-pin-icon" [class.pinned]="v.pinned">push_pin</mat-icon>
+            <div class="sv-manage-info">
+              <span class="sv-manage-name">{{ v.name }}</span>
+              <span class="sv-manage-desc" *ngIf="v.description">{{ v.description }}</span>
+            </div>
+            <div class="sv-manage-actions">
+              <button class="sv-icon-btn" (click)="togglePinView(v)" [title]="v.pinned ? 'Unpin' : 'Pin'">
+                <mat-icon>{{ v.pinned ? 'push_pin' : 'push_pin' }}</mat-icon>
+              </button>
+              <button class="sv-icon-btn sv-delete-btn" (click)="deleteView(v)" title="Delete">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>
+
+

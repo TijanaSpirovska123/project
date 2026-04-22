@@ -82,6 +82,7 @@ public class MetaOAuthService {
 
     // ─── STEP 2: handle callback ───────────────────────────────────────────
 
+
     public String handleCallback(String code, String state, String error) {
         if (error != null) {
             return buildFailureRedirect();
@@ -135,14 +136,21 @@ public class MetaOAuthService {
             connectRequest.setCompleted(true);
             connectRequestRepo.save(connectRequest);
 
+            String actId = adAccountConnectionRepo
+                    .findAllByUserIdAndProviderAndActiveTrue(connectRequest.getUserId(), "META")
+                    .stream()
+                    .map(AdAccountConnectionEntity::getAdAccountId)
+                    .findFirst()
+                    .orElse(null);
+
             if (isReconnecting) {
-                return buildSuccessRedirect(null, null);
+                return buildSuccessRedirect(null, null, actId);
             }
 
             UserEntity user = userRepository.findById(connectRequest.getUserId())
                     .orElseThrow(() -> new RuntimeException("User not found: " + connectRequest.getUserId()));
             String jwt = jwtService.generateToken(user.getUsername(), user.getRole().name(), user.getId());
-            return buildSuccessRedirect(jwt, user.getId());
+            return buildSuccessRedirect(jwt, user.getId(), actId);
 
         } catch (Exception ex) {
             log.error("Meta OAuth callback failed for state={}: {}", state, ex.getMessage(), ex);
@@ -313,12 +321,15 @@ public class MetaOAuthService {
         connectRequestRepo.save(req);
     }
 
-    private String buildSuccessRedirect(String jwt, Long userId) {
+    private String buildSuccessRedirect(String jwt, Long userId, String actId) {
         UriComponentsBuilder builder = UriComponentsBuilder
                 .fromHttpUrl(frontendProps.getSuccessRedirectUrl());
         if (jwt != null && userId != null) {
             builder.queryParam("token", jwt)
                    .queryParam("userId", userId);
+        }
+        if (actId != null) {
+            builder.queryParam("actId", actId);
         }
         return builder.build().toUriString();
     }

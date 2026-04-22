@@ -130,4 +130,9 @@ export class AuthStoreService {
     if (!value) return null;
     return value.startsWith('act_') ? value.slice(4) : value;
   }
+
+  // Update stored ad account ID without triggering a full re-login
+  public setActId(actId: string): void {
+    this.setToStorage(StorageKeys.ACT_ID, actId);
+  }
 }

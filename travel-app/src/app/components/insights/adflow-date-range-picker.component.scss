@@ -1,0 +1,209 @@
+.date-range-picker {
+  position: relative;
+}
+
+.date-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 8px 14px;
+  border: 1px solid #e8ebf2;
+  border-radius: 10px;
+  background: #fff;
+  color: #20233a;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+
+  &:hover,
+  &.active {
+    border-color: #1ca698;
+    background: rgba(28, 166, 152, 0.05);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 3px rgba(28, 166, 152, 0.14),
+      0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+}
+
+.trigger-icon,
+.trigger-chevron {
+  color: #64748b;
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.trigger-chevron {
+  transition: transform 0.25s ease;
+
+  &.rotated {
+    transform: rotate(180deg);
+  }
+}
+
+.trigger-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.trigger-label {
+  line-height: 1.1;
+}
+
+.trigger-caption {
+  font-size: 0.72rem;
+  line-height: 1.1;
+  color: #94a3b8;
+}
+
+.picker-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 320px;
+  background: #fff;
+  border: 1px solid #e8ebf2;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  z-index: 600;
+  overflow: hidden;
+}
+
+.picker-section {
+  padding: 10px 0;
+
+  & + .picker-section {
+    border-top: 1px solid #f0f4f8;
+  }
+}
+
+.preset-row,
+.custom-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: #20233a;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+  font-family: inherit;
+
+  mat-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+    color: #64748b;
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: #f8fafc;
+    outline: none;
+  }
+
+  &.active {
+    color: #1ca698;
+
+    mat-icon {
+      color: #1ca698;
+    }
+  }
+}
+
+.custom-chevron {
+  transition: transform 0.2s ease;
+
+  &.rotated {
+    transform: rotate(180deg);
+  }
+}
+
+.custom-panel {
+  padding: 8px 0 4px;
+}
+
+.custom-calendar-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 0 8px 4px;
+}
+
+:host ::ng-deep .custom-calendar-wrap .drp-quick {
+  display: none;
+}
+
+.compare-section {
+  padding: 12px 16px 14px;
+}
+
+.compare-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.compare-title {
+  display: block;
+  color: #20233a;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.compare-helper {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+@media (max-width: 639px) {
+  .date-range-picker {
+    width: 100%;
+  }
+
+  .date-trigger {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .picker-popover {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    width: auto;
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+  }
+
+}

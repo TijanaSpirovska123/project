@@ -46,111 +46,122 @@ const MONTHS_SHORT = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT
         }
       </div>
 
-      <!-- FROM → TO trigger row -->
-      <div class="drp-inputs">
-        <div class="drp-field">
-          <label class="drp-label">FROM</label>
-          <div class="drp-input-wrap"
-               [class.drp-input-active]="isOpen() && activeInput() === 'from'"
-               (click)="openPanel('from')"
-               role="combobox"
-               [attr.aria-expanded]="isOpen() && activeInput() === 'from'"
-               aria-haspopup="dialog"
-               tabindex="0"
-               (keydown.enter)="openPanel('from')"
-               (keydown.space)="$event.preventDefault(); openPanel('from')">
-            <span class="drp-input-text" [class.drp-placeholder]="!startDate()">
-              {{ startDate() ? formatDate(startDate()) : 'DD/MM/YYYY' }}
-            </span>
-            <i class="fa fa-calendar drp-cal-icon" aria-hidden="true"></i>
-          </div>
-        </div>
-
-        <span class="drp-arrow" aria-hidden="true">→</span>
-
-        <div class="drp-field">
-          <label class="drp-label">TO</label>
-          <div class="drp-input-wrap"
-               [class.drp-input-active]="isOpen() && activeInput() === 'to'"
-               (click)="openPanel('to')"
-               role="combobox"
-               [attr.aria-expanded]="isOpen() && activeInput() === 'to'"
-               aria-haspopup="dialog"
-               tabindex="0"
-               (keydown.enter)="openPanel('to')"
-               (keydown.space)="$event.preventDefault(); openPanel('to')">
-            <span class="drp-input-text" [class.drp-placeholder]="!endDate()">
-              {{ endDate() ? formatDate(endDate()) : 'DD/MM/YYYY' }}
-            </span>
-            <i class="fa fa-calendar drp-cal-icon" aria-hidden="true"></i>
-          </div>
-        </div>
-      </div>
-
-      <!-- Validation error -->
-      @if (rangeError()) {
-        <div class="drp-error" role="alert">{{ rangeError() }}</div>
-      }
-
-      <!-- Calendar panel -->
-      @if (isOpen()) {
-        <div class="drp-panel" role="dialog" aria-label="Date picker calendar" aria-modal="true">
-
-          <!-- Header -->
-          <div class="drp-header">
-            <span class="drp-month-badge">
-              {{ headerLabel() }}
-              <i class="fa fa-caret-down drp-badge-caret" aria-hidden="true"></i>
-            </span>
-            <div class="drp-chevrons">
-              <button type="button" class="drp-chevron" (click)="prevMonth()" aria-label="Previous month">
-                <i class="fa fa-chevron-left" aria-hidden="true"></i>
-              </button>
-              <button type="button" class="drp-chevron" (click)="nextMonth()" aria-label="Next month">
-                <i class="fa fa-chevron-right" aria-hidden="true"></i>
-              </button>
+      @if (!inline) {
+        <!-- FROM → TO trigger row -->
+        <div class="drp-inputs">
+          <div class="drp-field">
+            <label class="drp-label">FROM</label>
+            <div class="drp-input-wrap"
+                 [class.drp-input-active]="isOpen() && activeInput() === 'from'"
+                 (click)="openPanel('from')"
+                 role="combobox"
+                 [attr.aria-expanded]="isOpen() && activeInput() === 'from'"
+                 aria-haspopup="dialog"
+                 tabindex="0"
+                 (keydown.enter)="openPanel('from')"
+                 (keydown.space)="$event.preventDefault(); openPanel('from')">
+              <span class="drp-input-text" [class.drp-placeholder]="!startDate()">
+                {{ startDate() ? formatDate(startDate()) : 'DD/MM/YYYY' }}
+              </span>
+              <i class="fa fa-calendar drp-cal-icon" aria-hidden="true"></i>
             </div>
           </div>
 
-          <!-- Weekday headers -->
-          <div class="drp-weekdays" role="row">
-            @for (wd of weekdays; track wd) {
-              <span class="drp-wd" role="columnheader" [attr.aria-label]="wd">{{ wd }}</span>
-            }
-          </div>
+          <span class="drp-arrow" aria-hidden="true">→</span>
 
-          <!-- Day grid -->
-          <div class="drp-grid" role="grid">
-            @for (day of daysGrid(); track day.date.getTime()) {
-              <div class="drp-day-cell"
-                   [class.drp-day-start-half]="isStartDate(day.date) && !!endDate() && !isSameDay(day.date, endDate())"
-                   [class.drp-day-end-half]="isEndDate(day.date) && !!startDate() && !isSameDay(day.date, startDate())"
-                   [class.drp-day-in-range]="isInRange(day.date)">
-                <div class="drp-day-inner"
-                     [class.drp-day-outside]="day.outside"
-                     [class.drp-day-selected]="!day.outside && (isStartDate(day.date) || isEndDate(day.date))"
-                     [class.drp-day-today]="isToday(day.date) && !isStartDate(day.date) && !isEndDate(day.date)"
-                     [class.drp-day-disabled]="day.outside || isDayDisabled(day.date)"
-                     role="gridcell"
-                     [attr.aria-selected]="!day.outside && (isStartDate(day.date) || isEndDate(day.date))"
-                     [attr.aria-disabled]="day.outside || isDayDisabled(day.date)"
-                     (click)="selectDay(day)">
-                  {{ day.date.getDate() }}
-                </div>
-              </div>
-            }
+          <div class="drp-field">
+            <label class="drp-label">TO</label>
+            <div class="drp-input-wrap"
+                 [class.drp-input-active]="isOpen() && activeInput() === 'to'"
+                 (click)="openPanel('to')"
+                 role="combobox"
+                 [attr.aria-expanded]="isOpen() && activeInput() === 'to'"
+                 aria-haspopup="dialog"
+                 tabindex="0"
+                 (keydown.enter)="openPanel('to')"
+                 (keydown.space)="$event.preventDefault(); openPanel('to')">
+              <span class="drp-input-text" [class.drp-placeholder]="!endDate()">
+                {{ endDate() ? formatDate(endDate()) : 'DD/MM/YYYY' }}
+              </span>
+              <i class="fa fa-calendar drp-cal-icon" aria-hidden="true"></i>
+            </div>
           </div>
+        </div>
 
-          <!-- Footer -->
-          <div class="drp-footer">
-            <button type="button" class="drp-foot-btn" (click)="clear()">Clear</button>
-            <button type="button" class="drp-foot-btn" (click)="setToday()">Today</button>
+        <!-- Validation error -->
+        @if (rangeError()) {
+          <div class="drp-error" role="alert">{{ rangeError() }}</div>
+        }
+
+        <!-- Calendar panel (floating) -->
+        @if (isOpen()) {
+          <div class="drp-panel" role="dialog" aria-label="Date picker calendar" aria-modal="true">
+            <ng-container *ngTemplateOutlet="calendarTpl"></ng-container>
           </div>
+        }
+      }
 
+      @if (inline) {
+        <!-- Inline calendar -->
+        <div class="drp-inline" role="dialog" aria-label="Date picker calendar">
+          <ng-container *ngTemplateOutlet="calendarTpl"></ng-container>
         </div>
       }
 
     </div>
+
+    <ng-template #calendarTpl>
+      <!-- Header -->
+      <div class="drp-header">
+        <span class="drp-month-badge">
+          {{ headerLabel() }}
+          <i class="fa fa-caret-down drp-badge-caret" aria-hidden="true"></i>
+        </span>
+        <div class="drp-chevrons">
+          <button type="button" class="drp-chevron" (click)="prevMonth()" aria-label="Previous month">
+            <i class="fa fa-chevron-left" aria-hidden="true"></i>
+          </button>
+          <button type="button" class="drp-chevron" (click)="nextMonth()" aria-label="Next month">
+            <i class="fa fa-chevron-right" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Weekday headers -->
+      <div class="drp-weekdays" role="row">
+        @for (wd of weekdays; track wd) {
+          <span class="drp-wd" role="columnheader" [attr.aria-label]="wd">{{ wd }}</span>
+        }
+      </div>
+
+      <!-- Day grid -->
+      <div class="drp-grid" role="grid">
+        @for (day of daysGrid(); track day.date.getTime()) {
+          <div class="drp-day-cell"
+               [class.drp-day-start-half]="isStartDate(day.date) && !!endDate() && !isSameDay(day.date, endDate())"
+               [class.drp-day-end-half]="isEndDate(day.date) && !!startDate() && !isSameDay(day.date, startDate())"
+               [class.drp-day-in-range]="isInRange(day.date)">
+            <div class="drp-day-inner"
+                 [class.drp-day-outside]="day.outside"
+                 [class.drp-day-selected]="!day.outside && (isStartDate(day.date) || isEndDate(day.date))"
+                 [class.drp-day-today]="isToday(day.date) && !isStartDate(day.date) && !isEndDate(day.date)"
+                 [class.drp-day-disabled]="isDayDisabled(day.date)"
+                 role="gridcell"
+                 [attr.aria-selected]="!day.outside && (isStartDate(day.date) || isEndDate(day.date))"
+                 [attr.aria-disabled]="isDayDisabled(day.date)"
+                 (click)="selectDay(day)">
+              {{ day.date.getDate() }}
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Footer -->
+      <div class="drp-footer">
+        <button type="button" class="drp-foot-btn" (click)="clear()">Clear</button>
+        <button type="button" class="drp-foot-btn" (click)="setToday()">Today</button>
+      </div>
+    </ng-template>
   `,
   styles: [`
     .drp-wrap {
@@ -220,7 +231,7 @@ const MONTHS_SHORT = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT
     /* ── Error ── */
     .drp-error { font-size: 12px; color: #EF4444; }
 
-    /* ── Calendar panel ── */
+    /* ── Calendar panel (floating) ── */
     .drp-panel {
       position: absolute;
       top: calc(100% + 4px);
@@ -232,6 +243,14 @@ const MONTHS_SHORT = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT
       box-shadow: 0 4px 16px rgba(0,0,0,0.10);
       z-index: 1000;
       padding: 14px;
+      box-sizing: border-box;
+    }
+
+    /* ── Inline calendar ── */
+    .drp-inline {
+      width: 100%;
+      background: transparent;
+      padding: 4px 0 0;
       box-sizing: border-box;
     }
 
@@ -357,10 +376,10 @@ const MONTHS_SHORT = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT
     }
 
     .drp-day-selected {
-      border: 2px solid #1ca698 !important;
-      background: transparent !important;
-      color: #111827 !important;
-      font-weight: 500;
+      background: #1ca698 !important;
+      color: #fff !important;
+      border: none !important;
+      font-weight: 600;
       border-radius: 50%;
     }
 
@@ -369,7 +388,8 @@ const MONTHS_SHORT = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT
       border-radius: 50%;
     }
 
-    .drp-day-outside { color: #D1D5DB; cursor: default; pointer-events: none; }
+    .drp-day-outside { color: #D1D5DB; cursor: pointer; }
+    .drp-day-outside:not(.drp-day-disabled):hover { background: #E5E7EB; }
 
     .drp-day-disabled { color: #E5E7EB !important; cursor: not-allowed !important; pointer-events: none; }
 
@@ -395,6 +415,7 @@ const MONTHS_SHORT = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT
 })
 export class DateRangePickerComponent implements ControlValueAccessor {
   @Input() maxRangeDays = 365;
+  @Input() inline = false;
   @Output() rangeChange = new EventEmitter<DateRange>();
   @Output() quickSelectChange = new EventEmitter<QuickKey>();
 
@@ -471,7 +492,11 @@ export class DateRangePickerComponent implements ControlValueAccessor {
 
   // ── Day selection ──
   selectDay(day: { date: Date; outside: boolean }): void {
-    if (day.outside || this.isDayDisabled(day.date)) return;
+    if (this.isDayDisabled(day.date)) return;
+    if (day.outside) {
+      this.viewYear.set(day.date.getFullYear());
+      this.viewMonth.set(day.date.getMonth());
+    }
     const date = new Date(day.date);
 
     if (this.activeInput() === 'from') {
@@ -493,7 +518,11 @@ export class DateRangePickerComponent implements ControlValueAccessor {
       this.validateRange();
       if (!this.rangeError()) {
         this.emitChange();
-        this.closePanel();
+        if (this.inline) {
+          this.activeInput.set('from');
+        } else {
+          this.closePanel();
+        }
       }
     }
   }

@@ -30,5 +30,6 @@
     <include file="classpath:db.changelog/changes/25.add_meta_video_id_to_stored_asset_variant.xml"/>
     <include file="classpath:db.changelog/changes/26.add_video_fields_to_stored_asset.xml"/>
     <include file="classpath:db.changelog/changes/27.add_picture_url_to_pages.xml"/>
+    <include file="classpath:db.changelog/changes/28-create-insights-saved-view.xml"/>
 
 </databaseChangeLog>

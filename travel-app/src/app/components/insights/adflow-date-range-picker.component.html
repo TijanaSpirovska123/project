@@ -1,0 +1,73 @@
+<div class="date-range-picker">
+  <button
+    #triggerButton
+    type="button"
+    class="date-trigger"
+    [class.active]="isOpen"
+    aria-haspopup="menu"
+    [attr.aria-expanded]="isOpen"
+    (click)="togglePopover()"
+    (keydown)="onTriggerKeydown($event)"
+  >
+    <mat-icon class="trigger-icon">calendar_month</mat-icon>
+    <span class="trigger-copy">
+      <span class="trigger-label">{{ triggerLabel }}</span>
+      <span class="trigger-caption" *ngIf="value.compareToPrevious">vs previous</span>
+    </span>
+    <mat-icon class="trigger-chevron" [class.rotated]="isOpen">expand_more</mat-icon>
+  </button>
+
+  <div
+    *ngIf="isOpen"
+    class="picker-popover"
+    role="menu"
+    aria-label="Date range presets"
+    (keydown)="onPopoverKeydown($event)"
+  >
+    <section class="picker-section presets-section">
+      <button
+        #presetButton
+        *ngFor="let option of presetOptions; let i = index; trackBy: trackPreset"
+        type="button"
+        class="preset-row"
+        [class.active]="isPresetActive(option)"
+        role="menuitemradio"
+        [attr.aria-checked]="isPresetActive(option)"
+        (focus)="focusedPresetIndex = i"
+        (click)="selectPreset(option)"
+      >
+        <span>{{ option.label }}</span>
+        <mat-icon *ngIf="isPresetActive(option)">check</mat-icon>
+      </button>
+    </section>
+
+    <section class="picker-section custom-section">
+      <button type="button" class="custom-toggle" [class.active]="customRangeActive" (click)="toggleCustomExpanded()">
+        <span>Custom range</span>
+        <mat-icon class="custom-chevron" [class.rotated]="customRangeActive">expand_more</mat-icon>
+      </button>
+
+      <div class="custom-panel" *ngIf="customRangeActive">
+        <div class="custom-calendar-wrap">
+          <app-date-range-picker [inline]="true" [ngModel]="draftCalendarRange" (rangeChange)="onCustomCalendarChange($event)"></app-date-range-picker>
+        </div>
+      </div>
+    </section>
+
+    <section class="picker-section compare-section">
+      <div class="compare-row">
+        <div class="compare-copy">
+          <span class="compare-title">Compare to previous period</span>
+        </div>
+        <mat-slide-toggle
+          color="primary"
+          [ngModel]="draftCompareToPrevious"
+          (ngModelChange)="onCompareToggleChange($event)"
+        ></mat-slide-toggle>
+      </div>
+      <p class="compare-helper">Compares to the equivalent length window immediately before the selected range</p>
+    </section>
+  </div>
+
+  <span class="sr-only" aria-live="polite">{{ liveMessage }}</span>
+</div>

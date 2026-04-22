@@ -33,7 +33,9 @@ import {
   METRIC_ICONS,
   METRIC_CONFIG,
 } from '../../models/insights/insight.model';
-import { DateRange } from '../shared/date-range-picker.component';
+import { DatePresetId, DateRangeSelection } from './adflow-date-range-picker.component';
+import { InsightsSavedViewService } from '../../services/insights/insights-saved-view.service';
+import { InsightsSavedView, InsightsViewConfig } from '../../models/insights/insights-saved-view.model';
 
 const CHART_COLORS = [
   '#1ca698',
@@ -43,6 +45,20 @@ const CHART_COLORS = [
   '#e74c3c',
   '#2ecc71',
 ];
+
+const DEFAULT_DATE_SELECTION: DateRangeSelection = {
+  preset: 'last_30d',
+  dateStart: null,
+  dateStop: null,
+  compareToPrevious: false,
+};
+
+const ROLLING_PRESET_DAYS: Partial<Record<DatePresetId, number>> = {
+  last_7d: 7,
+  last_14d: 14,
+  last_30d: 30,
+  last_90d: 90,
+};
 
 const CAMPAIGN_FIELDS = [
   // Core
@@ -140,8 +156,12 @@ export class InsightsComponent implements OnInit, OnDestroy {
 
   isLoading = false;
   isLoadingObjects = false;
-  activePreset: number | null = null;
+  activePreset: number | null = 30;
+  activePresetKey: DatePresetId | null = 'last_30d';
+  dateSelection: DateRangeSelection = { ...DEFAULT_DATE_SELECTION };
   private loadGeneration = 0;
+
+  private static readonly LAST_VIEW_KEY = 'adflow.insights.lastView.v1';
 
   chartType: 'line' | 'bar' = 'line';
   private chartInstance: Chart | null = null;
@@ -149,7 +169,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
 
   startFocused = false;
   stopFocused = false;
-  dateRangeSelected = false;
+  dateRangeSelected = true;
 
   // Date range
   dateStart = '';
@@ -223,10 +243,31 @@ export class InsightsComponent implements OnInit, OnDestroy {
   // Tracks the date range that was last synced (POST) — persists across navigation
   private static syncedRange: { start: string; stop: string } | null = null;
 
+  // ---------- Saved Views state ----------
+  savedViews: InsightsSavedView[] = [];
+  activeSavedView: InsightsSavedView | null = null;
+  savedViewsModified = false;
+  savedViewsDropdownOpen = false;
+  savedViewsLoading = false;
+
+  // Save dialog
+  saveDialogOpen = false;
+  saveDialogName = '';
+  saveDialogDescription = '';
+  saveDialogPin = false;
+  saveDialogSaving = false;
+  saveDialogError = '';
+
+  // Manage drawer
+  manageDrawerOpen = false;
+  manageDrawerViews: InsightsSavedView[] = [];
+  manageDrawerLoading = false;
+
   constructor(
     private readonly toastr: AppToastrService,
     private readonly authStore: AuthStoreService,
     private readonly insightsService: InsightsService,
+    private readonly savedViewService: InsightsSavedViewService,
     private readonly campaignService: CampaignService,
     private readonly adSetService: AdSetService,
     private readonly adService: AdService,
@@ -246,7 +287,9 @@ export class InsightsComponent implements OnInit, OnDestroy {
         this.activeTabIndex = idx;
       }
     }
-    this.initDateRange();
+    if (!this.restoreLastView()) {
+      this.initDateRange();
+    }
     this.initMetricBlocks();
     this.loadAvailableObjects();
     this.loadConnectionStatus();
@@ -289,15 +332,121 @@ export class InsightsComponent implements OnInit, OnDestroy {
     const tab = this.platformTabs.find(t => t.key === key);
     if (tab && tab.connected) {
       this.activePlatform = key;
+      this.savedViews = [];
+      this.activeSavedView = null;
+      this.savedViewsModified = false;
     }
   }
 
   private initDateRange(): void {
+    this.applyDateSelectionState(DEFAULT_DATE_SELECTION);
+  }
+
+  private buildDateSelectionFromState(): DateRangeSelection {
+    return {
+      preset: this.activePresetKey,
+      dateStart: this.activePresetKey ? null : (this.dateStart || null),
+      dateStop: this.activePresetKey ? null : (this.dateStop || null),
+      compareToPrevious: this.dateSelection.compareToPrevious ?? false,
+    };
+  }
+
+  private applyDateSelectionState(selection: DateRangeSelection): void {
+    const normalized = this.normalizeDateSelection(selection);
+    const resolved = this.resolveSelectionDates(normalized);
+    this.dateSelection = normalized;
+    this.activePresetKey = normalized.preset;
+    this.activePreset = normalized.preset ? (ROLLING_PRESET_DAYS[normalized.preset] ?? null) : null;
+    this.dateStart = resolved.dateStart;
+    this.dateStop = resolved.dateStop;
+    this.dateRangeSelected = !!this.dateStart && !!this.dateStop;
+  }
+
+  private normalizeDateSelection(selection: DateRangeSelection | null | undefined): DateRangeSelection {
+    const next = selection ?? DEFAULT_DATE_SELECTION;
+    return {
+      preset: next.preset ?? null,
+      dateStart: next.preset ? null : (next.dateStart ?? null),
+      dateStop: next.preset ? null : (next.dateStop ?? null),
+      compareToPrevious: next.compareToPrevious ?? false,
+    };
+  }
+
+  private sameDateSelection(a: DateRangeSelection, b: DateRangeSelection): boolean {
+    return a.preset === b.preset
+      && a.dateStart === b.dateStart
+      && a.dateStop === b.dateStop
+      && a.compareToPrevious === b.compareToPrevious;
+  }
+
+  private resolveSelectionDates(selection: DateRangeSelection): { dateStart: string; dateStop: string } {
+    if (selection.preset) {
+      return this.resolvePresetDates(selection.preset);
+    }
+
+    return {
+      dateStart: selection.dateStart ?? this.dateStart,
+      dateStop: selection.dateStop ?? this.dateStop,
+    };
+  }
+
+  private resolvePresetDates(preset: DatePresetId): { dateStart: string; dateStop: string } {
     const today = new Date();
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(today.getDate() - 30);
-    this.dateStop = this.formatDate(today);
-    this.dateStart = this.formatDate(thirtyDaysAgo);
+    let start = new Date(today);
+    let stop = new Date(today);
+
+    switch (preset) {
+      case 'today':
+        break;
+      case 'yesterday':
+        start.setDate(today.getDate() - 1);
+        stop = new Date(start);
+        break;
+      case 'last_7d':
+      case 'last_14d':
+      case 'last_30d':
+      case 'last_90d':
+        start.setDate(today.getDate() - (ROLLING_PRESET_DAYS[preset] ?? 30));
+        break;
+      case 'this_week': {
+        const day = today.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        start.setDate(today.getDate() + diff);
+        break;
+      }
+      case 'last_week_mon_sun': {
+        const day = today.getDay();
+        const daysSinceMonday = day === 0 ? 6 : day - 1;
+        const thisWeekMonday = new Date(today);
+        thisWeekMonday.setDate(today.getDate() - daysSinceMonday);
+        start = new Date(thisWeekMonday);
+        start.setDate(thisWeekMonday.getDate() - 7);
+        stop = new Date(start);
+        stop.setDate(start.getDate() + 6);
+        break;
+      }
+      case 'this_month':
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+        break;
+      case 'last_month':
+        start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        stop = new Date(today.getFullYear(), today.getMonth(), 0);
+        break;
+      case 'this_year':
+        start = new Date(today.getFullYear(), 0, 1);
+        break;
+      case 'maximum':
+        start = new Date(2019, 0, 1);
+        break;
+      default:
+        start.setDate(today.getDate() - 30);
+        break;
+    }
+
+    return {
+      dateStart: this.formatDate(start),
+      dateStop: this.formatDate(stop),
+    };
   }
 
   private initMetricBlocks(): void {
@@ -424,7 +573,8 @@ export class InsightsComponent implements OnInit, OnDestroy {
       this.cdr.detectChanges();
       return;
     }
-    // No cache — leave insights empty until the user explicitly syncs
+    // Auto-fetch the active tab's data from the DB on first visit
+    this.fetchTabData(this.activeTabIndex);
   }
 
   /** POST — sync from Meta API; only called via the Sync button */
@@ -766,13 +916,63 @@ export class InsightsComponent implements OnInit, OnDestroy {
 
   getCurrentSnapshots(): InsightSnapshot[] {
     switch (this.activeTabIndex) {
-      case 1:
-        return this.adSetInsights;
-      case 2:
-        return this.adInsights;
+      case 1: {
+        const filter = this.drillFilteredAdSetExternalIds;
+        return filter
+          ? this.adSetInsights.filter(s => filter.has(s.objectExternalId ?? ''))
+          : this.adSetInsights;
+      }
+      case 2: {
+        const filter = this.drillFilteredAdExternalIds;
+        return filter
+          ? this.adInsights.filter(s => filter.has(s.objectExternalId ?? ''))
+          : this.adInsights;
+      }
       default:
         return this.campaignInsights;
     }
+  }
+
+  private get drillFilteredAdSetExternalIds(): Set<string> | null {
+    if (this.selectedCampaignIds.size === 0) return null;
+    const campaignDbIds = new Set(
+      this.availableCampaigns
+        .filter(c => c.externalId != null && this.selectedCampaignIds.has(c.externalId))
+        .map(c => c.id as number),
+    );
+    return new Set(
+      this.availableAdSets
+        .filter(a => a.campaignId != null && campaignDbIds.has(a.campaignId) && a.externalId != null)
+        .map(a => a.externalId as string),
+    );
+  }
+
+  private get drillFilteredAdExternalIds(): Set<string> | null {
+    if (this.selectedAdSetIds.size === 0 && this.selectedCampaignIds.size === 0) return null;
+    let adSetDbIds: Set<number>;
+    if (this.selectedAdSetIds.size > 0) {
+      adSetDbIds = new Set(
+        this.availableAdSets
+          .filter(a => a.externalId != null && this.selectedAdSetIds.has(a.externalId))
+          .map(a => a.id),
+      );
+    } else {
+      const campaignDbIds = new Set(
+        this.availableCampaigns
+          .filter(c => c.externalId != null && this.selectedCampaignIds.has(c.externalId))
+          .map(c => c.id as number),
+      );
+      adSetDbIds = new Set(
+        this.availableAdSets
+          .filter(a => a.campaignId != null && campaignDbIds.has(a.campaignId))
+          .map(a => a.id),
+      );
+    }
+    return new Set(
+      this.availableAds
+        .filter(a => a.adSetId != null && adSetDbIds.has(a.adSetId) && a.externalId != null)
+        .map(a => a.externalId as string),
+    );
   }
 
   onTabChange(tabIndex: number): void {
@@ -783,6 +983,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
+    this.saveLastView();
     if (this.tabDataLoaded[tabIndex]) {
       // Data already loaded — just re-render, no spinner
       this.refreshCurrentView();
@@ -812,7 +1013,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
       const value = this.aggregateMetric(block.metricKey, snapshots);
       let trend: number | undefined;
       let trendDirection: 'up' | 'down' | 'neutral' | undefined;
-      if (prevSnaps && block.metricKey) {
+      if (this.dateSelection.compareToPrevious && prevSnaps && block.metricKey) {
         const prevVal = this.aggregateMetricRaw(block.metricKey, prevSnaps);
         const curVal = this.aggregateMetricRaw(block.metricKey, snapshots);
         if (prevVal > 0) {
@@ -1024,19 +1225,25 @@ export class InsightsComponent implements OnInit, OnDestroy {
 
   // ---------- Date Range ----------
 
-  onCustomRangeChange(range: DateRange): void {
-    if (range.from && range.to) {
-      this.dateStart = this.formatDate(range.from);
-      this.dateStop = this.formatDate(range.to);
-      this.dateRangeSelected = true;
-      this.onDateRangeChange();
+  onDateSelectionChange(selection: DateRangeSelection): void {
+    const normalized = this.normalizeDateSelection(selection);
+    const previous = this.buildDateSelectionFromState();
+    if (this.sameDateSelection(previous, normalized)) {
+      return;
     }
-  }
 
-  onQuickSelectChange(key: string): void {
-    const days = key === '7d' ? 7 : key === '14d' ? 14 : key === '30d' ? 30 : 90;
-    this.activePreset = days;
-    this.dateRangeSelected = true;
+    this.applyDateSelectionState(normalized);
+    const datesChanged = previous.preset !== normalized.preset
+      || previous.dateStart !== normalized.dateStart
+      || previous.dateStop !== normalized.dateStop;
+
+    if (datesChanged) {
+      this.onDateRangeChange();
+    } else {
+      this.refreshCurrentView();
+    }
+
+    this.saveLastView();
   }
 
   onDateRangeChange(): void {
@@ -1051,16 +1258,6 @@ export class InsightsComponent implements OnInit, OnDestroy {
   setChartType(type: 'line' | 'bar'): void {
     this.chartType = type;
     this.drawGraph();
-  }
-
-  setPreset(days: number): void {
-    this.activePreset = days;
-    const today = new Date();
-    const from = new Date();
-    from.setDate(today.getDate() - days);
-    this.dateStop = this.formatDate(today);
-    this.dateStart = this.formatDate(from);
-    this.onDateRangeChange();
   }
 
   drawGraph(): void {
@@ -1373,6 +1570,278 @@ export class InsightsComponent implements OnInit, OnDestroy {
     this.syncAllData();
   }
 
+  // ---------- Drill-down / Breadcrumb ----------
+
+  get breadcrumbVisible(): boolean {
+    return this.selectedCampaignIds.size > 0 || this.selectedAdSetIds.size > 0;
+  }
+
+  get breadcrumbCampaignName(): string | null {
+    if (this.selectedCampaignIds.size === 1) {
+      const id = Array.from(this.selectedCampaignIds)[0];
+      return this.availableCampaigns.find(c => c.externalId === id)?.name ?? id;
+    }
+    return null;
+  }
+
+  get breadcrumbAdSetName(): string | null {
+    if (this.selectedAdSetIds.size === 1 && this.activeTabIndex === 2) {
+      const id = Array.from(this.selectedAdSetIds)[0];
+      return this.availableAdSets.find(a => a.externalId === id)?.name ?? id;
+    }
+    return null;
+  }
+
+  drillIntoCampaign(c: Campaign): void {
+    this.selectedCampaignIds.clear();
+    if (c.externalId) this.selectedCampaignIds.add(c.externalId);
+    this.selectedAdSetIds.clear();
+    this.selectedAdIds.clear();
+    this.onTabChange(1);
+  }
+
+  drillIntoAdSet(a: AdSetResponse): void {
+    this.selectedAdSetIds.clear();
+    if (a.externalId) this.selectedAdSetIds.add(a.externalId);
+    this.selectedAdIds.clear();
+    this.onTabChange(2);
+  }
+
+  breadcrumbNavigateHome(): void {
+    this.selectedCampaignIds.clear();
+    this.selectedAdSetIds.clear();
+    this.selectedAdIds.clear();
+    this.onTabChange(0);
+  }
+
+  breadcrumbNavigateToCampaign(): void {
+    this.selectedAdSetIds.clear();
+    this.selectedAdIds.clear();
+    this.onTabChange(1);
+  }
+
+  // ---------- localStorage persistence ----------
+
+  private saveLastView(): void {
+    if (this.activeSavedView) this.savedViewsModified = true;
+    try {
+      const view = {
+        dateStart: this.dateStart,
+        dateStop: this.dateStop,
+        activePreset: this.activePreset,
+        activePresetKey: this.activePresetKey,
+        compareToPrevious: this.dateSelection.compareToPrevious,
+        activeTabIndex: this.activeTabIndex,
+        selectedCampaignIds: Array.from(this.selectedCampaignIds),
+        selectedAdSetIds: Array.from(this.selectedAdSetIds),
+        selectedAdIds: Array.from(this.selectedAdIds),
+        activePlatform: this.activePlatform,
+      };
+      localStorage.setItem(InsightsComponent.LAST_VIEW_KEY, JSON.stringify(view));
+    } catch { /* quota exceeded or SSR */ }
+  }
+
+  private restoreLastView(): boolean {
+    try {
+      const raw = localStorage.getItem(InsightsComponent.LAST_VIEW_KEY);
+      if (!raw) return false;
+      const view = JSON.parse(raw);
+      if (view.dateStart) this.dateStart = view.dateStart;
+      if (view.dateStop) this.dateStop = view.dateStop;
+      if (view.activePreset !== undefined) this.activePreset = view.activePreset;
+      if (view.activePresetKey !== undefined) this.activePresetKey = view.activePresetKey;
+      this.dateSelection = this.normalizeDateSelection({
+        preset: view.activePresetKey ?? null,
+        dateStart: view.dateStart ?? null,
+        dateStop: view.dateStop ?? null,
+        compareToPrevious: view.compareToPrevious ?? false,
+      });
+      this.applyDateSelectionState(this.dateSelection);
+      if (view.activeTabIndex !== undefined) this.activeTabIndex = view.activeTabIndex;
+      if (Array.isArray(view.selectedCampaignIds)) this.selectedCampaignIds = new Set(view.selectedCampaignIds);
+      if (Array.isArray(view.selectedAdSetIds)) this.selectedAdSetIds = new Set(view.selectedAdSetIds);
+      if (Array.isArray(view.selectedAdIds)) this.selectedAdIds = new Set(view.selectedAdIds);
+      if (view.activePlatform) this.activePlatform = view.activePlatform;
+      this.dateRangeSelected = true;
+      return true;
+    } catch { return false; }
+  }
+
+  // ---------- Saved Views ----------
+
+  loadSavedViews(): void {
+    this.savedViewsLoading = true;
+    this.savedViewService.list(this.activePlatform).pipe(
+      finalize(() => { this.savedViewsLoading = false; this.cdr.detectChanges(); })
+    ).subscribe({
+      next: (views) => { this.savedViews = views ?? []; },
+      error: () => {
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error('Failed to load saved views');
+        }
+      },
+    });
+  }
+
+  toggleSavedViewsDropdown(): void {
+    this.savedViewsDropdownOpen = !this.savedViewsDropdownOpen;
+    if (this.savedViewsDropdownOpen) {
+      this.loadSavedViews();
+    }
+  }
+
+  closeSavedViewsDropdown(): void {
+    this.savedViewsDropdownOpen = false;
+  }
+
+  applySavedView(view: InsightsSavedView): void {
+    const cfg = view.viewConfig;
+    if (!cfg) return;
+    this.applyDateSelectionState({
+      preset: (cfg.activePresetKey as DatePresetId | null) ?? null,
+      dateStart: cfg.dateStart ?? null,
+      dateStop: cfg.dateStop ?? null,
+      compareToPrevious: cfg.compareToPrevious ?? false,
+    });
+    if (cfg.activeTabIndex !== undefined) this.activeTabIndex = cfg.activeTabIndex;
+    this.selectedCampaignIds = new Set(cfg.selectedCampaignIds ?? []);
+    this.selectedAdSetIds = new Set(cfg.selectedAdSetIds ?? []);
+    this.selectedAdIds = new Set(cfg.selectedAdIds ?? []);
+    if (cfg.activePlatform) this.activePlatform = cfg.activePlatform;
+    this.dateRangeSelected = true;
+    this.activeSavedView = view;
+    this.savedViewsModified = false;
+    this.savedViewsDropdownOpen = false;
+    this.clearCache();
+    this.loadAllData();
+    this.saveLastView();
+    this.cdr.detectChanges();
+  }
+
+  get savedViewsButtonLabel(): string {
+    if (!this.activeSavedView) return 'Saved views';
+    const suffix = this.savedViewsModified ? ' •' : '';
+    return `Saved views: ${this.activeSavedView.name}${suffix}`;
+  }
+
+  openSaveDialog(): void {
+    this.saveDialogOpen = true;
+    this.saveDialogName = '';
+    this.saveDialogDescription = '';
+    this.saveDialogPin = false;
+    this.saveDialogError = '';
+    this.savedViewsDropdownOpen = false;
+  }
+
+  closeSaveDialog(): void {
+    this.saveDialogOpen = false;
+  }
+
+  submitSaveDialog(): void {
+    if (!this.saveDialogName.trim()) {
+      this.saveDialogError = 'Name is required.';
+      return;
+    }
+    this.saveDialogSaving = true;
+    this.saveDialogError = '';
+    const config = this.buildViewConfig();
+    const dto: Partial<InsightsSavedView> = {
+      name: this.saveDialogName.trim(),
+      description: this.saveDialogDescription.trim() || undefined,
+      provider: this.activePlatform as InsightsSavedView['provider'],
+      viewConfig: config,
+      pinned: this.saveDialogPin,
+    };
+    this.savedViewService.createView(dto).pipe(
+      finalize(() => { this.saveDialogSaving = false; this.cdr.detectChanges(); })
+    ).subscribe({
+      next: (view) => {
+        this.activeSavedView = view;
+        this.savedViewsModified = false;
+        this.saveDialogOpen = false;
+        this.toastr.success('View saved');
+        this.loadSavedViews();
+      },
+      error: (err) => {
+        this.saveDialogError = err?.error?.error ?? 'Failed to save view.';
+      },
+    });
+  }
+
+  openManageDrawer(): void {
+    this.manageDrawerOpen = true;
+    this.savedViewsDropdownOpen = false;
+    this.manageDrawerLoading = true;
+    this.savedViewService.list(this.activePlatform).pipe(
+      finalize(() => { this.manageDrawerLoading = false; this.cdr.detectChanges(); })
+    ).subscribe({
+      next: (views) => { this.manageDrawerViews = views ?? []; },
+      error: () => {
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error('Failed to load saved views');
+        }
+      },
+    });
+  }
+
+  closeManageDrawer(): void {
+    this.manageDrawerOpen = false;
+  }
+
+  deleteView(view: InsightsSavedView): void {
+    this.savedViewService.delete(view.id).subscribe({
+      next: () => {
+        this.manageDrawerViews = this.manageDrawerViews.filter(v => v.id !== view.id);
+        this.savedViews = this.savedViews.filter(v => v.id !== view.id);
+        if (this.activeSavedView?.id === view.id) {
+          this.activeSavedView = null;
+          this.savedViewsModified = false;
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error('Failed to delete view');
+        }
+      },
+    });
+  }
+
+  togglePinView(view: InsightsSavedView): void {
+    this.savedViewService.togglePin(view.id).subscribe({
+      next: (updated) => {
+        const updateList = (list: InsightsSavedView[]) =>
+          list.map(v => v.id === updated.id ? updated : v)
+            .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+        this.manageDrawerViews = updateList(this.manageDrawerViews);
+        this.savedViews = updateList(this.savedViews);
+        if (this.activeSavedView?.id === updated.id) this.activeSavedView = updated;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error('Failed to update view');
+        }
+      },
+    });
+  }
+
+  private buildViewConfig(): InsightsViewConfig {
+    return {
+      datePreset: this.activePresetKey,
+      dateStart: this.dateStart,
+      dateStop: this.dateStop,
+      activePreset: this.activePreset,
+      activePresetKey: this.activePresetKey,
+      compareToPrevious: this.dateSelection.compareToPrevious,
+      activeTabIndex: this.activeTabIndex,
+      selectedCampaignIds: Array.from(this.selectedCampaignIds),
+      selectedAdSetIds: Array.from(this.selectedAdSetIds),
+      selectedAdIds: Array.from(this.selectedAdIds),
+      activePlatform: this.activePlatform,
+    };
+  }
+
   hasSelectedObjects(): boolean {
     return this.selectedCampaignIds.size > 0 ||
            this.selectedAdSetIds.size > 0 ||
@@ -1433,7 +1902,10 @@ export class InsightsComponent implements OnInit, OnDestroy {
   // ---------- Helpers ----------
 
   private formatDate(d: Date): string {
-    return d.toISOString().split('T')[0];
+    const year = d.getFullYear();
+    const month = `${d.getMonth() + 1}`.padStart(2, '0');
+    const day = `${d.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   formatMetricLabel(key: string): string {
@@ -1451,3 +1923,8 @@ export class InsightsComponent implements OnInit, OnDestroy {
     return Number.isInteger(val) ? String(val) : val.toFixed(2);
   }
 }
+
+
+
+
+

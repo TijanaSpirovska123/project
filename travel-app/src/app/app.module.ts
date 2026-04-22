@@ -15,6 +15,7 @@ import { AuthInterceptor } from './configs/http.token.interceptor';
 import { MenuComponent } from './components/menu/menu.component';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule, MatOptionModule } from '@angular/material/core';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { LoginPageComponent } from './components/login-page/login-page.component';
 import { SignUpPageComponent } from './components/sign-up-page/sign-up-page.component';
 import { MetaComponent } from './components/meta/meta.component';
@@ -50,6 +51,7 @@ import { AppEmptyStateComponent } from './components/shared/empty-state.componen
 import { AppErrorStateComponent } from './components/shared/error-state.component';
 import { SearchableDropdownComponent } from './components/shared/searchable-dropdown.component';
 import { DateRangePickerComponent } from './components/shared/date-range-picker.component';
+import { AdflowDateRangePickerComponent } from './components/insights/adflow-date-range-picker.component';
 
 @NgModule({
   declarations: [
@@ -63,6 +65,7 @@ import { DateRangePickerComponent } from './components/shared/date-range-picker.
     AnalyticsModalComponent,
     CreateAdWorkflowComponent,
     InsightsComponent,
+    AdflowDateRangePickerComponent,
     CreativeLibraryComponent,
     SyncAccountsComponent,
   ],
@@ -90,6 +93,7 @@ import { DateRangePickerComponent } from './components/shared/date-range-picker.
     ReactiveFormsModule,
     MatDatepickerModule,
     MatNativeDateModule,
+    MatSlideToggleModule,
     MatInputModule,
     MatIconModule,
     MatTimepickerModule,
@@ -120,3 +124,4 @@ import { DateRangePickerComponent } from './components/shared/date-range-picker.
   bootstrap: [AppComponent],
 })
 export class AppModule {}
+
