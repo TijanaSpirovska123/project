@@ -62,7 +62,8 @@ public class MetaCreativeStrategy implements CreativeStrategy {
                     dto.getObjectUrl(),
                     dto.getMessage(),
                     dto.getHeadline(),
-                    dto.getImageHash()
+                    dto.getImageHash(),
+                    dto.getCallToAction()
             );
             add(p, "object_story_spec", specJson);
             if (isNotBlank(dto.getUrlTags())) add(p, "url_tags", dto.getUrlTags());
@@ -126,7 +127,8 @@ public class MetaCreativeStrategy implements CreativeStrategy {
             String linkUrl,
             String message,
             String headline,
-            String imageHash
+            String imageHash,
+            String callToAction
     ) {
         try {
             Map<String, Object> linkData = new LinkedHashMap<>();
@@ -134,6 +136,8 @@ public class MetaCreativeStrategy implements CreativeStrategy {
             if (isNotBlank(message)) linkData.put("message", message);
             if (isNotBlank(headline)) linkData.put("name", headline);
             if (isNotBlank(imageHash)) linkData.put("image_hash", imageHash);
+            String cta = isNotBlank(callToAction) ? callToAction : "LEARN_MORE";
+            linkData.put("call_to_action", Map.of("type", cta));
 
             Map<String, Object> spec = new LinkedHashMap<>();
             spec.put("page_id", pageId);

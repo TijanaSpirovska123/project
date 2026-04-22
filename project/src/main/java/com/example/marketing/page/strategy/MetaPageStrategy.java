@@ -14,7 +14,7 @@ public class MetaPageStrategy implements PageStrategy {
 
     @Override public Map<String, String> listPagesQuery() {
         // id, name, access_token – same fields you requested
-        return Map.of("fields", "id,name,access_token");
+        return Map.of("fields", "id,name,access_token,picture{url}");
     }
 
     @Override public String listPostsPath(String pageId) { return pageId + "/posts"; }

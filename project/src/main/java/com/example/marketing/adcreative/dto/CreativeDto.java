@@ -26,4 +26,7 @@ public class CreativeDto extends BasePlatformDto {
 
     // Mode 3: video creative — Meta video_id
     private String videoId;
+
+    // Call-to-action for link/image creatives (e.g. "LEARN_MORE", "SHOP_NOW")
+    private String callToAction;
 }

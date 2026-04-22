@@ -82,6 +82,14 @@ public class PageService {
             e.setAccessToken(Objects.toString(row.get("access_token"), null)); // page token
             e.setUser(user);
 
+            Object pictureObj = row.get("picture");
+            if (pictureObj instanceof Map<?, ?> pictureMap) {
+                Object dataObj = pictureMap.get("data");
+                if (dataObj instanceof Map<?, ?> dataMap) {
+                    e.setPictureUrl(Objects.toString(dataMap.get("url"), null));
+                }
+            }
+
             toSave.add(e);
         }
 

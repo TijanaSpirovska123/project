@@ -5,7 +5,13 @@ import {
   OnInit,
   OnDestroy,
 } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  FormGroup,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
 import { Router } from '@angular/router';
 import { AppToastrService } from '../../services/core/app-toastr.service';
 import { forkJoin } from 'rxjs';
@@ -27,10 +33,25 @@ import { Campaign } from '../../models/campaign/campaign';
 import { Provider } from '../../data/provider/provider.enum';
 import { DropdownOption } from '../shared/searchable-dropdown.component';
 
+function urlValidator(control: AbstractControl): ValidationErrors | null {
+  const value = control.value;
+  if (!value || value.trim() === '') return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return { invalidUrl: 'URL must start with http:// or https://' };
+    }
+    return null;
+  } catch {
+    return { invalidUrl: 'Please enter a valid URL' };
+  }
+}
+
 interface PageDto {
   id: number;
   pageId: string;
   name: string;
+  pictureUrl?: string;
 }
 
 @Component({
@@ -99,6 +120,12 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
   pages: PageDto[] = [];
   isLoadingPages = false;
   selectedPage: PageDto | null = null;
+  pageDropdownOpen = false;
+
+  // UTM builder
+  utmBuilderOpen = false;
+  utm = { source: '', medium: '', campaign: '', content: '', term: '' };
+  utmPreview = '';
 
   readonly platforms = [
     { value: Provider.META, label: 'Meta' },
@@ -140,11 +167,11 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
       pageId: ['', [Validators.required]],
       headline: ['', [Validators.required]],
       message: ['', [Validators.required]],
-      objectUrl: ['', [Validators.required, Validators.pattern('https?://.+')]],
+      objectUrl: ['', [Validators.required, urlValidator]],
       urlTags: [''],
       objectType: ['SHARE'],
       platform: ['META'],
-      callToAction: ['LEARN_MORE'],
+      callToAction: ['LEARN_MORE', Validators.required],
     });
     this.isInitialLoading = true;
 
@@ -201,6 +228,21 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     return [
       { value: 'ACTIVE', label: 'Active' },
       { value: 'PAUSED', label: 'Paused' },
+    ];
+  }
+
+  get callToActionOptions(): DropdownOption[] {
+    return [
+      { value: 'LEARN_MORE', label: 'Learn More' },
+      { value: 'SHOP_NOW', label: 'Shop Now' },
+      { value: 'SIGN_UP', label: 'Sign Up' },
+      { value: 'CONTACT_US', label: 'Contact Us' },
+      { value: 'DOWNLOAD', label: 'Download' },
+      { value: 'GET_QUOTE', label: 'Get Quote' },
+      { value: 'BOOK_NOW', label: 'Book Now' },
+      { value: 'SUBSCRIBE', label: 'Subscribe' },
+      { value: 'WATCH_MORE', label: 'Watch More' },
+      { value: 'APPLY_NOW', label: 'Apply Now' },
     ];
   }
 
@@ -426,6 +468,41 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     this.selectedPage = page || null;
   }
 
+  selectPage(page: PageDto): void {
+    this.selectedPage = page;
+    this.assetCreativeForm.get('pageId')?.setValue(page.pageId);
+    this.assetCreativeForm.get('pageId')?.markAsTouched();
+    this.pageDropdownOpen = false;
+  }
+
+  get headlineLength(): number {
+    return this.assetCreativeForm.get('headline')?.value?.length ?? 0;
+  }
+
+  get messageLength(): number {
+    return this.assetCreativeForm.get('message')?.value?.length ?? 0;
+  }
+
+  buildUtm(): void {
+    const params: string[] = [];
+    if (this.utm.source)
+      params.push(`utm_source=${encodeURIComponent(this.utm.source)}`);
+    if (this.utm.medium)
+      params.push(`utm_medium=${encodeURIComponent(this.utm.medium)}`);
+    if (this.utm.campaign)
+      params.push(`utm_campaign=${encodeURIComponent(this.utm.campaign)}`);
+    if (this.utm.content)
+      params.push(`utm_content=${encodeURIComponent(this.utm.content)}`);
+    if (this.utm.term)
+      params.push(`utm_term=${encodeURIComponent(this.utm.term)}`);
+    this.utmPreview = params.join('&');
+  }
+
+  applyUtm(): void {
+    this.assetCreativeForm.get('urlTags')?.setValue(this.utmPreview);
+    this.utmBuilderOpen = false;
+  }
+
   loadPickerAssets(): void {
     this.isLoadingPickerAssets = true;
     this.assetService
@@ -618,6 +695,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
       headline: formVal.headline,
       urlTags: formVal.urlTags || '',
       objectType: formVal.objectType || 'SHARE',
+      callToAction: formVal.callToAction || 'LEARN_MORE',
     };
 
     this.isSubmittingAssetCreative = true;
@@ -641,6 +719,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
               headline: body.headline,
               urlTags: body.urlTags,
               objectType: body.objectType,
+              callToAction: body.callToAction,
             },
           )
         : this.creativeService.publishCreativeFromAsset(
@@ -675,6 +754,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
             this.assetCreativeForm.reset({
               pageId: '',
               objectType: 'SHARE',
+              callToAction: 'LEARN_MORE',
             });
             this.creativePickerTab = 'existing';
           });

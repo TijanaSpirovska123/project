@@ -1204,6 +1204,54 @@ body {
 
   // ── Scrollbar ──────────────────────────────────────────────────────────
   scrollbar-color: $clr-primary-a0 $clr-surface-a10 !important;
+
+  // ── Create Ad Workflow — new elements ──────────────────────────────────
+  .cta-select {
+    scrollbar-color: $clr-primary-a0 $clr-surface-tonal-a10;
+  }
+  .char-counter { color: $clr-surface-tonal-a50; }
+  .field-hint { color: $clr-surface-tonal-a50; }
+
+  .page-selected {
+    background: $clr-surface-tonal-a10;
+    border-color: $clr-surface-tonal-a20;
+    color: $clr-primary-a50;
+  }
+
+  .page-options {
+    background: $clr-surface-tonal-a0;
+    border-color: $clr-surface-tonal-a20;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+
+  .page-option {
+    &:hover { background: $clr-surface-tonal-a10; }
+  }
+
+  .page-option-name { color: $clr-primary-a50; }
+  .page-option-id { color: $clr-surface-tonal-a50; }
+
+  .utm-builder {
+    background: $clr-surface-tonal-a10;
+    border-color: $clr-surface-tonal-a20;
+  }
+
+  .utm-row {
+    label { color: $clr-surface-tonal-a50; }
+    input {
+      background: $clr-surface-tonal-a10;
+      border-color: $clr-surface-tonal-a20;
+      color: $clr-primary-a50;
+    }
+  }
+
+  .utm-preview { background: $clr-surface-a0; }
+  .utm-preview-label { color: $clr-surface-tonal-a50; }
+
+  .btn-ghost {
+    border-color: $clr-surface-tonal-a20;
+    color: $clr-primary-a50;
+  }
 }
 
 body {

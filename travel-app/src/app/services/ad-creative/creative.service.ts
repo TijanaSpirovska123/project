@@ -128,6 +128,7 @@ export class CreativeService extends CoreService {
       headline: string;
       urlTags: string;
       objectType: string;
+      callToAction: string;
     },
   ): Observable<CreativeDto> {
     return this.http.post<any>(
@@ -151,6 +152,7 @@ export class CreativeService extends CoreService {
       headline: string;
       urlTags: string;
       objectType: string;
+      callToAction: string;
     },
   ): Observable<CreativeDto> {
     const params: any = { adAccountId, platform };

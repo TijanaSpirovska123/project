@@ -601,47 +601,46 @@
                   <!-- Page Selection -->
                   <div class="form-row one-col">
                     <div class="form-group">
-                      <label for="pageSelect"
-                        >Page *
-                        @if (isLoadingPages) {
-                          <span
-                            style="
-                              font-size: 10px;
-                              color: #f39c12;
-                              font-weight: normal;
-                            "
-                          >
-                            (Loading...)</span
-                          >
+                      <label>Page *</label>
+                      <div class="page-selector" [class.open]="pageDropdownOpen"
+                           (click)="$event.stopPropagation()">
+                        <div class="page-selected"
+                             [class.error]="hasAssetCreativeFormError('pageId', 'required')"
+                             (click)="pageDropdownOpen = !pageDropdownOpen">
+                          @if (isLoadingPages) {
+                            <span style="color: var(--tbl-muted); font-size: 13px;">Loading pages...</span>
+                          } @else {
+                            @if (selectedPage?.pictureUrl) {
+                              <img [src]="selectedPage!.pictureUrl" class="page-thumb" alt="">
+                            }
+                            <span>{{ selectedPage?.name || 'Select a page' }}</span>
+                          }
+                          <svg class="dropdown-arrow" viewBox="0 0 24 24"
+                               fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"/>
+                          </svg>
+                        </div>
+                        @if (pageDropdownOpen && !isLoadingPages) {
+                          <div class="page-options">
+                            @for (page of pages; track page.pageId) {
+                              <div class="page-option" (click)="selectPage(page)">
+                                @if (page.pictureUrl) {
+                                  <img [src]="page.pictureUrl" class="page-thumb" alt="">
+                                }
+                                <div class="page-option-info">
+                                  <span class="page-option-name">{{ page.name }}</span>
+                                  <span class="page-option-id">ID: {{ page.pageId }}</span>
+                                </div>
+                              </div>
+                            }
+                            @if (pages.length === 0) {
+                              <div class="page-option" style="cursor: default; color: var(--tbl-muted);">
+                                No pages available
+                              </div>
+                            }
+                          </div>
                         }
-                        @if (!isLoadingPages && pages.length > 0) {
-                          <span
-                            style="
-                              font-size: 10px;
-                              color: #27ae60;
-                              font-weight: normal;
-                            "
-                          >
-                            ({{ pages.length }} available)</span
-                          >
-                        }
-                      </label>
-                      <app-searchable-dropdown
-                        formControlName="pageId"
-                        [class.error]="
-                          hasAssetCreativeFormError('pageId', 'required')
-                        "
-                        [options]="pageOptions"
-                        [loading]="isLoadingPages"
-                        [placeholder]="
-                          isLoadingPages
-                            ? 'Loading pages...'
-                            : pages.length === 0
-                              ? 'No pages available'
-                              : 'Select a page'
-                        "
-                        (selectionChange)="onPageChange($event)"
-                      ></app-searchable-dropdown>
+                      </div>
                       @if (hasAssetCreativeFormError("pageId", "required")) {
                         <div class="error-message">Page is required</div>
                       }
@@ -655,10 +654,16 @@
                         type="text"
                         formControlName="headline"
                         placeholder="Ad headline"
+                        maxlength="40"
                         [class.error]="
                           hasAssetCreativeFormError('headline', 'required')
                         "
                       />
+                      <div class="char-counter"
+                           [class.warn]="headlineLength > 32"
+                           [class.error]="headlineLength >= 40">
+                        {{ headlineLength }}/40
+                      </div>
                       @if (hasAssetCreativeFormError("headline", "required")) {
                         <div class="error-message">Headline is required</div>
                       }
@@ -676,6 +681,14 @@
                           hasAssetCreativeFormError('message', 'required')
                         "
                       ></textarea>
+                      <div class="char-counter"
+                           [class.warn]="messageLength > 100"
+                           [class.error]="messageLength > 125">
+                        {{ messageLength }}/125
+                        @if (messageLength > 125) {
+                          <span class="counter-note">(text may be truncated in feed)</span>
+                        }
+                      </div>
                       @if (hasAssetCreativeFormError("message", "required")) {
                         <div class="error-message">Message is required</div>
                       }
@@ -684,22 +697,23 @@
 
                   <div class="form-row one-col">
                     <div class="form-group">
-                      <label>Object URL *</label>
+                      <label>Website URL *</label>
                       <input
                         type="url"
                         formControlName="objectUrl"
-                        placeholder="https://example.com"
+                        placeholder="https://yourwebsite.com/landing-page"
                         [class.error]="
                           hasAssetCreativeFormError('objectUrl', 'required') ||
-                          hasAssetCreativeFormError('objectUrl', 'pattern')
+                          hasAssetCreativeFormError('objectUrl', 'invalidUrl')
                         "
                       />
+                      <small class="field-hint">Where should people go when they click your ad?</small>
                       @if (hasAssetCreativeFormError("objectUrl", "required")) {
-                        <div class="error-message">Object URL is required</div>
+                        <div class="field-error">Website URL is required</div>
                       }
-                      @if (hasAssetCreativeFormError("objectUrl", "pattern")) {
-                        <div class="error-message">
-                          Please enter a valid URL
+                      @if (hasAssetCreativeFormError("objectUrl", "invalidUrl")) {
+                        <div class="field-error">
+                          {{ assetCreativeForm.get("objectUrl")?.errors?.["invalidUrl"] }}
                         </div>
                       }
                     </div>
@@ -707,24 +721,68 @@
 
                   <div class="form-row one-col">
                     <div class="form-group">
-                      <label>URL Tags (Optional)</label>
-                      <input
-                        type="text"
-                        formControlName="urlTags"
-                        placeholder="utm_source=facebook&utm_campaign=summer"
-                      />
+                      <label>Call to Action</label>
+                      <app-searchable-dropdown
+                        formControlName="callToAction"
+                        [options]="callToActionOptions"
+                        placeholder="Select call to action"
+                      ></app-searchable-dropdown>
                     </div>
                   </div>
 
                   <div class="form-row one-col">
                     <div class="form-group">
-                      <label>Object Type</label>
-                      <select formControlName="objectType">
-                        <option value="SHARE">Share (Link)</option>
-                        <option value="PHOTO">Photo</option>
-                        <option value="VIDEO">Video</option>
-                        <option value="STATUS">Status</option>
-                      </select>
+                      <label>
+                        URL Parameters (Optional)
+                        <button type="button" class="utm-toggle"
+                                (click)="utmBuilderOpen = !utmBuilderOpen">
+                          {{ utmBuilderOpen ? 'Hide builder' : 'Build UTM ↗' }}
+                        </button>
+                      </label>
+                      <input
+                        type="text"
+                        formControlName="urlTags"
+                        placeholder="utm_source=facebook&utm_medium=cpc&utm_campaign=summer"
+                      />
+                      @if (utmBuilderOpen) {
+                        <div class="utm-builder">
+                          <div class="utm-row">
+                            <label>Source</label>
+                            <input [(ngModel)]="utm.source" [ngModelOptions]="{standalone: true}"
+                                   (input)="buildUtm()" placeholder="facebook">
+                          </div>
+                          <div class="utm-row">
+                            <label>Medium</label>
+                            <input [(ngModel)]="utm.medium" [ngModelOptions]="{standalone: true}"
+                                   (input)="buildUtm()" placeholder="cpc">
+                          </div>
+                          <div class="utm-row">
+                            <label>Campaign</label>
+                            <input [(ngModel)]="utm.campaign" [ngModelOptions]="{standalone: true}"
+                                   (input)="buildUtm()" placeholder="summer-sale">
+                          </div>
+                          <div class="utm-row">
+                            <label>Content</label>
+                            <input [(ngModel)]="utm.content" [ngModelOptions]="{standalone: true}"
+                                   (input)="buildUtm()" placeholder="optional">
+                          </div>
+                          <div class="utm-row">
+                            <label>Term</label>
+                            <input [(ngModel)]="utm.term" [ngModelOptions]="{standalone: true}"
+                                   (input)="buildUtm()" placeholder="optional">
+                          </div>
+                          @if (utmPreview) {
+                            <div class="utm-preview">
+                              <span class="utm-preview-label">Preview:</span>
+                              <code class="utm-preview-value">{{ utmPreview }}</code>
+                            </div>
+                          }
+                          <button type="button" class="btn btn-ghost btn-sm"
+                                  (click)="applyUtm()" [disabled]="!utmPreview">
+                            Apply to URL Parameters
+                          </button>
+                        </div>
+                      }
                     </div>
                   </div>
                 </form>

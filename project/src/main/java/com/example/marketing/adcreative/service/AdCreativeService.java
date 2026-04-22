@@ -215,6 +215,8 @@ public class AdCreativeService {
         dto.setMessage(in.getMessage());
         dto.setHeadline(in.getHeadline());
         dto.setUrlTags(in.getUrlTags());
+        dto.setCallToAction(in.getCallToAction() != null && !in.getCallToAction().isBlank()
+                ? in.getCallToAction() : "LEARN_MORE");
         dto.setUserId(userId);
         dto.setAdAccountId(scopedAdAccountId);
         dto.setPlatform(platform.name());

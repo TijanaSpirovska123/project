@@ -7,4 +7,5 @@ public class PageDto {
     Long id;
     String pageId;
     String name;
+    String pictureUrl;
 }

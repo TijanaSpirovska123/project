@@ -26,6 +26,9 @@ public class PageEntity {
     @Column(name = "access_token", nullable = false)
     private String accessToken;
 
+    @Column(name = "picture_url")
+    private String pictureUrl;
+
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private UserEntity user;
