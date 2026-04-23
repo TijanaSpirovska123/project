@@ -263,6 +263,20 @@ export class InsightsComponent implements OnInit, OnDestroy {
   manageDrawerViews: InsightsSavedView[] = [];
   manageDrawerLoading = false;
 
+  // Per-row three-dot menu in dropdown
+  svMenuViewId: number | null = null;
+
+  // Delete confirmation dialog
+  deleteConfirmOpen = false;
+  deleteConfirmView: InsightsSavedView | null = null;
+
+  // Rename dialog
+  renameDialogOpen = false;
+  renameDialogView: InsightsSavedView | null = null;
+  renameDialogName = '';
+  renameDialogError = '';
+  renameDialogSaving = false;
+
   constructor(
     private readonly toastr: AppToastrService,
     private readonly authStore: AuthStoreService,
@@ -1143,6 +1157,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
       this.getCurrentSnapshots(),
     );
     this.closeMetricModal();
+    this.saveLastView();
     setTimeout(() => this.drawGraph(), 100);
   }
 
@@ -1692,6 +1707,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
 
   closeSavedViewsDropdown(): void {
     this.savedViewsDropdownOpen = false;
+    this.svMenuViewId = null;
   }
 
   applySavedView(view: InsightsSavedView): void {
@@ -1708,6 +1724,15 @@ export class InsightsComponent implements OnInit, OnDestroy {
     this.selectedAdSetIds = new Set(cfg.selectedAdSetIds ?? []);
     this.selectedAdIds = new Set(cfg.selectedAdIds ?? []);
     if (cfg.activePlatform) this.activePlatform = cfg.activePlatform;
+    if (Array.isArray(cfg.kpiCardMetrics) && cfg.kpiCardMetrics.length === 6) {
+      this.metricBlocks = cfg.kpiCardMetrics.map((key, i) => ({
+        index: i,
+        metricKey: key || null,
+        label: key ? this.formatMetricLabel(key) : 'Click to select',
+        value: '—',
+        icon: key ? (METRIC_ICONS[key] ?? 'analytics') : 'add_circle',
+      }));
+    }
     this.dateRangeSelected = true;
     this.activeSavedView = view;
     this.savedViewsModified = false;
@@ -1807,6 +1832,79 @@ export class InsightsComponent implements OnInit, OnDestroy {
     });
   }
 
+  // Three-dot menu per row
+  toggleSvMenu(viewId: number, event: MouseEvent): void {
+    event.stopPropagation();
+    this.svMenuViewId = this.svMenuViewId === viewId ? null : viewId;
+  }
+
+  closeSvMenu(): void {
+    this.svMenuViewId = null;
+  }
+
+  // Delete confirmation
+  requestDeleteView(view: InsightsSavedView, event: MouseEvent): void {
+    event.stopPropagation();
+    this.svMenuViewId = null;
+    this.deleteConfirmView = view;
+    this.deleteConfirmOpen = true;
+  }
+
+  confirmDeleteView(): void {
+    if (!this.deleteConfirmView) return;
+    const view = this.deleteConfirmView;
+    this.deleteConfirmOpen = false;
+    this.deleteConfirmView = null;
+    this.deleteView(view);
+  }
+
+  cancelDeleteView(): void {
+    this.deleteConfirmOpen = false;
+    this.deleteConfirmView = null;
+  }
+
+  // Rename dialog
+  openRenameDialog(view: InsightsSavedView, event: MouseEvent): void {
+    event.stopPropagation();
+    this.svMenuViewId = null;
+    this.renameDialogView = view;
+    this.renameDialogName = view.name;
+    this.renameDialogError = '';
+    this.renameDialogOpen = true;
+  }
+
+  closeRenameDialog(): void {
+    this.renameDialogOpen = false;
+    this.renameDialogView = null;
+    this.renameDialogName = '';
+    this.renameDialogError = '';
+  }
+
+  submitRenameDialog(): void {
+    if (!this.renameDialogName.trim()) {
+      this.renameDialogError = 'Name is required.';
+      return;
+    }
+    if (!this.renameDialogView) return;
+    this.renameDialogSaving = true;
+    this.renameDialogError = '';
+    this.savedViewService.update(this.renameDialogView.id, { name: this.renameDialogName.trim() }).pipe(
+      finalize(() => { this.renameDialogSaving = false; this.cdr.detectChanges(); })
+    ).subscribe({
+      next: (updated) => {
+        const updateList = (list: InsightsSavedView[]) => list.map(v => v.id === updated.id ? updated : v);
+        this.savedViews = updateList(this.savedViews);
+        this.manageDrawerViews = updateList(this.manageDrawerViews);
+        if (this.activeSavedView?.id === updated.id) this.activeSavedView = updated;
+        this.renameDialogOpen = false;
+        this.renameDialogView = null;
+      },
+      error: (err) => {
+        this.renameDialogError = err?.error?.error ?? 'Failed to rename view.';
+      },
+    });
+  }
+
   togglePinView(view: InsightsSavedView): void {
     this.savedViewService.togglePin(view.id).subscribe({
       next: (updated) => {
@@ -1839,6 +1937,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
       selectedAdSetIds: Array.from(this.selectedAdSetIds),
       selectedAdIds: Array.from(this.selectedAdIds),
       activePlatform: this.activePlatform,
+      kpiCardMetrics: this.metricBlocks.map(b => b.metricKey ?? ''),
     };
   }
 

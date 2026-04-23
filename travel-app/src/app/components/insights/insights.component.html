@@ -69,6 +69,32 @@
                       @if (activeSavedView?.id === v.id) {
                         <span class="sv-badge">{{ savedViewsModified ? '●' : '✓' }}</span>
                       }
+                      <button class="sv-menu-btn" (click)="toggleSvMenu(v.id, $event)" title="More options">
+                        <mat-icon>more_vert</mat-icon>
+                      </button>
+                      @if (svMenuViewId === v.id) {
+                        <div class="sv-item-menu" (click)="$event.stopPropagation()">
+                          <button class="sv-item-menu-row" (click)="togglePinView(v); closeSvMenu()">
+                            <mat-icon>push_pin</mat-icon>
+                            {{ v.pinned ? 'Unpin' : 'Pin' }}
+                          </button>
+                          <button class="sv-item-menu-row" (click)="openRenameDialog(v, $event)">
+                            <mat-icon>edit</mat-icon>
+                            Rename
+                          </button>
+                          @if (activeSavedView?.id !== v.id) {
+                            <button class="sv-item-menu-row" (click)="applySavedView(v)">
+                              <mat-icon>check_circle</mat-icon>
+                              Apply
+                            </button>
+                          }
+                          <div class="sv-item-menu-sep"></div>
+                          <button class="sv-item-menu-row sv-item-menu-delete" (click)="requestDeleteView(v, $event)">
+                            <mat-icon>delete</mat-icon>
+                            Delete
+                          </button>
+                        </div>
+                      }
                     </div>
                   }
                 }
@@ -520,6 +546,45 @@
   </div>
 </div>
 
+<!-- Delete View Confirmation Modal -->
+<div *ngIf="deleteConfirmOpen" class="metric-overlay" (click)="cancelDeleteView()">
+  <div class="metric-modal delete-confirm-modal" (click)="$event.stopPropagation()">
+    <div class="metric-modal-header">
+      <h4><mat-icon>delete</mat-icon> Delete saved view?</h4>
+      <button class="close-btn" (click)="cancelDeleteView()"><span>&times;</span></button>
+    </div>
+    <div class="metric-modal-body">
+      <p class="delete-confirm-body">
+        Are you sure you want to delete <strong>"{{ deleteConfirmView?.name }}"</strong>?
+        This action cannot be undone.
+      </p>
+    </div>
+    <div class="metric-modal-footer">
+      <button class="btn-delete-confirm" (click)="confirmDeleteView()">Delete</button>
+      <button class="btn-cancel" (click)="cancelDeleteView()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rename View Dialog -->
+<div *ngIf="renameDialogOpen" class="metric-overlay" (click)="closeRenameDialog()">
+  <div class="metric-modal save-view-modal" (click)="$event.stopPropagation()">
+    <div class="metric-modal-header">
+      <h4><mat-icon>edit</mat-icon> Rename view</h4>
+      <button class="close-btn" (click)="closeRenameDialog()"><span>&times;</span></button>
+    </div>
+    <div class="metric-modal-body">
+      <label class="metric-select-label">Name *</label>
+      <input class="sv-dialog-input" type="text" maxlength="128" placeholder="View name" [(ngModel)]="renameDialogName" />
+      <p class="field-error" *ngIf="renameDialogError">{{ renameDialogError }}</p>
+    </div>
+    <div class="metric-modal-footer">
+      <button class="btn-apply" (click)="submitRenameDialog()" [disabled]="renameDialogSaving">{{ renameDialogSaving ? 'Saving…' : 'Save' }}</button>
+      <button class="btn-cancel" (click)="closeRenameDialog()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- Manage Views Drawer -->
 <div class="slide-panel manage-views-panel" [class.open]="manageDrawerOpen">
   <div class="slide-panel-header">
@@ -549,7 +614,7 @@
               <button class="sv-icon-btn" (click)="togglePinView(v)" [title]="v.pinned ? 'Unpin' : 'Pin'">
                 <mat-icon>{{ v.pinned ? 'push_pin' : 'push_pin' }}</mat-icon>
               </button>
-              <button class="sv-icon-btn sv-delete-btn" (click)="deleteView(v)" title="Delete">
+              <button class="sv-icon-btn sv-delete-btn" (click)="requestDeleteView(v, $event)" title="Delete">
                 <mat-icon>delete</mat-icon>
               </button>
             </div>

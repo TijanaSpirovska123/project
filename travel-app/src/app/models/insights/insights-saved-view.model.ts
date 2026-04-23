@@ -21,5 +21,6 @@ export interface InsightsViewConfig {
   selectedAdIds: string[];
   activePlatform: string;
   compareToPrevious?: boolean;
+  kpiCardMetrics?: string[];
 }
 
