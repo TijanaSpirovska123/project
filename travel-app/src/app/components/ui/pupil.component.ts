@@ -53,7 +53,7 @@ export class PupilComponent implements OnInit, OnDestroy, AfterViewInit, OnChang
 
   ngAfterViewInit() {
     if (this.isBrowser) {
-      this.update();
+      setTimeout(() => this.update(), 0);
     }
   }
 

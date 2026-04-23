@@ -5,6 +5,7 @@ import {
   ChangeDetectorRef,
   ViewChild,
   ElementRef,
+  HostListener,
 } from '@angular/core';
 import { Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -126,6 +127,47 @@ const AD_FIELDS = [
   'date_start', 'date_stop',
 ];
 
+// Default set of metric columns shown in the tree table
+const DEFAULT_VISIBLE_METRICS = ['spend', 'impressions', 'clicks', 'ctr', 'cpm', 'reach'];
+
+// Grouped metric definitions for the "Add metric" dropdown
+const METRIC_GROUPS_DEF: { label: string; metrics: string[] }[] = [
+  {
+    label: 'Core',
+    metrics: ['impressions', 'reach', 'frequency', 'clicks', 'unique_clicks',
+              'spend', 'cpm', 'cpc', 'ctr', 'cpp', 'social_spend', 'cost_per_unique_click'],
+  },
+  {
+    label: 'Conversions',
+    metrics: ['conversions', 'conversion_values', 'purchase_roas', 'cost_per_conversion',
+              'actions', 'unique_actions', 'action_values',
+              'cost_per_action_type', 'cost_per_unique_action_type'],
+  },
+  {
+    label: 'Video',
+    metrics: ['video_play_actions', 'video_thruplay_watched_actions',
+              'video_avg_time_watched_actions', 'video_p25_watched_actions',
+              'video_p50_watched_actions', 'video_p75_watched_actions',
+              'video_p95_watched_actions', 'video_p100_watched_actions',
+              'video_30_sec_watched_actions', 'video_continuous_2_sec_watched_actions'],
+  },
+  {
+    label: 'Engagement',
+    metrics: ['inline_link_clicks', 'inline_post_engagement', 'unique_inline_link_clicks',
+              'inline_link_click_ctr', 'outbound_clicks', 'unique_outbound_clicks', 'website_ctr'],
+  },
+];
+
+// Platform icon + display name map
+const PLATFORM_META: Record<string, { icon: string; label: string }> = {
+  META:      { icon: 'fa-brands fa-meta',    label: 'Meta' },
+  TIKTOK:    { icon: 'fa-brands fa-tiktok',  label: 'TikTok' },
+  GOOGLE:    { icon: 'fa-brands fa-google',  label: 'Google' },
+  LINKEDIN:  { icon: 'fa-brands fa-linkedin',label: 'LinkedIn' },
+  PINTEREST: { icon: 'fa-brands fa-pinterest',label: 'Pinterest' },
+  REDDIT:    { icon: 'fa-brands fa-reddit',  label: 'Reddit' },
+};
+
 @Component({
   selector: 'app-insights',
   standalone: false,
@@ -243,6 +285,35 @@ export class InsightsComponent implements OnInit, OnDestroy {
   // Tracks the date range that was last synced (POST) — persists across navigation
   private static syncedRange: { start: string; stop: string } | null = null;
 
+  // ---------- Change 1 — Unified tree + level selector ----------
+  treeLevel: 'all' | 'campaigns' | 'adSets' | 'ads' = 'all';
+  selectedTreeRow: { objectType: 'CAMPAIGN' | 'ADSET' | 'AD'; objectExternalId: string } | null = null;
+  treeSearch = '';
+
+  // ---------- Change 2 — Visible metric chips ----------
+  visibleMetrics: { campaigns: string[]; adSets: string[]; ads: string[] } = {
+    campaigns: [...DEFAULT_VISIBLE_METRICS],
+    adSets: [...DEFAULT_VISIBLE_METRICS],
+    ads: [...DEFAULT_VISIBLE_METRICS],
+  };
+  metricDropdownOpen = false;
+  metricDropdownSearch = '';
+  private metricsIntersectionToastShown = false;
+  readonly metricGroupsDef = METRIC_GROUPS_DEF;
+
+  // ---------- Change 4 — Multi-platform ----------
+  platformColumnVisible = false;
+  sideBySideMode = false;
+  groupBy: 'none' | 'platform' = 'none';
+  selectedPlatforms: string[] = ['META'];
+  readonly platformMeta = PLATFORM_META;
+
+  // ---------- Change 5 — Sort + bulk ----------
+  sortBy: { column: string; direction: 'asc' | 'desc' } | null = null;
+
+  // Viewport width for side-by-side availability check
+  private viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
+
   // ---------- Saved Views state ----------
   savedViews: InsightsSavedView[] = [];
   activeSavedView: InsightsSavedView | null = null;
@@ -307,6 +378,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
     this.initMetricBlocks();
     this.loadAvailableObjects();
     this.loadConnectionStatus();
+    this.autoApplyMostRecentSavedView();
     this.navSubscription = this.router.events
       .pipe(filter((e) => e instanceof NavigationEnd))
       .subscribe(() => {
@@ -317,6 +389,149 @@ export class InsightsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.navSubscription.unsubscribe();
+  }
+
+  autoApplyMostRecentSavedView(){
+    
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    if (typeof window !== 'undefined') {
+      this.viewportWidth = window.innerWidth;
+      if (this.viewportWidth < 1024 && this.sideBySideMode) {
+        this.sideBySideMode = false;
+        this.cdr.detectChanges();
+      }
+    }
+  }
+
+  // ---------- Change 1 — Tree level computed properties ----------
+
+  get isSideBySideAvailable(): boolean {
+    return this.viewportWidth >= 1024;
+  }
+
+  get connectedPlatformCount(): number {
+    return this.platformTabs.filter(t => t.connected).length;
+  }
+
+  // ---------- Change 2 — Visible metrics computed properties ----------
+
+  get currentVisibleMetrics(): string[] {
+    switch (this.treeLevel) {
+      case 'campaigns': return this.visibleMetrics.campaigns;
+      case 'adSets': return this.visibleMetrics.adSets;
+      case 'ads': return this.visibleMetrics.ads;
+      default: {
+        // Intersection across all three level sets
+        const adSetSet = new Set(this.visibleMetrics.adSets);
+        const adSet = new Set(this.visibleMetrics.ads);
+        return this.visibleMetrics.campaigns.filter(m => adSetSet.has(m) && adSet.has(m));
+      }
+    }
+  }
+
+  get filteredMetricGroups(): { label: string; metrics: string[] }[] {
+    const q = this.metricDropdownSearch.toLowerCase().trim();
+    return METRIC_GROUPS_DEF.map(group => ({
+      label: group.label,
+      metrics: group.metrics.filter(m => !q || this.formatMetricLabel(m).toLowerCase().includes(q) || m.includes(q)),
+    })).filter(g => g.metrics.length > 0);
+  }
+
+  // ---------- Change 3 — Tree-to-graph linking ----------
+
+  get selectedTreeRowName(): string {
+    if (!this.selectedTreeRow) return '';
+    const { objectType, objectExternalId } = this.selectedTreeRow;
+    if (objectType === 'CAMPAIGN') {
+      return this.availableCampaigns.find(c => c.externalId === objectExternalId)?.name ?? objectExternalId;
+    }
+    if (objectType === 'ADSET') {
+      return this.availableAdSets.find(a => a.externalId === objectExternalId)?.name ?? objectExternalId;
+    }
+    return this.availableAds.find(a => a.externalId === objectExternalId)?.name ?? objectExternalId;
+  }
+
+  get aggregateCountLabel(): string {
+    const snapshots = this.getCurrentSnapshots();
+    const n = new Set(snapshots.map(s => s.objectExternalId)).size;
+    const type = this.activeTabIndex === 0 ? 'campaigns' : this.activeTabIndex === 1 ? 'ad sets' : 'ads';
+    const range = this.activePreset ? `Last ${this.activePreset} days` : 'custom range';
+    return `${n} ${type}, ${range}`;
+  }
+
+  getGraphSnapshots(): InsightSnapshot[] {
+    if (!this.selectedTreeRow) return this.getCurrentSnapshots();
+    const { objectType, objectExternalId } = this.selectedTreeRow;
+    const pool = objectType === 'CAMPAIGN' ? this.campaignInsights
+               : objectType === 'ADSET' ? this.adSetInsights
+               : this.adInsights;
+    return pool.filter(s => s.objectExternalId === objectExternalId);
+  }
+
+  // ---------- Change 5 — Sorted tree rows ----------
+
+  get sortedCampaignRows(): Campaign[] {
+    const q = this.treeSearch.toLowerCase().trim();
+    let rows = q
+      ? this.availableCampaigns.filter(c =>
+          c.name?.toLowerCase().includes(q) || c.externalId?.toLowerCase().includes(q))
+      : this.availableCampaigns;
+    if (!this.sortBy) return rows;
+    const { column, direction } = this.sortBy;
+    const dir = direction === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const av = this.aggregateMetricRaw(column,
+        this.campaignInsights.filter(s => s.objectExternalId === a.externalId));
+      const bv = this.aggregateMetricRaw(column,
+        this.campaignInsights.filter(s => s.objectExternalId === b.externalId));
+      return (av - bv) * dir;
+    });
+  }
+
+  get sortedAdSetRows(): AdSetResponse[] {
+    const q = this.treeSearch.toLowerCase().trim();
+    let rows = q
+      ? this.availableAdSets.filter(a =>
+          a.name?.toLowerCase().includes(q) || a.externalId?.toLowerCase().includes(q))
+      : this.availableAdSets;
+    if (!this.sortBy) return rows;
+    const { column, direction } = this.sortBy;
+    const dir = direction === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const av = this.aggregateMetricRaw(column,
+        this.adSetInsights.filter(s => s.objectExternalId === a.externalId));
+      const bv = this.aggregateMetricRaw(column,
+        this.adSetInsights.filter(s => s.objectExternalId === b.externalId));
+      return (av - bv) * dir;
+    });
+  }
+
+  get sortedAdRows(): AdResponse[] {
+    const q = this.treeSearch.toLowerCase().trim();
+    let rows = q
+      ? this.availableAds.filter(a => a.name?.toLowerCase().includes(q))
+      : this.availableAds;
+    if (!this.sortBy) return rows;
+    const { column, direction } = this.sortBy;
+    const dir = direction === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const av = this.aggregateMetricRaw(column,
+        this.adInsights.filter(s => s.objectExternalId === a.externalId));
+      const bv = this.aggregateMetricRaw(column,
+        this.adInsights.filter(s => s.objectExternalId === b.externalId));
+      return (av - bv) * dir;
+    });
+  }
+
+  get checkedRowCount(): number {
+    return this.selectedCampaignIds.size + this.selectedAdSetIds.size + this.selectedAdIds.size;
+  }
+
+  getPlatformInfo(key: string): { icon: string; label: string } {
+    return PLATFORM_META[key] ?? { icon: 'fa-brands fa-meta', label: key };
   }
 
   // ---------- Init ----------
@@ -331,6 +546,10 @@ export class InsightsComponent implements OnInit, OnDestroy {
           ...tab,
           connected: connections.some(c => c.provider === tab.key && c.connected),
         }));
+        // Change 4: auto-show platform column when 2+ platforms are connected
+        if (this.connectedPlatformCount >= 2 && !this.platformColumnVisible) {
+          this.platformColumnVisible = true;
+        }
       },
       error: () => {
         // Fallback: mark META connected if actId present
@@ -1283,7 +1502,8 @@ export class InsightsComponent implements OnInit, OnDestroy {
       this.chartInstance = null;
     }
 
-    const snapshots = this.getCurrentSnapshots();
+    // Change 3: use selectedTreeRow entity data when one row is highlighted
+    const snapshots = this.getGraphSnapshots();
     if (!snapshots.length) return;
 
     const dateMap = new Map<string, any[]>();
@@ -1651,6 +1871,17 @@ export class InsightsComponent implements OnInit, OnDestroy {
         selectedAdSetIds: Array.from(this.selectedAdSetIds),
         selectedAdIds: Array.from(this.selectedAdIds),
         activePlatform: this.activePlatform,
+        treeLevel: this.treeLevel,
+        selectedTreeRow: this.selectedTreeRow,
+        expandedNodeIds: [
+          ...Array.from(this.expandedCampaignIds).map(id => `c:${id}`),
+          ...Array.from(this.expandedAdSetIds).map(id => `a:${id}`),
+        ],
+        platformColumnVisible: this.platformColumnVisible,
+        groupBy: this.groupBy,
+        sideBySideMode: this.sideBySideMode,
+        selectedPlatforms: this.selectedPlatforms,
+        sortBy: this.sortBy,
       };
       localStorage.setItem(InsightsComponent.LAST_VIEW_KEY, JSON.stringify(view));
     } catch { /* quota exceeded or SSR */ }
@@ -1677,6 +1908,24 @@ export class InsightsComponent implements OnInit, OnDestroy {
       if (Array.isArray(view.selectedAdSetIds)) this.selectedAdSetIds = new Set(view.selectedAdSetIds);
       if (Array.isArray(view.selectedAdIds)) this.selectedAdIds = new Set(view.selectedAdIds);
       if (view.activePlatform) this.activePlatform = view.activePlatform;
+      // New fields — safe defaults for older stored views
+      if (view.treeLevel) this.treeLevel = view.treeLevel;
+      if (view.selectedTreeRow !== undefined) this.selectedTreeRow = view.selectedTreeRow;
+      if (Array.isArray(view.expandedNodeIds)) {
+        this.expandedCampaignIds = new Set(
+          view.expandedNodeIds.filter((id: string) => id.startsWith('c:')).map((id: string) => id.slice(2))
+        );
+        this.expandedAdSetIds = new Set(
+          view.expandedNodeIds.filter((id: string) => id.startsWith('a:')).map((id: string) => id.slice(2))
+        );
+      }
+      if (view.platformColumnVisible !== undefined) this.platformColumnVisible = view.platformColumnVisible;
+      if (view.groupBy) this.groupBy = view.groupBy;
+      if (view.sideBySideMode !== undefined) this.sideBySideMode = view.sideBySideMode;
+      if (Array.isArray(view.selectedPlatforms) && view.selectedPlatforms.length) {
+        this.selectedPlatforms = view.selectedPlatforms;
+      }
+      if (view.sortBy !== undefined) this.sortBy = view.sortBy;
       this.dateRangeSelected = true;
       return true;
     } catch { return false; }
@@ -1733,6 +1982,35 @@ export class InsightsComponent implements OnInit, OnDestroy {
         icon: key ? (METRIC_ICONS[key] ?? 'analytics') : 'add_circle',
       }));
     }
+    // Restore new fields — fall back to defaults when missing (older saved views)
+    this.treeLevel = cfg.treeLevel ?? 'all';
+    this.selectedTreeRow = cfg.selectedTreeRow ?? null;
+    if (Array.isArray(cfg.expandedNodeIds)) {
+      this.expandedCampaignIds = new Set(
+        cfg.expandedNodeIds.filter((id: string) => id.startsWith('c:')).map((id: string) => id.slice(2))
+      );
+      this.expandedAdSetIds = new Set(
+        cfg.expandedNodeIds.filter((id: string) => id.startsWith('a:')).map((id: string) => id.slice(2))
+      );
+    }
+    if (cfg.visibleMetrics) {
+      this.visibleMetrics = {
+        campaigns: Array.isArray(cfg.visibleMetrics.campaigns) && cfg.visibleMetrics.campaigns.length
+          ? cfg.visibleMetrics.campaigns : [...DEFAULT_VISIBLE_METRICS],
+        adSets: Array.isArray(cfg.visibleMetrics.adSets) && cfg.visibleMetrics.adSets.length
+          ? cfg.visibleMetrics.adSets : [...DEFAULT_VISIBLE_METRICS],
+        ads: Array.isArray(cfg.visibleMetrics.ads) && cfg.visibleMetrics.ads.length
+          ? cfg.visibleMetrics.ads : [...DEFAULT_VISIBLE_METRICS],
+      };
+    }
+    if (cfg.platformColumnVisible !== undefined) this.platformColumnVisible = cfg.platformColumnVisible;
+    this.groupBy = cfg.groupBy ?? 'none';
+    this.sideBySideMode = cfg.sideBySideMode ?? false;
+    if (Array.isArray(cfg.selectedPlatforms) && cfg.selectedPlatforms.length) {
+      this.selectedPlatforms = cfg.selectedPlatforms;
+    }
+    this.sortBy = cfg.sortBy ?? null;
+
     this.dateRangeSelected = true;
     this.activeSavedView = view;
     this.savedViewsModified = false;
@@ -1842,6 +2120,33 @@ export class InsightsComponent implements OnInit, OnDestroy {
     this.svMenuViewId = null;
   }
 
+  updateActiveSavedView(view: InsightsSavedView): void {
+    this.closeSvMenu();
+    this.savedViewsDropdownOpen = false;
+    const dto: Partial<InsightsSavedView> = {
+      name: view.name,
+      description: view.description,
+      provider: view.provider,
+      pinned: view.pinned,
+      viewConfig: this.buildViewConfig(),
+    };
+    this.savedViewService.update(view.id, dto).subscribe({
+      next: (updated) => {
+        this.activeSavedView = updated;
+        this.savedViewsModified = false;
+        this.toastr.success('View updated');
+        this.loadSavedViews();
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          const msg = err?.error?.message ?? err?.error?.error ?? err?.message ?? 'Failed to update view';
+          this.toastr.error(msg);
+        }
+      },
+    });
+  }
+
   // Delete confirmation
   requestDeleteView(view: InsightsSavedView, event: MouseEvent): void {
     event.stopPropagation();
@@ -1938,6 +2243,26 @@ export class InsightsComponent implements OnInit, OnDestroy {
       selectedAdIds: Array.from(this.selectedAdIds),
       activePlatform: this.activePlatform,
       kpiCardMetrics: this.metricBlocks.map(b => b.metricKey ?? ''),
+      // Change 1
+      treeLevel: this.treeLevel,
+      selectedTreeRow: this.selectedTreeRow,
+      expandedNodeIds: [
+        ...Array.from(this.expandedCampaignIds).map(id => `c:${id}`),
+        ...Array.from(this.expandedAdSetIds).map(id => `a:${id}`),
+      ],
+      // Change 2
+      visibleMetrics: {
+        campaigns: [...this.visibleMetrics.campaigns],
+        adSets: [...this.visibleMetrics.adSets],
+        ads: [...this.visibleMetrics.ads],
+      },
+      // Change 4
+      platformColumnVisible: this.platformColumnVisible,
+      groupBy: this.groupBy,
+      sideBySideMode: this.sideBySideMode,
+      selectedPlatforms: [...this.selectedPlatforms],
+      // Change 5
+      sortBy: this.sortBy,
     };
   }
 
@@ -1996,6 +2321,215 @@ export class InsightsComponent implements OnInit, OnDestroy {
     if (tab === 'adset')
       return `${this.selectedAdSetFields.size} / ${this.adSetFieldOptions.length} fields`;
     return `${this.selectedAdFields.size} / ${this.adFieldOptions.length} fields`;
+  }
+
+  // ---------- Change 1 — Tree level + row selection ----------
+
+  setTreeLevel(level: 'all' | 'campaigns' | 'adSets' | 'ads'): void {
+    const prevLevel = this.treeLevel;
+    this.treeLevel = level;
+
+    // Drive activeTabIndex from treeLevel so existing data-loading logic works
+    const tabMap: Record<typeof level, number> = { all: 0, campaigns: 0, adSets: 1, ads: 2 };
+    const newTab = tabMap[level];
+    if (level !== 'all' && newTab !== this.activeTabIndex) {
+      this.activeTabIndex = newTab;
+      if (!this.tabDataLoaded[newTab]) {
+        this.fetchTabData(newTab);
+      } else {
+        this.refreshCurrentView();
+      }
+    } else if (level === 'all') {
+      // Ensure all three data sets are loaded
+      [0, 1, 2].forEach(t => { if (!this.tabDataLoaded[t]) this.fetchTabData(t); });
+    }
+
+    // One-time toast when switching to 'all' if some chips would disappear from intersection
+    if (level === 'all' && prevLevel !== 'all' && !this.metricsIntersectionToastShown) {
+      const prevSet = prevLevel === 'campaigns' ? this.visibleMetrics.campaigns
+                    : prevLevel === 'adSets' ? this.visibleMetrics.adSets
+                    : this.visibleMetrics.ads;
+      const intersection = this.currentVisibleMetrics;
+      if (intersection.length < prevSet.length) {
+        this.metricsIntersectionToastShown = true;
+        this.toastr.info('Some metrics hidden — not available at all levels.');
+      }
+    }
+
+    this.saveLastView();
+  }
+
+  onTreeRowBodyClick(objectType: 'CAMPAIGN' | 'ADSET' | 'AD', externalId: string, event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    // Let checkbox, expand button, and their children handle their own events
+    if (
+      target.tagName === 'INPUT' ||
+      target.closest('.sel-expand-btn') ||
+      target.closest('.chip-remove-btn')
+    ) return;
+
+    // Campaigns support multi-select via row click
+    if (objectType === 'CAMPAIGN') {
+      const campaign = this.availableCampaigns.find(c => c.externalId === externalId);
+      if (campaign) this.toggleCampaign(campaign);
+    }
+
+    if (
+      this.selectedTreeRow?.objectExternalId === externalId &&
+      this.selectedTreeRow?.objectType === objectType
+    ) {
+      this.clearTreeRowSelection();
+    } else {
+      this.selectedTreeRow = { objectType, objectExternalId: externalId };
+      this.saveLastView();
+      setTimeout(() => this.drawGraph(), 50);
+    }
+  }
+
+  clearTreeRowSelection(): void {
+    this.selectedTreeRow = null;
+    this.saveLastView();
+    setTimeout(() => this.drawGraph(), 50);
+  }
+
+  isRowHighlighted(objectType: 'CAMPAIGN' | 'ADSET' | 'AD', externalId: string | undefined | null): boolean {
+    if (!this.selectedTreeRow || !externalId) return false;
+    return this.selectedTreeRow.objectType === objectType &&
+           this.selectedTreeRow.objectExternalId === externalId;
+  }
+
+  // ---------- Change 2 — Visible metric chips ----------
+
+  removeVisibleMetric(metric: string): void {
+    const apply = (arr: string[]) => arr.filter(m => m !== metric);
+    if (this.treeLevel === 'all') {
+      this.visibleMetrics = {
+        campaigns: apply(this.visibleMetrics.campaigns),
+        adSets: apply(this.visibleMetrics.adSets),
+        ads: apply(this.visibleMetrics.ads),
+      };
+    } else if (this.treeLevel === 'campaigns') {
+      this.visibleMetrics = { ...this.visibleMetrics, campaigns: apply(this.visibleMetrics.campaigns) };
+    } else if (this.treeLevel === 'adSets') {
+      this.visibleMetrics = { ...this.visibleMetrics, adSets: apply(this.visibleMetrics.adSets) };
+    } else {
+      this.visibleMetrics = { ...this.visibleMetrics, ads: apply(this.visibleMetrics.ads) };
+    }
+    this.saveLastView();
+  }
+
+  toggleVisibleMetric(metric: string): void {
+    if (this.isMetricVisible(metric)) {
+      this.removeVisibleMetric(metric);
+      return;
+    }
+    const add = (arr: string[]) => arr.includes(metric) ? arr : [...arr, metric];
+    if (this.treeLevel === 'all') {
+      this.visibleMetrics = {
+        campaigns: add(this.visibleMetrics.campaigns),
+        adSets: add(this.visibleMetrics.adSets),
+        ads: add(this.visibleMetrics.ads),
+      };
+    } else if (this.treeLevel === 'campaigns') {
+      this.visibleMetrics = { ...this.visibleMetrics, campaigns: add(this.visibleMetrics.campaigns) };
+    } else if (this.treeLevel === 'adSets') {
+      this.visibleMetrics = { ...this.visibleMetrics, adSets: add(this.visibleMetrics.adSets) };
+    } else {
+      this.visibleMetrics = { ...this.visibleMetrics, ads: add(this.visibleMetrics.ads) };
+    }
+    this.saveLastView();
+  }
+
+  isMetricVisible(metric: string): boolean {
+    return this.currentVisibleMetrics.includes(metric);
+  }
+
+  toggleMetricDropdown(): void {
+    this.metricDropdownOpen = !this.metricDropdownOpen;
+    if (this.metricDropdownOpen) this.metricDropdownSearch = '';
+  }
+
+  closeMetricDropdown(): void {
+    if (this.metricDropdownOpen) {
+      this.metricDropdownOpen = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  getEntityMetricValue(entityType: 'campaign' | 'adset' | 'ad', externalId: string, metricKey: string): string {
+    if (!externalId) return '—';
+    const pool = entityType === 'campaign' ? this.campaignInsights
+               : entityType === 'adset' ? this.adSetInsights
+               : this.adInsights;
+    const snaps = pool.filter(s => s.objectExternalId === externalId);
+    if (!snaps.length) return '—';
+    return this.aggregateMetric(metricKey, snaps);
+  }
+
+  // ---------- Change 4 — Platform column + side-by-side ----------
+
+  togglePlatformColumn(): void {
+    this.platformColumnVisible = !this.platformColumnVisible;
+    this.saveLastView();
+  }
+
+  toggleSideBySide(): void {
+    if (!this.isSideBySideAvailable) return;
+    this.sideBySideMode = !this.sideBySideMode;
+    this.saveLastView();
+    this.cdr.detectChanges();
+  }
+
+  // ---------- Change 5 — Sort + bulk export ----------
+
+  toggleSortBy(column: string): void {
+    if (this.sortBy?.column === column) {
+      if (this.sortBy.direction === 'desc') {
+        this.sortBy = { column, direction: 'asc' };
+      } else {
+        // third click clears sort
+        this.sortBy = null;
+      }
+    } else {
+      this.sortBy = { column, direction: 'desc' };
+    }
+    this.saveLastView();
+  }
+
+  exportCsv(): void {
+    const metrics = this.currentVisibleMetrics;
+    const header = ['Name', 'External ID', 'Type', ...metrics.map(m => this.formatMetricLabel(m))];
+
+    const buildRow = (name: string, extId: string, type: string, etype: 'campaign' | 'adset' | 'ad') =>
+      [name, extId, type, ...metrics.map(m => this.getEntityMetricValue(etype, extId, m))];
+
+    const rows: string[][] = [];
+    if (this.treeLevel === 'all' || this.treeLevel === 'campaigns') {
+      for (const c of this.sortedCampaignRows) {
+        rows.push(buildRow(c.name ?? '', c.externalId ?? '', 'Campaign', 'campaign'));
+      }
+    }
+    if (this.treeLevel === 'adSets') {
+      for (const a of this.sortedAdSetRows) {
+        rows.push(buildRow(a.name ?? '', a.externalId ?? '', 'Ad Set', 'adset'));
+      }
+    }
+    if (this.treeLevel === 'ads') {
+      for (const a of this.sortedAdRows) {
+        rows.push(buildRow(a.name ?? '', a.externalId ?? '', 'Ad', 'ad'));
+      }
+    }
+
+    const escape = (s: string) => `"${s.replace(/"/g, '""')}"`;
+    const csv = [header, ...rows].map(r => r.map(escape).join(',')).join('\n');
+    if (typeof window === 'undefined') return;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `insights-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   // ---------- Helpers ----------

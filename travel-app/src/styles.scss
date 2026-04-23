@@ -936,6 +936,170 @@ body {
     }
   }
 
+  // ── Insights — Unified tree + level selector ──────────────────────────
+  .level-selector {
+    background: $clr-surface-tonal-a0 !important;
+    border-color: $clr-surface-tonal-a20 !important;
+  }
+
+  .level-btn {
+    color: $clr-surface-tonal-a50 !important;
+    &:hover { background: $clr-surface-tonal-a10 !important; color: $clr-primary-a40 !important; }
+    &.active {
+      background: $clr-primary-a0 !important;
+      color: $clr-surface-a0 !important;
+    }
+  }
+
+  .tree-icon-btn {
+    background: $clr-surface-tonal-a10 !important;
+    border-color: $clr-surface-tonal-a20 !important;
+    color: $clr-surface-tonal-a50 !important;
+    mat-icon { color: $clr-surface-tonal-a50 !important; }
+    &:hover {
+      border-color: $clr-primary-a0 !important;
+      color: $clr-primary-a0 !important;
+      background: rgba($clr-primary-a0, 0.08) !important;
+    }
+    &.active {
+      background: $clr-primary-a0 !important;
+      color: $clr-surface-a0 !important;
+      border-color: $clr-primary-a0 !important;
+    }
+  }
+
+  // ── Insights — Metric chips ────────────────────────────────────────────
+  .metric-chips-row {
+    border-color: $clr-surface-tonal-a20 !important;
+  }
+
+  .metric-chips-label { color: $clr-surface-tonal-a50 !important; }
+
+  .metric-chip {
+    background: rgba($clr-primary-a0, 0.1) !important;
+    border-color: rgba($clr-primary-a0, 0.3) !important;
+    color: $clr-primary-a40 !important;
+  }
+
+  .chip-remove-btn {
+    color: $clr-surface-tonal-a50 !important;
+    &:hover { background: rgba($clr-primary-a0, 0.2) !important; color: $clr-primary-a0 !important; }
+  }
+
+  .add-metric-btn {
+    border-color: $clr-surface-tonal-a30 !important;
+    color: $clr-surface-tonal-a50 !important;
+    &:hover {
+      border-color: $clr-primary-a0 !important;
+      color: $clr-primary-a0 !important;
+      background: rgba($clr-primary-a0, 0.08) !important;
+    }
+  }
+
+  .metric-add-dropdown {
+    background: $clr-surface-tonal-a0 !important;
+    border-color: $clr-surface-tonal-a20 !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4) !important;
+  }
+
+  .metric-add-search-wrap {
+    border-bottom-color: $clr-surface-tonal-a20 !important;
+    .metric-add-search-icon { color: $clr-surface-tonal-a50 !important; }
+  }
+
+  .metric-add-search {
+    color: $clr-primary-a50 !important;
+    &::placeholder { color: $clr-surface-tonal-a50 !important; }
+  }
+
+  .metric-add-group-label { color: $clr-surface-tonal-a50 !important; }
+
+  .metric-add-item {
+    color: $clr-primary-a50 !important;
+    .metric-add-check-icon { color: $clr-surface-tonal-a50 !important; }
+    &:hover { background: $clr-surface-tonal-a10 !important; }
+    &.metric-add-active .metric-add-check-icon { color: $clr-primary-a0 !important; }
+  }
+
+  .metric-add-empty { color: $clr-surface-tonal-a50 !important; }
+
+  // ── Insights — Bulk action bar ────────────────────────────────────────
+  .bulk-action-bar {
+    background: rgba($clr-primary-a0, 0.07) !important;
+    border-color: rgba($clr-primary-a0, 0.2) !important;
+  }
+
+  .bulk-count { color: $clr-primary-a40 !important; }
+
+  .bulk-btn {
+    background: $clr-surface-tonal-a10 !important;
+    border-color: $clr-surface-tonal-a20 !important;
+    color: $clr-surface-tonal-a50 !important;
+    mat-icon { color: $clr-surface-tonal-a50 !important; }
+    &.bulk-btn-enabled:hover {
+      border-color: $clr-primary-a0 !important;
+      color: $clr-primary-a0 !important;
+      background: rgba($clr-primary-a0, 0.08) !important;
+    }
+  }
+
+  // ── Insights — Tree table ─────────────────────────────────────────────
+  .tree-table-outer {
+    border-color: $clr-surface-tonal-a20 !important;
+  }
+
+  .tree-col-headers {
+    background: $clr-surface-tonal-a10 !important;
+    border-bottom-color: $clr-surface-tonal-a20 !important;
+  }
+
+  .tcol-name {
+    color: $clr-surface-tonal-a50 !important;
+    &.sticky-col {
+      background: $clr-surface-tonal-a10 !important;
+      border-right-color: $clr-surface-tonal-a20 !important;
+    }
+  }
+
+  .tcol-metric {
+    color: $clr-surface-tonal-a50 !important;
+    &:hover { color: $clr-primary-a0 !important; }
+    .sort-icon { color: $clr-primary-a0 !important; }
+  }
+
+  .tcol-platform { color: $clr-surface-tonal-a50 !important; }
+
+  .tree-row {
+    border-bottom-color: $clr-surface-tonal-a20 !important;
+    &:hover { background: $clr-surface-tonal-a10 !important; }
+    &.tree-row-highlighted {
+      background: rgba($clr-primary-a0, 0.07) !important;
+      border-left-color: $clr-primary-a0 !important;
+    }
+    &:hover .tcol-name.sticky-col { background: $clr-surface-tonal-a10 !important; }
+    &.tree-row-highlighted .tcol-name.sticky-col { background: rgba($clr-primary-a0, 0.07) !important; }
+    .tcol-name.sticky-col { background: $clr-surface-tonal-a0 !important; border-right-color: $clr-surface-tonal-a20 !important; }
+    .tree-name { color: $clr-primary-a50 !important; }
+    .tree-ext-id { color: $clr-surface-tonal-a50 !important; }
+    .tcol-metric { color: $clr-primary-a50 !important; }
+    .tcol-platform { color: $clr-surface-tonal-a50 !important; }
+    .sel-expand-btn { color: $clr-surface-tonal-a50 !important; }
+  }
+
+  .tree-row-empty { color: $clr-surface-tonal-a50 !important; }
+  .tree-empty-state { color: $clr-surface-tonal-a50 !important; }
+
+  // ── Insights — Graph context bar ──────────────────────────────────────
+  .graph-context-label {
+    color: $clr-surface-tonal-a50 !important;
+    strong { color: $clr-primary-a0 !important; }
+  }
+
+  .graph-context-clear {
+    color: $clr-surface-tonal-a50 !important;
+    &:hover { background: rgba($clr-primary-a0, 0.12) !important; color: $clr-primary-a0 !important; }
+  }
+
   // ── Insights — Date range picker (adflow-date-range-picker) ───────────
   adflow-date-range-picker {
     .date-trigger {

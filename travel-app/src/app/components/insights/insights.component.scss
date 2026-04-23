@@ -479,7 +479,6 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
 .cols-collapse-bar {
   display: flex;
   justify-content: flex-end;
-  // margin-bottom: 6px;
 }
 
 .cols-toggle-btn {
@@ -873,7 +872,7 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
   border-radius: 12px;
   box-shadow: $shadow-md;
   z-index: 500;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .sv-action-item {
@@ -1892,14 +1891,552 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
   }
 
   // Metric modal footer dark overrides (applies to rename & save dialogs too)
-  .metric-modal-footer {
-    .btn-cancel {
-      background: #303838 !important;
-      border-color: #464d4d !important;
-      color: #bbf2ed !important;
-      &:hover { background: #464d4d !important; }
-    }
+  .btn-cancel {
+    background: #303838 !important;
+    border-color: #464d4d !important;
+    color: #bbf2ed !important;
+    &:hover { background: #464d4d !important; }
   }
+
+  .level-btn {
+    color: #bbf2ed !important;
+    &:hover { background: #303838 !important; color: #48e0d6 !important; }
+  }
+
+  .tree-icon-btn {
+    color: #bbf2ed !important;
+    border-color: #464d4d !important;
+    background: #303838 !important;
+    mat-icon { color: #bbf2ed !important; }
+    &:hover {
+      border-color: #48e0d6 !important;
+      color: #48e0d6 !important;
+      background: #3a4444 !important;
+      mat-icon { color: #48e0d6 !important; }
+    }
+    &.active { background: #48e0d6 !important; color: #121212 !important; border-color: #48e0d6 !important; mat-icon { color: #121212 !important; } }
+  }
+}
+
+// ─── Unified Tree Panel Header ─────────────────────────────────────────────────
+.tree-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0 8px;
+  flex-wrap: wrap;
+}
+
+.tree-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tree-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+// ─── Level Selector (replaces Campaign/Ad Sets/Ads tabs) ──────────────────────
+.level-selector {
+  display: flex;
+  gap: 2px;
+  background: $bg-card;
+  border: 1px solid $border;
+  border-radius: 10px;
+  padding: 4px;
+  box-shadow: $shadow-sm;
+}
+
+.level-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: $text-secondary;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+  white-space: nowrap;
+
+  &:hover { background: $bg-input; color: $text-primary; }
+
+  &.active {
+    background: $primary;
+    color: white;
+    box-shadow: 0 2px 6px rgba(28, 166, 152, 0.28);
+  }
+}
+
+// ─── Tree Header Icon Buttons ─────────────────────────────────────────────────
+.tree-icon-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 1px solid $border;
+  border-radius: 8px;
+  background: $bg-card;
+  color: $text-secondary;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+  &:hover { border-color: $primary; color: $primary; background: $primary-hover; }
+  &.active { background: $primary; color: white; border-color: $primary; }
+}
+
+.side-by-side-btn span { font-size: 0.78rem; }
+
+// ─── Metric Chips Row ─────────────────────────────────────────────────────────
+.metric-chips-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 0 6px;
+  border-top: 1px solid $border-light;
+  border-bottom: 1px solid $border-light;
+  margin: 0 0 8px;
+}
+
+.metric-chips-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: $text-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.metric-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px 3px 10px;
+  border: 1px solid rgba($primary, 0.35);
+  border-radius: 20px;
+  background: rgba($primary, 0.07);
+  color: $text-primary;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chip-remove-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0 1px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  color: $text-muted;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  transition: all 0.12s;
+
+  &:hover { background: rgba($primary, 0.18); color: $primary; }
+}
+
+// ─── Add Metric Dropdown ──────────────────────────────────────────────────────
+.add-metric-wrap {
+  position: relative;
+}
+
+.add-metric-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 10px;
+  border: 1px dashed $border;
+  border-radius: 20px;
+  background: transparent;
+  color: $text-secondary;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  white-space: nowrap;
+
+  mat-icon { font-size: 14px; width: 14px; height: 14px; }
+
+  &:hover { border-color: $primary; color: $primary; background: $primary-hover; }
+}
+
+.metric-add-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 240px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: $bg-card;
+  border: 1px solid $border;
+  border-radius: 12px;
+  box-shadow: $shadow-md;
+  z-index: 600;
+  padding-bottom: 6px;
+}
+
+.metric-add-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid $border-light;
+
+  .metric-add-search-icon { font-size: 16px; width: 16px; height: 16px; color: $text-muted; flex-shrink: 0; }
+}
+
+.metric-add-search {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.82rem;
+  color: $text-primary;
+  font-family: inherit;
+
+  &::placeholder { color: $text-muted; }
+}
+
+.metric-add-group-label {
+  padding: 8px 12px 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: $text-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.metric-add-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 0.82rem;
+  color: $text-primary;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.1s;
+
+  .metric-add-check-icon { font-size: 16px; width: 16px; height: 16px; color: $text-muted; flex-shrink: 0; }
+
+  &:hover { background: $bg-input; }
+  &.metric-add-active .metric-add-check-icon { color: $primary; }
+}
+
+.metric-add-empty {
+  padding: 14px 12px;
+  font-size: 0.82rem;
+  color: $text-muted;
+  text-align: center;
+}
+
+// ─── Bulk Action Bar ──────────────────────────────────────────────────────────
+.bulk-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba($primary, 0.06);
+  border: 1px solid rgba($primary, 0.2);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.bulk-count {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: $text-primary;
+  flex: 1;
+  min-width: 80px;
+}
+
+.bulk-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: 1px solid $border;
+  border-radius: 7px;
+  background: $bg-card;
+  color: $text-secondary;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+
+  mat-icon { font-size: 15px; width: 15px; height: 15px; }
+
+  &.bulk-btn-enabled:hover { border-color: $primary; color: $primary; background: $primary-hover; }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// ─── Tree Table ───────────────────────────────────────────────────────────────
+.tree-table-outer {
+  overflow-x: auto;
+  overflow-y: auto;
+  border: 1px solid $border-light;
+  border-radius: 8px;
+  max-height: 420px;
+}
+
+.tree-col-headers {
+  display: flex;
+  align-items: center;
+  background: $bg-subtle;
+  border-bottom: 1px solid $border;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  min-width: max-content;
+}
+
+.tcol-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 300px;
+  min-width: 300px;
+  max-width: 300px;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: $text-secondary;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  flex-shrink: 0;
+  cursor: default;
+}
+
+.tcol-metric {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 100px;
+  padding: 7px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: $text-secondary;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  flex-shrink: 0;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s;
+  white-space: nowrap;
+
+  &:hover { color: $primary; }
+
+  .sort-icon {
+    font-size: 13px; width: 13px; height: 13px;
+    color: $primary;
+  }
+}
+
+.tcol-platform {
+  min-width: 90px;
+  padding: 7px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: $text-secondary;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+// ─── Tree Rows ────────────────────────────────────────────────────────────────
+.tree-table-body {
+  min-width: max-content;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid $border-light;
+  cursor: pointer;
+  transition: background 0.1s;
+  min-width: max-content;
+
+  &:hover { background: $bg-input; }
+
+  &.tree-row-highlighted {
+    background: rgba($primary, 0.07) !important;
+    border-left: 3px solid $primary;
+  }
+
+  &.tree-row-checked {
+    .tcol-name { font-weight: 700; }
+  }
+
+  // The sticky name column must match row background on hover/highlight
+  &:hover .tcol-name.sticky-col { background: $bg-input; }
+  &.tree-row-highlighted .tcol-name.sticky-col { background: rgba($primary, 0.07); }
+}
+
+.tree-row-campaign .tcol-name .tree-name { font-weight: 600; font-size: 0.82rem; }
+.tree-row-adset   .tcol-name .tree-name { font-size: 0.8rem; }
+.tree-row-ad      .tcol-name .tree-name { font-size: 0.78rem; font-weight: 400; }
+
+// Name cell — sticky left column
+.tcol-name.sticky-col {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 300px;
+  min-width: 300px;
+  max-width: 300px;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  background: $bg-card;
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  border-right: 1px solid $border-light;
+  box-shadow: 2px 0 4px rgba(0,0,0,0.04);
+  flex-shrink: 0;
+
+  input[type="checkbox"] { accent-color: $primary; cursor: pointer; flex-shrink: 0; }
+
+  .sel-expand-btn {
+    display: flex; align-items: center; justify-content: center;
+    background: none; border: none; padding: 0; cursor: pointer;
+    color: $text-muted; flex-shrink: 0;
+    mat-icon { font-size: 16px; width: 16px; height: 16px; transition: transform 0.2s ease; }
+    &.expanded mat-icon { transform: rotate(90deg); }
+  }
+}
+
+.tcol-name-adset { padding-left: 22px !important; }
+.tcol-name-ad    { padding-left: 38px !important; }
+
+.tree-name {
+  flex: 1;
+  font-size: 0.82rem;
+  color: $text-primary;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-ext-id {
+  font-size: 0.68rem;
+  color: $text-muted;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+// Metric value cells
+.tree-row .tcol-metric {
+  min-width: 100px;
+  padding: 7px 10px;
+  font-size: 0.8rem;
+  color: $text-primary;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: default;
+}
+
+// Platform cell
+.tree-row .tcol-platform {
+  min-width: 90px;
+  padding: 7px 10px;
+  font-size: 0.78rem;
+  color: $text-secondary;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  i { font-size: 13px; }
+}
+
+// Empty / placeholder rows
+.tree-row-empty {
+  font-size: 0.75rem;
+  color: $text-muted;
+  padding: 4px 10px;
+  font-style: italic;
+
+  &.tree-row-empty-adset { padding-left: 28px; }
+  &.tree-row-empty-ad    { padding-left: 48px; }
+}
+
+.tree-empty-state {
+  padding: 20px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: $text-muted;
+}
+
+// ─── Graph Context Bar ────────────────────────────────────────────────────────
+.graph-context-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0 12px;
+}
+
+.graph-context-label {
+  font-size: 0.82rem;
+  color: $text-secondary;
+  flex: 1;
+
+  strong { color: $primary; font-weight: 700; }
+
+  &.graph-context-aggregate { font-style: italic; }
+}
+
+.graph-context-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: $text-muted;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: all 0.15s;
+
+  mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  &:hover { background: rgba($primary, 0.12); color: $primary; }
 }
 
 

@@ -82,6 +82,12 @@
                             <mat-icon>edit</mat-icon>
                             Rename
                           </button>
+                          @if (activeSavedView?.id === v.id) {
+                            <button class="sv-item-menu-row" (click)="updateActiveSavedView(v)">
+                              <mat-icon>save</mat-icon>
+                              Update
+                            </button>
+                          }
                           @if (activeSavedView?.id !== v.id) {
                             <button class="sv-item-menu-row" (click)="applySavedView(v)">
                               <mat-icon>check_circle</mat-icon>
@@ -205,7 +211,7 @@
       </div>
     }
 
-    <!-- Filter Controls Row: toggle + tabs + sync -->
+    <!-- Filter Controls Row: collapse toggle + sync (tabs removed — level selector now in tree header) -->
     <div class="filter-controls-row">
       <div class="filter-left">
         <button class="filter-toggle-btn" (click)="selectionExpanded = !selectionExpanded">
@@ -215,16 +221,6 @@
             {{ selectedCampaignIds.size + selectedAdSetIds.size + selectedAdIds.size }}
           </span>
         </button>
-        <div class="tabs-bar">
-          <button
-            *ngFor="let tab of tabs; let i = index"
-            class="tab-btn"
-            [class.active]="activeTabIndex === i"
-            (click)="onTabChange(i)"
-          >
-            {{ tab }}
-          </button>
-        </div>
       </div>
       <button
         class="sync-btn"
@@ -237,7 +233,7 @@
       </button>
     </div>
 
-    <!-- Collapsible Object Selection Panel -->
+    <!-- Collapsible Unified Tree Panel -->
     <div class="object-selection-panel" [class.panel-open]="selectionExpanded">
       <div class="selection-loading" *ngIf="isLoadingObjects">
         <div class="mini-spinner"></div>
@@ -249,84 +245,324 @@
             <mat-icon [class.rotated]="colsExpanded">expand_more</mat-icon>
           </button>
         </div>
+
         @if (colsExpanded) {
-          <div class="selection-col">
-            <div class="selection-col-header">
-              <mat-icon>campaign</mat-icon>
-              <span class="col-title">Campaigns · Ad Sets · Ads</span>
-              <span class="col-summary">
-                {{ selectionSummary("campaign") }}
-              </span>
-              <button class="sel-action-btn" (click)="openFieldsModal('campaign')" title="Campaign fields">
-                <mat-icon>tune</mat-icon>{{ fieldsSummary("campaign") }}
-              </button>
-              <button class="sel-action-btn" (click)="openFieldsModal('adset')" title="Ad Set fields">
-                <mat-icon>tune</mat-icon>{{ fieldsSummary("adset") }}
-              </button>
-              <button class="sel-action-btn" (click)="openFieldsModal('ad')" title="Ad fields">
-                <mat-icon>tune</mat-icon>{{ fieldsSummary("ad") }}
-              </button>
+          <!-- ── Tree header row ── -->
+          <div class="tree-panel-header">
+            <div class="tree-header-left">
+              <!-- Level selector (replaces Campaigns / Ad Sets / Ads tabs) -->
+              <div class="level-selector">
+                <button class="level-btn" [class.active]="treeLevel === 'all'"
+                        (click)="setTreeLevel('all')">All levels</button>
+                <button class="level-btn" [class.active]="treeLevel === 'campaigns'"
+                        (click)="setTreeLevel('campaigns')">Campaigns</button>
+                <button class="level-btn" [class.active]="treeLevel === 'adSets'"
+                        (click)="setTreeLevel('adSets')">Ad Sets</button>
+                <button class="level-btn" [class.active]="treeLevel === 'ads'"
+                        (click)="setTreeLevel('ads')">Ads</button>
+              </div>
             </div>
-            <div class="sel-quick">
+            <div class="tree-header-right">
+              <input class="sel-search" type="text" placeholder="Search"
+                     [(ngModel)]="treeSearch" (click)="$event.stopPropagation()" />
+              <!-- Platform column eye toggle -->
+              <button class="tree-icon-btn" (click)="togglePlatformColumn()"
+                      [matTooltip]="platformColumnVisible ? 'Hide platform column' : 'Show platform column'"
+                      matTooltipPosition="above">
+                <mat-icon>{{ platformColumnVisible ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+              <!-- Side-by-side toggle — hidden on narrow screens -->
+              @if (isSideBySideAvailable) {
+                <button class="tree-icon-btn side-by-side-btn" [class.active]="sideBySideMode"
+                        (click)="toggleSideBySide()"
+                        matTooltip="Split lower half per platform" matTooltipPosition="above">
+                  <mat-icon>view_column</mat-icon>
+                  <span>Side-by-side</span>
+                </button>
+              }
               <button class="sel-mini-btn" (click)="selectAllCampaigns()">All</button>
               <button class="sel-mini-btn" (click)="clearAll()">Clear</button>
-              <input
-                class="sel-search"
-                type="text"
-                placeholder="Search campaigns…"
-                [(ngModel)]="campaignSearch"
-                (click)="$event.stopPropagation()"
-              />
             </div>
-            <div class="selection-list selection-list-hierarchy">
-              @for (c of filteredCampaigns; track c.id) {
-                <label class="sel-item" [class.selected]="isCampaignSelected(c)">
-                  <button class="sel-expand-btn" [class.expanded]="isCampaignExpanded(c)" (click)="toggleCampaignExpand(c, $event)">
-                    <mat-icon>chevron_right</mat-icon>
-                  </button>
-                  <input type="checkbox" [checked]="isCampaignSelected(c)" (change)="toggleCampaign(c)" />
-                  <span class="sel-name"><button class="drill-link" (click)="drillIntoCampaign(c); $event.stopPropagation(); $event.preventDefault()">{{ c.name }}</button></span>
-                  <span class="sel-id">{{ c.externalId }}</span>
-                </label>
-                @if (isCampaignExpanded(c)) {
-                  @for (a of getAdSetsForCampaign(c); track a.id) {
-                    <label class="sel-item sel-item-adset" [class.selected]="isAdSetSelected(a)">
-                      <button class="sel-expand-btn" [class.expanded]="isAdSetExpanded(a)" (click)="toggleAdSetExpand(a, $event)">
-                        <mat-icon>chevron_right</mat-icon>
-                      </button>
-                      <input type="checkbox" [checked]="isAdSetSelected(a)" (change)="toggleAdSet(a)" />
-                      <span class="sel-name"><button class="drill-link" (click)="drillIntoAdSet(a); $event.stopPropagation(); $event.preventDefault()">{{ a.name }}</button></span>
-                      <span class="sel-id">{{ a.externalId }}</span>
-                    </label>
-                    @if (isAdSetExpanded(a)) {
-                      @for (ad of getAdsForAdSet(a); track ad.id) {
-                        <label class="sel-item sel-item-ad" [class.selected]="isAdSelected(ad)">
-                          <input type="checkbox" [checked]="isAdSelected(ad)" (change)="toggleAd(ad)" />
-                          <span class="sel-name">{{ ad.name }}</span>
-                          <span class="sel-id">{{ ad.externalId }}</span>
-                        </label>
+          </div>
+
+          <!-- ── Metric chips row (replaces 44/44 fields pills) ── -->
+          <div class="metric-chips-row" (click)="closeMetricDropdown()">
+            <span class="metric-chips-label">Metrics:</span>
+            @for (metric of currentVisibleMetrics; track metric) {
+              <span class="metric-chip">
+                {{ formatMetricLabel(metric) }}
+                <button class="chip-remove-btn" title="Remove metric"
+                        (click)="removeVisibleMetric(metric); $event.stopPropagation()">×</button>
+              </span>
+            }
+            <!-- Add metric dropdown -->
+            <div class="add-metric-wrap" (click)="$event.stopPropagation()">
+              <button class="add-metric-btn" (click)="toggleMetricDropdown()">
+                <mat-icon>add</mat-icon>Add metric
+              </button>
+              @if (metricDropdownOpen) {
+                <div class="metric-add-dropdown">
+                  <div class="metric-add-search-wrap">
+                    <mat-icon class="metric-add-search-icon">search</mat-icon>
+                    <input class="metric-add-search" type="text"
+                           placeholder="Search metrics…" [(ngModel)]="metricDropdownSearch" />
+                  </div>
+                  @for (group of filteredMetricGroups; track group.label) {
+                    <div class="metric-add-group">
+                      <div class="metric-add-group-label">{{ group.label }}</div>
+                      @for (m of group.metrics; track m) {
+                        <button class="metric-add-item"
+                                [class.metric-add-active]="isMetricVisible(m)"
+                                (click)="toggleVisibleMetric(m)">
+                          <mat-icon class="metric-add-check-icon">
+                            {{ isMetricVisible(m) ? 'check_box' : 'check_box_outline_blank' }}
+                          </mat-icon>
+                          {{ formatMetricLabel(m) }}
+                        </button>
                       }
-                      @if (!getAdsForAdSet(a).length) {
-                        <span class="sel-empty sel-empty-indent-ad">No ads</span>
-                      }
-                    }
+                    </div>
                   }
-                  @if (!getAdSetsForCampaign(c).length) {
-                    <span class="sel-empty sel-empty-indent-adset">No ad sets</span>
+                  @if (filteredMetricGroups.length === 0) {
+                    <div class="metric-add-empty">No metrics found</div>
                   }
-                }
-              }
-              @if (!filteredCampaigns.length) {
-                <span class="sel-empty">No campaigns found</span>
+                </div>
               }
             </div>
           </div>
+
+          <!-- ── Bulk action bar (shows when 2+ rows are checked) ── -->
+          @if (checkedRowCount >= 2) {
+            <div class="bulk-action-bar">
+              <span class="bulk-count">{{ checkedRowCount }} selected</span>
+              <button class="bulk-btn bulk-btn-enabled" (click)="exportCsv()">
+                <mat-icon>download</mat-icon>Export CSV
+              </button>
+              <button class="bulk-btn" disabled
+                      matTooltip="Coming soon" matTooltipPosition="above">
+                <mat-icon>pause</mat-icon>Pause
+              </button>
+              <button class="bulk-btn" disabled
+                      matTooltip="Coming soon" matTooltipPosition="above">
+                <mat-icon>compare</mat-icon>Compare
+              </button>
+            </div>
+          }
+
+          <!-- ── Unified tree table ── -->
+          <div class="tree-table-outer" (click)="closeMetricDropdown()">
+
+            <!-- Column headers (sortable) -->
+            <div class="tree-col-headers">
+              <div class="tcol-name sticky-col">Name</div>
+              @for (metric of currentVisibleMetrics; track metric) {
+                <div class="tcol-metric" (click)="toggleSortBy(metric)">
+                  {{ formatMetricLabel(metric) }}
+                  @if (sortBy?.column === metric) {
+                    <mat-icon class="sort-icon">
+                      {{ sortBy?.direction === 'asc' ? 'arrow_upward' : 'arrow_downward' }}
+                    </mat-icon>
+                  }
+                </div>
+              }
+              @if (platformColumnVisible) {
+                <div class="tcol-platform">Platform</div>
+              }
+            </div>
+
+            <!-- Tree rows -->
+            <div class="tree-table-body">
+
+              <!-- ─ Campaign rows (shown in 'all' and 'campaigns' level) ─ -->
+              @if (treeLevel === 'all' || treeLevel === 'campaigns') {
+                @for (c of sortedCampaignRows; track c.id) {
+                  <div class="tree-row tree-row-campaign"
+                       [class.tree-row-highlighted]="isRowHighlighted('CAMPAIGN', c.externalId)"
+                       [class.tree-row-checked]="isCampaignSelected(c)"
+                       (click)="onTreeRowBodyClick('CAMPAIGN', c.externalId ?? '', $event)">
+                    <div class="tcol-name sticky-col">
+                      @if (treeLevel === 'all') {
+                        <button class="sel-expand-btn"
+                                [class.expanded]="isCampaignExpanded(c)"
+                                (click)="toggleCampaignExpand(c, $event)">
+                          <mat-icon>chevron_right</mat-icon>
+                        </button>
+                      }
+                      <input type="checkbox" [checked]="isCampaignSelected(c)"
+                             (change)="toggleCampaign(c)" (click)="$event.stopPropagation()" />
+                      <span class="tree-name" [title]="c.name">{{ c.name }}</span>
+                      <span class="tree-ext-id">{{ c.externalId }}</span>
+                    </div>
+                    @for (metric of currentVisibleMetrics; track metric) {
+                      <div class="tcol-metric">
+                        {{ getEntityMetricValue('campaign', c.externalId ?? '', metric) }}
+                      </div>
+                    }
+                    @if (platformColumnVisible) {
+                      <div class="tcol-platform">
+                        <i [class]="platformMeta['META'].icon"></i>
+                        <span>{{ platformMeta['META'].label }}</span>
+                      </div>
+                    }
+                  </div>
+
+                  <!-- Ad Set rows (nested, only in 'all' level when campaign is expanded) -->
+                  @if (treeLevel === 'all' && isCampaignExpanded(c)) {
+                    @for (a of getAdSetsForCampaign(c); track a.id) {
+                      <div class="tree-row tree-row-adset"
+                           [class.tree-row-highlighted]="isRowHighlighted('ADSET', a.externalId)"
+                           [class.tree-row-checked]="isAdSetSelected(a)"
+                           (click)="onTreeRowBodyClick('ADSET', a.externalId, $event)">
+                        <div class="tcol-name sticky-col tcol-name-adset">
+                          <button class="sel-expand-btn"
+                                  [class.expanded]="isAdSetExpanded(a)"
+                                  (click)="toggleAdSetExpand(a, $event)">
+                            <mat-icon>chevron_right</mat-icon>
+                          </button>
+                          <input type="checkbox" [checked]="isAdSetSelected(a)"
+                                 (change)="toggleAdSet(a)" (click)="$event.stopPropagation()" />
+                          <span class="tree-name" [title]="a.name">{{ a.name }}</span>
+                          <span class="tree-ext-id">{{ a.externalId }}</span>
+                        </div>
+                        @for (metric of currentVisibleMetrics; track metric) {
+                          <div class="tcol-metric">
+                            {{ getEntityMetricValue('adset', a.externalId, metric) }}
+                          </div>
+                        }
+                        @if (platformColumnVisible) {
+                          <div class="tcol-platform">
+                            <i [class]="platformMeta['META'].icon"></i>
+                            <span>{{ platformMeta['META'].label }}</span>
+                          </div>
+                        }
+                      </div>
+
+                      <!-- Ad rows (nested under expanded ad sets) -->
+                      @if (isAdSetExpanded(a)) {
+                        @for (ad of getAdsForAdSet(a); track ad.id) {
+                          <div class="tree-row tree-row-ad"
+                               [class.tree-row-highlighted]="isRowHighlighted('AD', ad.externalId)"
+                               [class.tree-row-checked]="isAdSelected(ad)"
+                               (click)="onTreeRowBodyClick('AD', ad.externalId, $event)">
+                            <div class="tcol-name sticky-col tcol-name-ad">
+                              <input type="checkbox" [checked]="isAdSelected(ad)"
+                                     (change)="toggleAd(ad)" (click)="$event.stopPropagation()" />
+                              <span class="tree-name" [title]="ad.name">{{ ad.name }}</span>
+                              <span class="tree-ext-id">{{ ad.externalId }}</span>
+                            </div>
+                            @for (metric of currentVisibleMetrics; track metric) {
+                              <div class="tcol-metric">
+                                {{ getEntityMetricValue('ad', ad.externalId, metric) }}
+                              </div>
+                            }
+                            @if (platformColumnVisible) {
+                              <div class="tcol-platform">
+                                <i [class]="platformMeta['META'].icon"></i>
+                                <span>{{ platformMeta['META'].label }}</span>
+                              </div>
+                            }
+                          </div>
+                        }
+                        @if (!getAdsForAdSet(a).length) {
+                          <div class="tree-row-empty tree-row-empty-ad">No ads</div>
+                        }
+                      }
+                    }
+                    @if (!getAdSetsForCampaign(c).length) {
+                      <div class="tree-row-empty tree-row-empty-adset">No ad sets</div>
+                    }
+                  }
+                }
+                @if (!sortedCampaignRows.length) {
+                  <div class="tree-empty-state">No campaigns found</div>
+                }
+              }
+
+              <!-- ─ Ad Set rows (flat, only in 'adSets' level) ─ -->
+              @if (treeLevel === 'adSets') {
+                @for (a of sortedAdSetRows; track a.id) {
+                  <div class="tree-row tree-row-adset"
+                       [class.tree-row-highlighted]="isRowHighlighted('ADSET', a.externalId)"
+                       [class.tree-row-checked]="isAdSetSelected(a)"
+                       (click)="onTreeRowBodyClick('ADSET', a.externalId, $event)">
+                    <div class="tcol-name sticky-col">
+                      <input type="checkbox" [checked]="isAdSetSelected(a)"
+                             (change)="toggleAdSet(a)" (click)="$event.stopPropagation()" />
+                      <span class="tree-name" [title]="a.name">{{ a.name }}</span>
+                      <span class="tree-ext-id">{{ a.externalId }}</span>
+                    </div>
+                    @for (metric of currentVisibleMetrics; track metric) {
+                      <div class="tcol-metric">
+                        {{ getEntityMetricValue('adset', a.externalId, metric) }}
+                      </div>
+                    }
+                    @if (platformColumnVisible) {
+                      <div class="tcol-platform">
+                        <i [class]="platformMeta['META'].icon"></i>
+                        <span>{{ platformMeta['META'].label }}</span>
+                      </div>
+                    }
+                  </div>
+                }
+                @if (!sortedAdSetRows.length) {
+                  <div class="tree-empty-state">No ad sets found</div>
+                }
+              }
+
+              <!-- ─ Ad rows (flat, only in 'ads' level) ─ -->
+              @if (treeLevel === 'ads') {
+                @for (ad of sortedAdRows; track ad.id) {
+                  <div class="tree-row tree-row-ad"
+                       [class.tree-row-highlighted]="isRowHighlighted('AD', ad.externalId)"
+                       [class.tree-row-checked]="isAdSelected(ad)"
+                       (click)="onTreeRowBodyClick('AD', ad.externalId, $event)">
+                    <div class="tcol-name sticky-col">
+                      <input type="checkbox" [checked]="isAdSelected(ad)"
+                             (change)="toggleAd(ad)" (click)="$event.stopPropagation()" />
+                      <span class="tree-name" [title]="ad.name">{{ ad.name }}</span>
+                      <span class="tree-ext-id">{{ ad.externalId }}</span>
+                    </div>
+                    @for (metric of currentVisibleMetrics; track metric) {
+                      <div class="tcol-metric">
+                        {{ getEntityMetricValue('ad', ad.externalId, metric) }}
+                      </div>
+                    }
+                    @if (platformColumnVisible) {
+                      <div class="tcol-platform">
+                        <i [class]="platformMeta['META'].icon"></i>
+                        <span>{{ platformMeta['META'].label }}</span>
+                      </div>
+                    }
+                  </div>
+                }
+                @if (!sortedAdRows.length) {
+                  <div class="tree-empty-state">No ads found</div>
+                }
+              }
+
+            </div><!-- /tree-table-body -->
+          </div><!-- /tree-table-outer -->
         }
       </ng-container>
     </div>
 
     <!-- Performance Chart -->
     <div class="graph-section">
+      <!-- Change 3: context label showing what the graph is plotting -->
+      <div class="graph-context-bar">
+        @if (selectedTreeRow) {
+          <span class="graph-context-label">
+            Showing: <strong>{{ selectedTreeRowName }}</strong>
+          </span>
+          <button class="graph-context-clear" (click)="clearTreeRowSelection()"
+                  matTooltip="Return to aggregate view" matTooltipPosition="right">
+            <mat-icon>close</mat-icon>
+          </button>
+        } @else {
+          <span class="graph-context-label graph-context-aggregate">
+            Showing: Aggregate ({{ aggregateCountLabel }})
+          </span>
+        }
+      </div>
       <div class="graph-header">
         <span class="graph-title">Performance Over Time</span>
         <div class="graph-type-toggle">

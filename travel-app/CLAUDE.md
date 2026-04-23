@@ -151,11 +151,13 @@ Modal headers must **never** use the teal/green gradient. They must blend with t
 ### Pattern for every new element
 
 1. Write the light mode styles in the component `.scss` file using the existing SCSS variables (`$bg-card`, `$text-primary`, `$border`, etc.)
-2. Immediately add a matching dark mode block in `src/styles.scss` under `[data-theme="dark"]` using the design palette variables:
-   - Backgrounds: `$clr-surface-tonal-a0` (card), `$clr-surface-a0` (page), `$clr-surface-tonal-a10` (input/subtle)
-   - Text: `$clr-primary-a50` (body), `$clr-primary-a40` (heading), `$clr-surface-tonal-a50` (muted/secondary)
-   - Borders: `$clr-surface-tonal-a20`
-   - Accent: `$clr-primary-a0` (teal)
+2. Immediately add a matching dark mode block inside the component's own `:host-context([data-theme="dark"])` block using these actual hex values:
+   - Backgrounds: `#1b2323` (card/panel), `#303838` (input/subtle/hover), `#3a4444` (deep hover)
+   - Text (body): `#bbf2ed`
+   - Text (muted/secondary): `#919595`
+   - Text (hover accent): `#48e0d6`
+   - Borders: `#464d4d`
+   - Accent / active: `#48e0d6` (teal)
 
 ### Checklist before finishing any new UI work
 
