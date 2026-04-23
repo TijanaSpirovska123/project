@@ -32,6 +32,7 @@ import {
 import { Campaign } from '../../models/campaign/campaign';
 import { Provider } from '../../data/provider/provider.enum';
 import { DropdownOption } from '../shared/searchable-dropdown.component';
+import { PageDto } from '../../models/ad-creative/page.model';
 
 function urlValidator(control: AbstractControl): ValidationErrors | null {
   const value = control.value;
@@ -45,13 +46,6 @@ function urlValidator(control: AbstractControl): ValidationErrors | null {
   } catch {
     return { invalidUrl: 'Please enter a valid URL' };
   }
-}
-
-interface PageDto {
-  id: number;
-  pageId: string;
-  name: string;
-  pictureUrl?: string;
 }
 
 @Component({

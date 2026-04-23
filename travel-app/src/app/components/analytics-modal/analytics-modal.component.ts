@@ -15,19 +15,7 @@ import {
   AgeBreakdown,
   PerformanceData,
 } from '../../models/analytics/analytics.model';
-
-export interface ModalConfig {
-  title: string;
-  type:
-    | 'performance'
-    | 'demographics'
-    | 'devices'
-    | 'timeline'
-    | 'conversions'
-    | 'budget'
-    | 'engagement';
-  size: 'small' | 'medium' | 'large';
-}
+import { ModalConfig } from '../../models/analytics/analytics-modal.model';
 
 @Component({
   selector: 'app-analytics-modal',

@@ -9,18 +9,7 @@ import { AdService } from '../../services/ad/ad.service';
 import { CoreService } from '../../services/core/core.service';
 import { AuthStoreService } from '../../services/core/auth-store.service';
 import { SyncAccountsStateService } from '../../services/core/sync-accounts-state.service';
-
-interface PlatformCard {
-  key: string;
-  name: string;
-  icon: string;
-  color: string;
-  enabled: boolean;
-  syncing: boolean;
-  connected: boolean;
-  lastSynced: string | null;
-  tokenStatus: 'VALID' | 'EXPIRING_SOON' | 'EXPIRED' | null;
-}
+import { PlatformCard } from '../../models/platform/platform-card.model';
 
 @Component({
   selector: 'app-sync-accounts',

@@ -14,47 +14,8 @@ import { CreativeService } from '../../services/ad-creative/creative.service';
 import { PageService } from '../../services/ad-creative/page.service';
 import { CoreService } from '../../services/core/core.service';
 import { AuthStoreService } from '../../services/core/auth-store.service';
-
-interface StoredAssetVariantDto {
-  id: number;
-  variantKey: string;
-  bucket: string;
-  objectKey: string;
-  width: number | null;
-  height: number | null;
-  metaVideoId?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface StoredAssetDto {
-  id: number;
-  userId: number;
-  assetType: 'IMAGE' | 'VIDEO';
-  originalFilename: string;
-  mimeType: string;
-  sizeBytes: number;
-  hash: string;
-  status: 'PROCESSING' | 'READY' | 'FAILED';
-  durationSeconds?: number;
-  thumbnailMinioKey?: string;
-  thumbnailUrl?: string;
-  createdAt: string;
-  updatedAt: string;
-  variants: StoredAssetVariantDto[];
-}
-
-interface PageDto {
-  id: number;
-  pageId: string;
-  name: string;
-}
-
-interface PagePostDto {
-  id: number;
-  postId: string;
-  permalinkUrl: string;
-}
+import { StoredAssetDto } from '../../models/adset/adset.model';
+import { PageDto, PagePostDto } from '../../models/ad-creative/page.model';
 
 @Component({
   selector: 'app-creative-library',
