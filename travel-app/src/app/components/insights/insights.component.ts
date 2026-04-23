@@ -170,7 +170,7 @@ const PLATFORM_META: Record<string, { icon: string; label: string }> = {
 
 @Component({
   selector: 'app-insights',
-  standalone: false,
+  standalone: false, 
   templateUrl: './insights.component.html',
   styleUrls: ['./insights.component.scss'],
 })
