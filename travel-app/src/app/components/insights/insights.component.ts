@@ -320,6 +320,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
   savedViewsModified = false;
   savedViewsDropdownOpen = false;
   savedViewsLoading = false;
+  private initialSavedViewAutoApplied = false;
 
   // Save dialog
   saveDialogOpen = false;
@@ -391,8 +392,27 @@ export class InsightsComponent implements OnInit, OnDestroy {
     this.navSubscription.unsubscribe();
   }
 
-  autoApplyMostRecentSavedView(){
-    
+  autoApplyMostRecentSavedView(): void {
+    if (this.initialSavedViewAutoApplied) return;
+
+    this.initialSavedViewAutoApplied = true;
+    this.savedViewsLoading = true;
+    this.savedViewService.list(this.activePlatform).pipe(
+      finalize(() => { this.savedViewsLoading = false; this.cdr.detectChanges(); })
+    ).subscribe({
+      next: (views) => {
+        this.savedViews = views ?? [];
+        const mostRecentView = this.savedViews[0];
+        if (mostRecentView) {
+          this.applySavedView(mostRecentView);
+        }
+      },
+      error: () => {
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error('Failed to load saved views');
+        }
+      },
+    });
   }
 
   @HostListener('window:resize')
@@ -2556,6 +2576,9 @@ export class InsightsComponent implements OnInit, OnDestroy {
     return Number.isInteger(val) ? String(val) : val.toFixed(2);
   }
 }
+
+
+
 
 
 
