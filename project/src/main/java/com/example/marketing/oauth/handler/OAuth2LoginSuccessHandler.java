@@ -1,6 +1,7 @@
 package com.example.marketing.oauth.handler;
 
 import com.example.marketing.infrastructure.util.Provider;
+import com.example.marketing.oauth.config.FrontendProperties;
 import com.example.marketing.oauth.entity.OAuthAccountEntity;
 import com.example.marketing.oauth.entity.OAuthConnectRequestEntity;
 import com.example.marketing.oauth.repository.OAuthAccountRepository;
@@ -12,7 +13,6 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.*;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
@@ -31,9 +31,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final OAuthAccountRepository oauthAccountRepository;
     private final OAuth2AuthorizedClientService authorizedClientService;
     private final TokenExchangeService tokenExchangeService;
-
-    @Value("${app.frontend.oauth-success-url:http://localhost:5000/oauth-success}")
-    private String frontendSuccessUrl;
+    private final FrontendProperties frontendProperties;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request,
@@ -48,7 +46,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         // ✅ If missing cookie, this was NOT a "connect" flow (user clicked OAuth directly)
         Optional<String> stateOpt = readCookie(request, "oauth_connect_state");
         if (stateOpt.isEmpty()) {
-            response.sendRedirect(frontendSuccessUrl + "?provider=" + providerKey + "&status=missing_state");
+            response.sendRedirect(frontendProperties.getSuccessRedirectUrl() + "?provider=" + providerKey + "&status=missing_state");
             return;
         }
 
@@ -61,7 +59,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         if (connectReq.getExpiresAt().isBefore(LocalDateTime.now())) {
             connectRepo.deleteById(state);
             clearCookie(response, "oauth_connect_state");
-            response.sendRedirect(frontendSuccessUrl + "?provider=" + providerKey + "&status=state_expired");
+            response.sendRedirect(frontendProperties.getSuccessRedirectUrl() + "?provider=" + providerKey + "&status=state_expired");
             return;
         }
 
@@ -112,7 +110,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         connectRepo.deleteById(state);
         clearCookie(response, "oauth_connect_state");
 
-        response.sendRedirect(frontendSuccessUrl + "?provider=" + providerKey + "&status=connected");
+        response.sendRedirect(frontendProperties.getSuccessRedirectUrl() + "?provider=" + providerKey + "&status=connected");
     }
 
     private Optional<String> readCookie(HttpServletRequest request, String name) {

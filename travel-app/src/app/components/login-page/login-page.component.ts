@@ -294,23 +294,25 @@ export class LoginPageComponent implements OnInit, OnDestroy {
     this.loginService.create(this.userCredentials).subscribe({
       next: (data: LoginResponseDto) => {
         this.formGroup.reset();
-        this.authStore.login(
-          data.token,
-          String(data.userId),
-          data.actId,
-        );
+        this.authStore.login(data.token, String(data.userId), data.actId);
         this.toastr.success('You have successfully logged in', 'Welcome back!');
         let redirect = '/sync-accounts';
         try {
-          redirect = sessionStorage.getItem('redirectAfterLogin') || '/sync-accounts';
+          redirect =
+            sessionStorage.getItem('redirectAfterLogin') || '/sync-accounts';
           sessionStorage.removeItem('redirectAfterLogin');
-        } catch { /* ignore storage errors */ }
+        } catch {
+          /* ignore storage errors */
+        }
         this.router.navigate([redirect]);
       },
       error: (err) => {
         if (!this.authStore.isSessionExpiredRedirect()) {
           this.toastr.error(
-            CoreService.extractErrorMessage(err, 'Invalid credentials. Please try again.'),
+            CoreService.extractErrorMessage(
+              err,
+              'Invalid credentials. Please try again.',
+            ),
             'Login Failed',
           );
         }
@@ -335,8 +337,7 @@ export class LoginPageComponent implements OnInit, OnDestroy {
   }
 
   loginWithInstagram() {
-    window.location.href =
-      'http://localhost:8080/oauth2/authorization/instagram';
+    window.location.href = `${window.location.origin}/oauth2/authorization/instagram`;
   }
 
   forgotPassword() {
@@ -356,7 +357,10 @@ export class LoginPageComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         if (!this.authStore.isSessionExpiredRedirect()) {
-          this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to send token'), 'Error');
+          this.toastr.error(
+            CoreService.extractErrorMessage(err, 'Failed to send token'),
+            'Error',
+          );
         }
       },
     });
@@ -379,7 +383,10 @@ export class LoginPageComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         if (!this.authStore.isSessionExpiredRedirect()) {
-          this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to reset password'), 'Error');
+          this.toastr.error(
+            CoreService.extractErrorMessage(err, 'Failed to reset password'),
+            'Error',
+          );
         }
       },
     });
