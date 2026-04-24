@@ -11,6 +11,17 @@ export interface AdAccountConnectionSummary {
   tokenStatus: 'VALID' | 'EXPIRING_SOON' | 'EXPIRED' | null;
 }
 
+export interface AdAccountConnection {
+  id?: number;
+  provider?: string;
+  adAccountId: string;
+  adAccountName: string;
+  currency: string;
+  timezoneName: string;
+  active: boolean;
+  lastSynced?: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class OAuthService extends CoreService {
   constructor(@Inject(HttpClient) http: HttpClient) {
@@ -34,5 +45,9 @@ export class OAuthService extends CoreService {
 
   getConnections(): Observable<AdAccountConnectionSummary[]> {
     return this.getByPath('ad-account-connections');
+  }
+
+  getConnectedAdAccounts(provider: string): Observable<AdAccountConnection[]> {
+    return this.getByPath(`ad-account-connections/accounts?provider=${provider}`);
   }
 }

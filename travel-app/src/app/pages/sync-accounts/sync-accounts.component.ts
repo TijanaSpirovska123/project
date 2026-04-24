@@ -1,8 +1,9 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AppToastrService } from '../../services/core/app-toastr.service';
 import { finalize } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
-import { OAuthService, AdAccountConnectionSummary } from '../../services/core/oatuh.service';
+import { OAuthService, AdAccountConnectionSummary, AdAccountConnection } from '../../services/core/oatuh.service';
 import { CampaignService } from '../../services/campaign/campaign.service';
 import { AdSetService } from '../../services/adset/adset.service';
 import { AdService } from '../../services/ad/ad.service';
@@ -35,6 +36,14 @@ export class SyncAccountsComponent implements OnInit, OnDestroy {
   disconnectPlatform: PlatformCard | null = null;
   isDisconnecting = false;
 
+  // Ad account selector modal
+  syncModalOpen = false;
+  loadingAccounts = false;
+  syncing = false;
+  adAccounts: AdAccountConnection[] = [];
+  selectedAccount: AdAccountConnection | null = null;
+  private syncingPlatform: PlatformCard | null = null;
+
   private syncStateSub?: Subscription;
 
   constructor(
@@ -46,11 +55,24 @@ export class SyncAccountsComponent implements OnInit, OnDestroy {
     private readonly toastr: AppToastrService,
     private readonly cdr: ChangeDetectorRef,
     private readonly syncState: SyncAccountsStateService,
+    private readonly route: ActivatedRoute,
+    private readonly router: Router,
   ) {}
 
   ngOnInit(): void {
     this.actId = this.authStore.getActId();
-    this.loadConnectionStatus();
+
+    // Check if we arrived here from the OAuth callback (e.g. ?openSync=META)
+    const openSyncKey = this.route.snapshot.queryParamMap.get('openSync')?.toUpperCase() ?? null;
+
+    this.loadConnectionStatus(() => {
+      if (openSyncKey) {
+        // Clear the query param so a refresh doesn't re-open the modal
+        this.router.navigate([], { replaceUrl: true, queryParams: {} });
+        const platform = this.platforms.find(p => p.key === openSyncKey);
+        if (platform) this.openSyncModal(platform);
+      }
+    });
 
     // Refresh the card UI if the interceptor signals a Meta token expiry at runtime
     this.syncStateSub = this.syncState.isMetaTokenExpired().subscribe(expired => {
@@ -79,12 +101,13 @@ export class SyncAccountsComponent implements OnInit, OnDestroy {
     return '';
   }
 
-  loadConnectionStatus(): void {
+  loadConnectionStatus(onDone?: () => void): void {
     this.isLoadingConnections = true;
     this.oauthService.getConnections().pipe(
       finalize(() => {
         this.isLoadingConnections = false;
         this.cdr.detectChanges();
+        onDone?.();
       })
     ).subscribe({
       next: (connections: AdAccountConnectionSummary[]) => {
@@ -138,34 +161,97 @@ export class SyncAccountsComponent implements OnInit, OnDestroy {
       this.toastr.warning('Meta token has expired. Please reconnect your account first.');
       return;
     }
-    if (!this.actId) {
-      this.toastr.warning('No Meta ad account linked. Please connect first.');
-      return;
-    }
-    if (platform.key === 'META') this.syncMeta(platform);
+    if (platform.key === 'META') this.openSyncModal(platform);
   }
 
-  private syncMeta(platform: PlatformCard): void {
+  isConnected(key: string): boolean {
+    return this.platforms.find(p => p.key === key)?.connected ?? false;
+  }
+
+  // ── Ad account selector modal ──────────────────────────────────────────────
+
+  openSyncModal(platform: PlatformCard): void {
+    this.syncingPlatform = platform;
+    this.syncModalOpen = true;
+    this.selectedAccount = null;
+    this.adAccounts = [];
+    this.loadingAccounts = true;
+    this.cdr.detectChanges();
+
+    this.oauthService.getConnectedAdAccounts(platform.key).subscribe({
+      next: (accounts) => {
+        this.adAccounts = accounts;
+        this.loadingAccounts = false;
+        if (accounts.length === 1) this.selectedAccount = accounts[0];
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.loadingAccounts = false;
+        this.cdr.detectChanges();
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error('Failed to load ad accounts');
+        }
+      },
+    });
+  }
+
+  selectAccount(account: AdAccountConnection): void {
+    this.selectedAccount = account;
+  }
+
+  closeSyncModal(): void {
+    if (this.syncing) return;
+    this.syncModalOpen = false;
+    this.selectedAccount = null;
+    this.adAccounts = [];
+    this.syncingPlatform = null;
+  }
+
+  confirmSync(): void {
+    if (!this.selectedAccount || this.syncing || !this.syncingPlatform) return;
+    const platform = this.syncingPlatform;
+    const accountId = this.selectedAccount.adAccountId;
+    const accountName = this.selectedAccount.adAccountName;
+    this.syncing = true;
+    this.cdr.detectChanges();
+
+    this.syncMetaWithAccount(platform, accountId, accountName, () => {
+      this.syncing = false;
+      this.closeSyncModal();
+      this.cdr.detectChanges();
+    }, () => {
+      this.syncing = false;
+      this.cdr.detectChanges();
+    });
+  }
+
+  private syncMetaWithAccount(
+    platform: PlatformCard,
+    accountId: string,
+    accountName: string,
+    onSuccess: () => void,
+    onError: () => void,
+  ): void {
     platform.syncing = true;
     this.syncStep = 'Syncing campaigns… (1/3)';
     this.syncStepNum = 1;
     this.cdr.detectChanges();
 
-    this.campaignService.syncAndGetAll('META', `act_${this.actId}`).subscribe({
+    this.campaignService.syncAndGetAll('META', accountId).subscribe({
       next: (campaignsRes: any) => {
         const campaigns = campaignsRes?.data || [];
         this.syncStep = 'Syncing ad sets… (2/3)';
         this.syncStepNum = 2;
         this.cdr.detectChanges();
 
-        this.adSetService.syncAndGetAll('META', `act_${this.actId}`).subscribe({
+        this.adSetService.syncAndGetAll('META', accountId).subscribe({
           next: (adSetsRes: any) => {
             const adSets = adSetsRes?.data || [];
             this.syncStep = 'Syncing ads… (3/3)';
             this.syncStepNum = 3;
             this.cdr.detectChanges();
 
-            this.adService.syncAndGetAll('META', `act_${this.actId}`).subscribe({
+            this.adService.syncAndGetAll('META', accountId).subscribe({
               next: (adsRes: any) => {
                 const ads = adsRes?.data || [];
                 platform.syncing = false;
@@ -174,9 +260,10 @@ export class SyncAccountsComponent implements OnInit, OnDestroy {
                 this.syncStepNum = 0;
                 this.cdr.detectChanges();
                 this.toastr.success(
-                  `Sync complete — ${campaigns.length} campaigns, ${adSets.length} ad sets, ${ads.length} ads`,
+                  `Synced from ${accountName} — ${campaigns.length} campaigns, ${adSets.length} ad sets, ${ads.length} ads`,
                   'Sync Complete'
                 );
+                onSuccess();
               },
               error: (err: any) => {
                 platform.syncing = false; this.syncStep = ''; this.syncStepNum = 0;
@@ -184,13 +271,17 @@ export class SyncAccountsComponent implements OnInit, OnDestroy {
                 if (!this.authStore.isSessionExpiredRedirect()) {
                   this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to sync ads'));
                 }
+                onError();
               },
             });
           },
           error: (err: any) => {
             platform.syncing = false; this.syncStep = ''; this.syncStepNum = 0;
             this.cdr.detectChanges();
-            this.toastr.warning('Ad sets sync failed');
+            if (!this.authStore.isSessionExpiredRedirect()) {
+              this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to sync ad sets'));
+            }
+            onError();
           },
         });
       },
@@ -200,6 +291,7 @@ export class SyncAccountsComponent implements OnInit, OnDestroy {
         if (!this.authStore.isSessionExpiredRedirect()) {
           this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to sync campaigns'));
         }
+        onError();
       },
     });
   }

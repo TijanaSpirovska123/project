@@ -1,7 +1,9 @@
 package com.example.marketing.oauth.api;
 
 import com.example.marketing.auth.AdAccountConnectionEntity;
+import com.example.marketing.auth.AdAccountConnectionRepository;
 import com.example.marketing.auth.UserPrincipal;
+import com.example.marketing.oauth.dto.AdAccountConnectionDto;
 import com.example.marketing.oauth.dto.AdAccountConnectionSummary;
 import com.example.marketing.oauth.repository.OAuthAccountRepository;
 import com.example.marketing.oauth.service.MetaOAuthService;
@@ -23,6 +25,7 @@ public class AdAccountConnectionController {
 
     private final MetaOAuthService metaOAuthService;
     private final OAuthAccountRepository oauthAccountRepo;
+    private final AdAccountConnectionRepository adAccountConnectionRepo;
 
     private static final List<String> ALL_PLATFORMS =
             List.of("META", "TIKTOK", "PINTEREST", "GOOGLE", "LINKEDIN", "REDDIT");
@@ -66,5 +69,37 @@ public class AdAccountConnectionController {
                 .toList();
 
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Returns individual ad accounts for a specific provider.
+     * Queries the ad_account_connection table directly by user + provider,
+     * without filtering on the active flag, so all stored accounts are visible
+     * in the selector modal regardless of their active state.
+     */
+    @GetMapping("/accounts")
+    public ResponseEntity<List<AdAccountConnectionDto>> getAccountsByProvider(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(defaultValue = "META") String provider) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
+        List<AdAccountConnectionDto> accounts = adAccountConnectionRepo
+                .findAllByUserIdAndProvider(principal.userId(), provider.toUpperCase())
+                .stream()
+                .map(c -> {
+                    AdAccountConnectionDto dto = new AdAccountConnectionDto();
+                    dto.setId(c.getId());
+                    dto.setProvider(c.getProvider());
+                    dto.setAdAccountId(c.getAdAccountId());
+                    dto.setAdAccountName(c.getAdAccountName());
+                    dto.setCurrency(c.getCurrency());
+                    dto.setTimezoneName(c.getTimezoneName());
+                    dto.setActive(c.isActive());
+                    dto.setLastSynced(c.getLastSynced());
+                    return dto;
+                })
+                .toList();
+        return ResponseEntity.ok(accounts);
     }
 }

@@ -28,9 +28,8 @@ export class OauthSuccessComponent implements OnInit, OnDestroy {
         if (token) {
           try {
             this.authStore.login(token, userId, actId ?? null);
-            // Redirect to meta after OAuth connection
-            this.router.navigate(['/meta']).catch((error) => {
-              console.error('Navigation to meta failed:', error);
+            // After connecting, land on Sync Accounts so user can pick an ad account and sync
+            this.router.navigate(['/sync-accounts'], { queryParams: { openSync: 'META' } }).catch(() => {
               this.router.navigate(['/login']);
             });
           } catch (error) {
@@ -38,11 +37,11 @@ export class OauthSuccessComponent implements OnInit, OnDestroy {
             this.router.navigate(['/login']);
           }
         } else if (this.authStore.isAuthenticated()) {
-          // Reconnect flow: user already logged in, Meta token was refreshed
+          // Reconnect flow: token was refreshed — also send to sync-accounts to re-pick account
           if (actId) {
             this.authStore.setActId(actId);
           }
-          this.router.navigate(['/meta']);
+          this.router.navigate(['/sync-accounts'], { queryParams: { openSync: 'META' } });
         } else {
           console.warn('No token provided in query params');
           this.router.navigate(['/login']);

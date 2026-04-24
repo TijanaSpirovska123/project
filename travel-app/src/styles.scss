@@ -632,6 +632,87 @@ body {
     }
   }
 
+  // ── Sync Accounts — Ad Account Selector Modal ─────────────────────────
+  .modal-overlay {
+    background: rgba(0, 0, 0, 0.65) !important;
+  }
+
+  .modal-card {
+    background: $clr-surface-tonal-a0 !important;
+    border-color: $clr-surface-tonal-a20 !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  .modal-header {
+    background: $clr-surface-tonal-a0 !important;
+    border-bottom-color: $clr-surface-tonal-a20 !important;
+  }
+
+  .modal-title {
+    color: $clr-primary-a40 !important;
+    mat-icon { color: $clr-primary-a0 !important; }
+  }
+
+  .modal-close {
+    color: $clr-surface-tonal-a50 !important;
+    &:hover:not(:disabled) {
+      color: $clr-primary-a40 !important;
+      background: rgba(255, 255, 255, 0.08) !important;
+    }
+  }
+
+  .modal-subtitle {
+    color: $clr-surface-tonal-a50 !important;
+    border-bottom-color: $clr-surface-tonal-a20 !important;
+  }
+
+  .modal-loading,
+  .modal-empty {
+    color: $clr-surface-tonal-a50 !important;
+  }
+
+  .modal-spinner {
+    border-color: $clr-surface-tonal-a20 !important;
+    border-top-color: $clr-primary-a0 !important;
+  }
+
+  .account-item {
+    &:hover { background: $clr-surface-tonal-a10 !important; }
+    &.selected {
+      background: rgba($clr-primary-a0, 0.08) !important;
+      border-color: $clr-primary-a0 !important;
+    }
+  }
+
+  .account-check {
+    border-color: $clr-surface-tonal-a30 !important;
+    color: $clr-primary-a0 !important;
+    .account-item.selected & {
+      background: $clr-primary-a0 !important;
+      border-color: $clr-primary-a0 !important;
+      color: $clr-surface-a0 !important;
+    }
+  }
+
+  .account-name { color: $clr-primary-a40 !important; }
+  .account-meta { color: $clr-surface-tonal-a50 !important; }
+
+  .modal-actions {
+    border-top-color: $clr-surface-tonal-a20 !important;
+  }
+
+  .modal-btn-ghost {
+    border-color: $clr-surface-tonal-a20 !important;
+    color: $clr-primary-a50 !important;
+    &:hover:not(:disabled) { background: $clr-surface-tonal-a10 !important; }
+  }
+
+  .modal-btn-primary {
+    background: $clr-primary-a0 !important;
+    color: $clr-surface-a0 !important;
+    border-color: $clr-primary-a0 !important;
+  }
+
   // ── Sync Accounts — Sync Data button ──────────────────────────────────
   .action-btn.sync-btn {
     background: $clr-surface-tonal-a20 !important;

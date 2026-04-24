@@ -171,6 +171,85 @@
   </div>
 </div>
 
+<!-- Ad Account Selector Modal -->
+@if (syncModalOpen) {
+  <div class="modal-overlay" (click)="closeSyncModal()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+
+      <div class="modal-header">
+        <div class="modal-title">
+          <mat-icon>sync</mat-icon>
+          Select Ad Account to Sync
+        </div>
+        <button class="modal-close" (click)="closeSyncModal()" [disabled]="syncing">&times;</button>
+      </div>
+
+      <div class="modal-subtitle">
+        Choose which Meta ad account to sync campaigns from
+      </div>
+
+      @if (loadingAccounts) {
+        <div class="modal-loading">
+          <div class="modal-spinner"></div>
+          <span>Loading ad accounts…</span>
+        </div>
+      }
+
+      @if (!loadingAccounts && adAccounts.length === 0) {
+        <div class="modal-empty">
+          No connected ad accounts found. Make sure Meta is connected.
+        </div>
+      }
+
+      @if (!loadingAccounts && adAccounts.length > 0) {
+        <div class="account-list">
+          @for (account of adAccounts; track account.adAccountId) {
+            <div
+              class="account-item"
+              [class.selected]="selectedAccount?.adAccountId === account.adAccountId"
+              (click)="selectAccount(account)"
+            >
+              <div class="account-check">
+                @if (selectedAccount?.adAccountId === account.adAccountId) {
+                  <mat-icon>check</mat-icon>
+                }
+              </div>
+              <div class="account-info">
+                <div class="account-name">{{ account.adAccountName || account.adAccountId }}</div>
+                <div class="account-meta">
+                  {{ account.adAccountId }}
+                  @if (account.currency) { · {{ account.currency }} }
+                  @if (account.timezoneName) { · {{ account.timezoneName }} }
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-ghost" (click)="closeSyncModal()" [disabled]="syncing">
+          Cancel
+        </button>
+        <button
+          class="modal-btn modal-btn-primary"
+          [disabled]="!selectedAccount || syncing"
+          (click)="confirmSync()"
+        >
+          @if (syncing) {
+            <div class="btn-spinner"></div>
+            <span>{{ syncStep || 'Syncing…' }}</span>
+          } @else {
+            <mat-icon>sync</mat-icon>
+            <span>Sync Data</span>
+          }
+        </button>
+      </div>
+
+    </div>
+  </div>
+}
+
 <!-- Disconnect Confirmation Dialog -->
 @if (showDisconnectDialog && disconnectPlatform) {
   <div class="dialog-backdrop" (click)="cancelDisconnect()">
