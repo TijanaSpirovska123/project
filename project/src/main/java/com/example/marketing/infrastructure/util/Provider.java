@@ -23,6 +23,25 @@ public enum Provider {
         return Provider.valueOf(value.trim().toUpperCase());
     }
 
+    /**
+     * Maps a Spring Security OAuth2 client registration ID (e.g. "facebook", "google")
+     * to the canonical Provider used in the database.
+     * Add new entries here when wiring up additional OAuth2 registrations.
+     */
+    public static Provider fromRegistrationId(String registrationId) {
+        if (registrationId == null) throw new IllegalArgumentException("registrationId is null");
+        return switch (registrationId.trim().toLowerCase()) {
+            case "facebook"  -> META;
+            case "google"    -> GOOGLE;
+            case "tiktok"    -> TIKTOK;
+            case "linkedin"  -> LINKEDIN;
+            case "instagram" -> INSTAGRAM;
+            case "x", "twitter" -> X;
+            default -> throw new IllegalArgumentException(
+                    "No Provider mapping for OAuth2 registration: " + registrationId);
+        };
+    }
+
 
     public record PlatformContext(Provider platform, String accessToken, String adAccountId, Long userId) { }
 

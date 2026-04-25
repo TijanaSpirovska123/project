@@ -1,9 +1,9 @@
 package com.example.marketing.configuration;
 
 import com.example.marketing.auth.JwtAuthenticationFilter;
+import com.example.marketing.oauth.handler.OAuth2LoginFailureHandler;
 import com.example.marketing.oauth.handler.OAuth2LoginSuccessHandler;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -24,135 +24,156 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-  private final JwtAuthenticationFilter jwtAuthFilter;
-  private final AuthenticationProvider authenticationProvider;
-  private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+    private final JwtAuthenticationFilter jwtAuthFilter;
+    private final AuthenticationProvider authenticationProvider;
+    private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+    private final OAuth2LoginFailureHandler oAuth2LoginFailureHandler;
 
-  @Value("${app.cors.allowed-origins}")
-  private String allowedOrigins;
+    @Value("${app.cors.allowed-origins}")
+    private String allowedOrigins;
 
-  // ⬇️ Put your Login-for-Business configuration ID in application.yml/properties
-  @Value("${facebook.login.config-id:}")
-  private String facebookLoginConfigId;
+    @Value("${facebook.login.config-id:}")
+    private String facebookLoginConfigId;
 
-  @Bean
-  public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                 ClientRegistrationRepository clientRegistrationRepository) throws Exception {
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                                   ClientRegistrationRepository clientRegistrationRepository)
+            throws Exception {
 
-    DefaultOAuth2AuthorizationRequestResolver defaultResolver =
-            new DefaultOAuth2AuthorizationRequestResolver(clientRegistrationRepository, "/oauth2/authorization");
+        OAuth2AuthorizationRequestResolver resolver =
+                buildAuthorizationRequestResolver(clientRegistrationRepository);
 
-    OAuth2AuthorizationRequestResolver resolver = new OAuth2AuthorizationRequestResolver() {
-      @Override
-      public OAuth2AuthorizationRequest resolve(HttpServletRequest request) {
-        OAuth2AuthorizationRequest original = defaultResolver.resolve(request);
-        return customize(request, original);
-      }
+        http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/api/auth/register",
+                                "/api/auth/login",
+                                "/api/user/request-password-reset",
+                                "/api/user/reset-password",
+                                "/api/auth/logout",
+                                "/api/oauth/meta/callback",
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/oauth2/**",
+                                "/login/oauth2/**"
+                        ).permitAll()
+                        .requestMatchers("/images/**").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .anyRequest().authenticated()
+                )
+                .authenticationProvider(authenticationProvider)
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .oauth2Login(oauth2 -> oauth2
+                        .authorizationEndpoint(a -> a.authorizationRequestResolver(resolver))
+                        .successHandler(oAuth2LoginSuccessHandler)
+                        .failureHandler(oAuth2LoginFailureHandler)
+                )
+                .logout(logout -> logout
+                        .logoutUrl("/api/auth/logout")
+                        .addLogoutHandler((request, response, authentication) -> {
+                            SecurityContextHolder.clearContext();
+                            CookieUtil.clearCookie(response, "JSESSIONID", "/");
+                            CookieUtil.clearCookie(response, "JSESSIONID", "/api");
+                            CookieUtil.clearOauthState(response);
+                        })
+                        .logoutSuccessHandler((request, response, authentication) ->
+                                response.setStatus(200))
+                        .invalidateHttpSession(true)
+                        .clearAuthentication(true)
+                );
 
-      @Override
-      public OAuth2AuthorizationRequest resolve(HttpServletRequest request, String clientRegistrationId) {
-        OAuth2AuthorizationRequest original = defaultResolver.resolve(request, clientRegistrationId);
-        return customize(request, original, clientRegistrationId);
-      }
+        return http.build();
+    }
 
-      private OAuth2AuthorizationRequest customize(HttpServletRequest request,
-                                                   OAuth2AuthorizationRequest original) {
-        if (original == null) return null;
-        String uri = request.getRequestURI();
-        boolean isFacebook = uri != null && uri.startsWith("/oauth2/authorization/")
-                && "facebook".equalsIgnoreCase(uri.substring("/oauth2/authorization/".length()));
-        return addConfigIdIfNeeded(original, isFacebook);
-      }
+    /**
+     * Builds a resolver that can inject provider-specific extra parameters into
+     * the authorization request. Currently adds {@code config_id} for Facebook
+     * (Login for Business). To customize another provider, add its registrationId
+     * to the switch block in {@link #extraParamsFor}.
+     */
+    private OAuth2AuthorizationRequestResolver buildAuthorizationRequestResolver(
+            ClientRegistrationRepository repo) {
 
-      private OAuth2AuthorizationRequest customize(HttpServletRequest request,
-                                                   OAuth2AuthorizationRequest original,
-                                                   String clientRegistrationId) {
-        if (original == null) return null;
-        boolean isFacebook = "facebook".equalsIgnoreCase(clientRegistrationId);
-        return addConfigIdIfNeeded(original, isFacebook);
-      }
+        DefaultOAuth2AuthorizationRequestResolver base =
+                new DefaultOAuth2AuthorizationRequestResolver(repo, "/oauth2/authorization");
 
-      private OAuth2AuthorizationRequest addConfigIdIfNeeded(OAuth2AuthorizationRequest original,
-                                                             boolean isFacebook) {
-        if (isFacebook && facebookLoginConfigId != null && !facebookLoginConfigId.trim().isEmpty()) {
-          Map<String, Object> extra = new HashMap<>(original.getAdditionalParameters());
-          extra.put("config_id", facebookLoginConfigId);
-          return OAuth2AuthorizationRequest.from(original)
-                  .additionalParameters(extra)
-                  .build();
-        }
-        return original;
-      }
-    };
+        return new OAuth2AuthorizationRequestResolver() {
+            @Override
+            public OAuth2AuthorizationRequest resolve(HttpServletRequest request) {
+                OAuth2AuthorizationRequest original = base.resolve(request);
+                if (original == null) return null;
+                String regId = extractRegistrationId(request.getRequestURI());
+                return withExtraParams(original, regId);
+            }
 
-    http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .csrf(AbstractHttpConfigurer::disable)
-            .authorizeHttpRequests(auth -> auth
-                    .requestMatchers(
-                            "/api/auth/register",
-                            "/api/auth/login",
-                            "/api/user/request-password-reset",
-                            "/api/user/reset-password",
-                            "/api/auth/logout",
+            @Override
+            public OAuth2AuthorizationRequest resolve(HttpServletRequest request,
+                                                      String clientRegistrationId) {
+                OAuth2AuthorizationRequest original = base.resolve(request, clientRegistrationId);
+                if (original == null) return null;
+                return withExtraParams(original, clientRegistrationId);
+            }
 
-                            // Meta OAuth callback — public, state param ties it to local user
+            private String extractRegistrationId(String uri) {
+                String prefix = "/oauth2/authorization/";
+                if (uri != null && uri.startsWith(prefix)) return uri.substring(prefix.length());
+                return "";
+            }
 
-                            "/api/oauth/meta/callback",
+            private OAuth2AuthorizationRequest withExtraParams(OAuth2AuthorizationRequest original,
+                                                               String registrationId) {
+                Map<String, Object> extra = extraParamsFor(registrationId);
+                if (extra.isEmpty()) return original;
+                Map<String, Object> merged = new HashMap<>(original.getAdditionalParameters());
+                merged.putAll(extra);
+                return OAuth2AuthorizationRequest.from(original)
+                        .additionalParameters(merged)
+                        .build();
+            }
+        };
+    }
 
-                            // Swagger/OpenAPI endpoints
-                            "/v3/api-docs/**",
-                            "/swagger-ui/**",
-                            "/swagger-ui.html",
-                            "/oauth2/**",
-                            "/login/oauth2/**"
+    /**
+     * Returns any extra query parameters required by a specific OAuth2 provider.
+     * Add a new case here when a new platform requires non-standard authorization params.
+     */
+    private Map<String, Object> extraParamsFor(String registrationId) {
+        return switch (registrationId == null ? "" : registrationId.toLowerCase()) {
+            case "facebook" -> {
+                if (facebookLoginConfigId != null && !facebookLoginConfigId.isBlank()) {
+                    yield Map.of("config_id", facebookLoginConfigId);
+                }
+                yield Map.of();
+            }
+            // Add additional providers here, e.g.:
+            // case "tiktok" -> Map.of("...param...", "...value...");
+            default -> Map.of();
+        };
+    }
 
-                    ).permitAll()
-                    .requestMatchers("/images/**").permitAll()
-                    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                    .anyRequest().authenticated()
-            )
-            .authenticationProvider(authenticationProvider)
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-            .oauth2Login(oauth2 -> oauth2
-                    .authorizationEndpoint(a -> a.authorizationRequestResolver(resolver))
-                    .successHandler(oAuth2LoginSuccessHandler)
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOriginPatterns(Arrays.asList(allowedOrigins.split(",")));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true);
 
-            )
-            .logout(logout -> logout
-                    .logoutUrl("/api/auth/logout")
-                    .addLogoutHandler((request, response, authentication) -> {
-                      SecurityContextHolder.clearContext();
-                      CookieUtil.clearCookie(response, "JSESSIONID", "/");
-                      CookieUtil.clearCookie(response, "JSESSIONID", "/api");
-                      CookieUtil.clearOauthState(response);
-                    })
-                    .logoutSuccessHandler((request, response, authentication) -> response.setStatus(200))
-                    .invalidateHttpSession(true)
-                    .clearAuthentication(true)
-            );
-
-
-
-    return http.build();
-  }
-  @Bean
-  public CorsConfigurationSource corsConfigurationSource() {
-    CorsConfiguration configuration = new CorsConfiguration();
-    configuration.setAllowedOriginPatterns(Arrays.asList(allowedOrigins.split(",")));
-    configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-    configuration.setAllowedHeaders(List.of("*"));
-    configuration.setAllowCredentials(true);
-
-    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-    source.registerCorsConfiguration("/**", configuration);
-    return source;
-  }
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
 }

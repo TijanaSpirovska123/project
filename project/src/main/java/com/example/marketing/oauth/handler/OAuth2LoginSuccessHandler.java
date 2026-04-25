@@ -13,8 +13,10 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.client.*;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
@@ -22,6 +24,8 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Optional;
+
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
@@ -39,50 +43,83 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                                         Authentication authentication) throws IOException {
 
         OAuth2AuthenticationToken oauthToken = (OAuth2AuthenticationToken) authentication;
+        String registrationId = oauthToken.getAuthorizedClientRegistrationId();
 
-        String registrationId = oauthToken.getAuthorizedClientRegistrationId(); // "facebook"
-        String providerKey = "META"; // ✅ your DB provider is META, not FACEBOOK
+        // Derive our canonical provider from the Spring registration ID (e.g. "facebook" → META).
+        // Adding a new platform: register it in application.yml AND add its case to Provider.fromRegistrationId().
+        Provider provider;
+        try {
+            provider = Provider.fromRegistrationId(registrationId);
+        } catch (IllegalArgumentException e) {
+            log.warn("OAuth2 success for unknown registrationId '{}' — rejecting", registrationId);
+            redirectError(response, "UNKNOWN", "unsupported_provider");
+            return;
+        }
 
-        // ✅ If missing cookie, this was NOT a "connect" flow (user clicked OAuth directly)
+        String providerKey = provider.name(); // the string stored in DB, e.g. "META"
+
+        // State cookie must be present — its absence means the user hit the OAuth endpoint directly
+        // rather than via our controlled connect flow.
         Optional<String> stateOpt = readCookie(request, "oauth_connect_state");
         if (stateOpt.isEmpty()) {
-            response.sendRedirect(frontendProperties.getSuccessRedirectUrl() + "?provider=" + providerKey + "&status=missing_state");
+            log.warn("OAuth2 success for {} but no oauth_connect_state cookie — aborting", providerKey);
+            redirectError(response, providerKey, "missing_state");
             return;
         }
 
         String state = stateOpt.get();
 
-        OAuthConnectRequestEntity connectReq =
-                connectRepo.findByStateAndProvider(state, providerKey)
-                        .orElseThrow(() -> new RuntimeException("Invalid connect state"));
+        OAuthConnectRequestEntity connectReq;
+        try {
+            connectReq = connectRepo.findByStateAndProvider(state, providerKey)
+                    .orElseThrow(() -> new RuntimeException("Invalid connect state"));
+        } catch (RuntimeException e) {
+            log.warn("No connect request found for state={} provider={}", state, providerKey);
+            clearCookie(response, "oauth_connect_state");
+            redirectError(response, providerKey, "invalid_state");
+            return;
+        }
 
         if (connectReq.getExpiresAt().isBefore(LocalDateTime.now())) {
             connectRepo.deleteById(state);
             clearCookie(response, "oauth_connect_state");
-            response.sendRedirect(frontendProperties.getSuccessRedirectUrl() + "?provider=" + providerKey + "&status=state_expired");
+            redirectError(response, providerKey, "state_expired");
             return;
         }
 
-        Long userId = connectReq.getUserId();
-
-        UserEntity user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found for connect request"));
+        UserEntity user = userRepository.findById(connectReq.getUserId())
+                .orElse(null);
+        if (user == null) {
+            connectRepo.deleteById(state);
+            clearCookie(response, "oauth_connect_state");
+            redirectError(response, providerKey, "user_not_found");
+            return;
+        }
 
         OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient(
-                registrationId,
-                oauthToken.getName()
-        );
+                registrationId, oauthToken.getName());
 
         if (client == null || client.getAccessToken() == null) {
-            throw new RuntimeException("OAuth2AuthorizedClient missing access token");
+            connectRepo.deleteById(state);
+            clearCookie(response, "oauth_connect_state");
+            redirectError(response, providerKey, "no_access_token");
+            return;
         }
 
         String shortLivedToken = client.getAccessToken().getTokenValue();
 
-        // ✅ exchange token (Meta short -> long)
-        TokenExchangeService.TokenExchangeResult longToken =
-                tokenExchangeService.exchangeToLongLived(Provider.META, shortLivedToken);
+        TokenExchangeService.TokenExchangeResult longToken;
+        try {
+            longToken = tokenExchangeService.exchangeToLongLived(provider, shortLivedToken);
+        } catch (Exception e) {
+            log.error("Token exchange failed for provider {}: {}", providerKey, e.getMessage());
+            connectRepo.deleteById(state);
+            clearCookie(response, "oauth_connect_state");
+            redirectError(response, providerKey, "token_exchange_failed");
+            return;
+        }
 
+        // Upsert the OAuthAccountEntity for this user+provider pair.
         OAuthAccountEntity oauthAccount = oauthAccountRepository
                 .findByUserAndProvider(user, providerKey)
                 .orElse(new OAuthAccountEntity());
@@ -91,14 +128,8 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         oauthAccount.setProvider(providerKey);
         oauthAccount.setAccessToken(longToken.accessToken());
         oauthAccount.setTokenExpiry(longToken.expiresAt());
-
-        // ✅ For Meta this should be the Meta user ID (best effort)
         oauthAccount.setExternalUserId(oauthToken.getName());
-
-        // ✅ Save granted scopes (you can replace later with real granted scopes)
-        String scopes = String.join(",", client.getClientRegistration().getScopes());
-        oauthAccount.setGrantedScopes(scopes);
-
+        oauthAccount.setGrantedScopes(String.join(",", client.getClientRegistration().getScopes()));
         oauthAccount.setUpdatedAt(LocalDateTime.now());
         if (oauthAccount.getCreatedAt() == null) {
             oauthAccount.setCreatedAt(LocalDateTime.now());
@@ -106,11 +137,18 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         oauthAccountRepository.save(oauthAccount);
 
-        // ✅ cleanup connect request + cookie (always)
         connectRepo.deleteById(state);
         clearCookie(response, "oauth_connect_state");
 
-        response.sendRedirect(frontendProperties.getSuccessRedirectUrl() + "?provider=" + providerKey + "&status=connected");
+        log.info("OAuth2 connect completed: userId={} provider={}", user.getId(), providerKey);
+        response.sendRedirect(frontendProperties.getSuccessRedirectUrl()
+                + "?provider=" + providerKey + "&status=connected");
+    }
+
+    private void redirectError(HttpServletResponse response, String provider, String status)
+            throws IOException {
+        response.sendRedirect(frontendProperties.getSuccessRedirectUrl()
+                + "?provider=" + provider + "&status=" + status);
     }
 
     private Optional<String> readCookie(HttpServletRequest request, String name) {
