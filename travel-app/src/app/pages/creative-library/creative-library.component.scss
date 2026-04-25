@@ -340,6 +340,48 @@
   }
 }
 
+.asset-card.is-processing,
+.asset-card.is-failed {
+  cursor: default;
+
+  &:hover {
+    transform: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    border-color: #e8ebf2;
+  }
+}
+
+.failed-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.failed-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+
+  mat-icon {
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
+  }
+}
+
+.failed-action-delete {
+  color: #991b1b;
+  &:hover { background: #fee2e2; }
+}
+
 .asset-card-overlay {
   position: absolute;
   inset: 0;
@@ -433,21 +475,27 @@
   }
 }
 
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 .status-badge {
   position: absolute;
   top: 8px;
-  left: 8px;
+  right: 8px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+
   &.inline {
     position: static;
   }
-  // Colour variants — use global badge palette
-  &.ready {
-    background: #d1fae5;
-    color: #065f46;
-  }
   &.processing {
-    background: #dbeafe;
-    color: #1e40af;
+    background: #fef3c7;
+    color: #92400e;
+    animation: pulse 2s ease-in-out infinite;
   }
   &.failed {
     background: #fee2e2;
@@ -465,6 +513,12 @@
   font-size: 0.7rem;
   font-weight: 700;
   padding: 2px 7px;
+
+  &.generating {
+    background: rgba(0, 0, 0, 0.4);
+    color: rgba(255, 255, 255, 0.75);
+    font-weight: 500;
+  }
 }
 
 .card-hover-actions {
@@ -1381,29 +1435,28 @@
 .processing-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  font-size: 12px;
-  color: #64748b;
-  font-weight: 600;
   pointer-events: none;
 }
 
 .failed-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(255, 235, 238, 0.9);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  color: #C62828;
-  font-weight: 600;
   pointer-events: none;
+
+  .failed-overlay-icon {
+    font-size: 40px;
+    width: 40px;
+    height: 40px;
+    color: #ef4444;
+  }
 }
 
 .type-tag-video {
