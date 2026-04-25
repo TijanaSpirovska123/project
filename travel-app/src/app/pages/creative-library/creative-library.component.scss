@@ -1414,3 +1414,78 @@
   border-radius: 4px;
   font-weight: 700;
 }
+
+// ─── Platform upload badges (asset card footer) ────────────────────────────────
+.platform-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.platform-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  color: #94a3b8;
+  transition: color 0.15s;
+
+  .platform-icon-meta {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+
+  .badge-check {
+    font-size: 11px;
+    width: 11px;
+    height: 11px;
+    color: #1ca698;
+  }
+
+  &.uploaded {
+    color: #1ca698;
+  }
+}
+
+// ─── Platform tile status text ─────────────────────────────────────────────────
+.platform-tile-status {
+  font-size: 0.72rem;
+  font-weight: 600;
+
+  &.status-none {
+    color: #94a3b8;
+  }
+  &.status-uploaded {
+    color: #1ca698;
+  }
+  &.status-all {
+    color: #16a34a;
+  }
+}
+
+.platform-tile.all-uploaded {
+  opacity: 0.55;
+  cursor: default;
+
+  &:hover {
+    border-color: #e8ebf2;
+    background: #f8fafc;
+  }
+}
+
+// ─── Variant picker uploaded badge ────────────────────────────────────────────
+.vpc-variant-btn.uploaded {
+  border-left: 2px solid #1ca698;
+  position: relative;
+}
+
+.vpc-uploaded-badge {
+  font-size: 13px;
+  width: 13px;
+  height: 13px;
+  color: #1ca698;
+  align-self: flex-end;
+  margin-top: 2px;
+}

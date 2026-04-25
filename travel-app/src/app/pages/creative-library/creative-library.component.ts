@@ -14,7 +14,7 @@ import { CreativeService } from '../../services/ad-creative/creative.service';
 import { PageService } from '../../services/ad-creative/page.service';
 import { CoreService } from '../../services/core/core.service';
 import { AuthStoreService } from '../../services/core/auth-store.service';
-import { StoredAssetDto } from '../../models/adset/adset.model';
+import { StoredAssetDto, StoredAssetVariantDto } from '../../models/adset/adset.model';
 import { PageDto, PagePostDto } from '../../models/ad-creative/page.model';
 
 @Component({
@@ -503,11 +503,12 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
         .subscribe({
           next: () => {
             this.toastr.success('Video creative published to Meta successfully');
+            const pushedAssetId = this.publishAsset?.id;
             this.closePublishModal();
             if (this.embeddedMode) {
               this.closePanel.emit();
-            } else {
-              this.loadAssets();
+            } else if (pushedAssetId) {
+              this.refreshAsset(pushedAssetId);
             }
           },
           error: (err: any) => {
@@ -542,11 +543,12 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
         .subscribe({
           next: () => {
             this.toastr.success('Creative published to Meta successfully');
+            const pushedAssetId = this.publishAsset?.id;
             this.closePublishModal();
             if (this.embeddedMode) {
               this.closePanel.emit();
-            } else {
-              this.loadAssets();
+            } else if (pushedAssetId) {
+              this.refreshAsset(pushedAssetId);
             }
           },
           error: (err: any) => {
@@ -757,6 +759,46 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
 
   trackById(_: number, a: StoredAssetDto): number {
     return a.id;
+  }
+
+  // ── Meta upload status helpers ───────────────────────────────────────────────
+
+  hasMetaUpload(asset: StoredAssetDto): boolean {
+    return (asset.variants ?? []).some(v =>
+      (v.metaImageHash != null && v.metaImageHash !== '') ||
+      (v.metaVideoId != null && v.metaVideoId !== '')
+    );
+  }
+
+  metaUploadCount(asset: StoredAssetDto): { uploaded: number; total: number; allUploaded: boolean } {
+    const variants = asset.variants ?? [];
+    const total = variants.length;
+    const uploaded = variants.filter(v =>
+      (v.metaImageHash != null && v.metaImageHash !== '') ||
+      (v.metaVideoId != null && v.metaVideoId !== '')
+    ).length;
+    return { uploaded, total, allUploaded: uploaded === total && total > 0 };
+  }
+
+  isVariantUploaded(variant: StoredAssetVariantDto): boolean {
+    return (variant.metaImageHash != null && variant.metaImageHash !== '') ||
+           (variant.metaVideoId != null && variant.metaVideoId !== '');
+  }
+
+  // ── Refresh single asset after push ─────────────────────────────────────────
+
+  private refreshAsset(assetId: number): void {
+    this.assetService.getById(assetId).subscribe({
+      next: (updated) => {
+        const idx = this.assets.findIndex(a => a.id === assetId);
+        if (idx !== -1) {
+          this.assets[idx] = updated;
+          this.applyFilters();
+          this.cdr.detectChanges();
+        }
+      },
+      error: () => {},
+    });
   }
 }
 

@@ -257,6 +257,15 @@
           </span>
           <span class="asset-size">{{ formatFileSize(asset.sizeBytes) }}</span>
         </div>
+        <div class="platform-badges" *ngIf="asset.status === 'READY' && hasMetaUpload(asset)">
+          <span
+            class="platform-badge uploaded"
+            [title]="metaUploadCount(asset).uploaded + ' of ' + metaUploadCount(asset).total + ' variants uploaded to Meta'"
+          >
+            <mat-icon class="platform-icon-meta">all_inclusive</mat-icon>
+            <mat-icon class="badge-check">check</mat-icon>
+          </span>
+        </div>
       </div>
     </div>
   </div>
@@ -503,10 +512,25 @@
           *ngFor="let p of platforms"
           class="platform-tile"
           [class.selected]="selectedPlatforms.has(p.key)"
-          (click)="togglePlatform(p.key)"
+          [class.all-uploaded]="platformAsset && metaUploadCount(platformAsset).allUploaded"
+          (click)="platformAsset && !metaUploadCount(platformAsset).allUploaded && togglePlatform(p.key)"
+          [title]="platformAsset && metaUploadCount(platformAsset).allUploaded ? 'All variants already uploaded' : ''"
         >
           <mat-icon>{{ p.icon }}</mat-icon>
           <span>{{ p.label }}</span>
+          <span
+            class="platform-tile-status"
+            *ngIf="platformAsset"
+            [class.status-uploaded]="hasMetaUpload(platformAsset) && !metaUploadCount(platformAsset).allUploaded"
+            [class.status-all]="metaUploadCount(platformAsset).allUploaded"
+            [class.status-none]="!hasMetaUpload(platformAsset)"
+          >
+            <ng-container *ngIf="metaUploadCount(platformAsset).allUploaded">All variants uploaded ✓</ng-container>
+            <ng-container *ngIf="!metaUploadCount(platformAsset).allUploaded && hasMetaUpload(platformAsset)">
+              {{ metaUploadCount(platformAsset).uploaded }} of {{ metaUploadCount(platformAsset).total }} variants uploaded
+            </ng-container>
+            <ng-container *ngIf="!hasMetaUpload(platformAsset)">Not uploaded</ng-container>
+          </span>
           <mat-icon class="check-icon">check_circle</mat-icon>
         </div>
       </div>
@@ -563,11 +587,16 @@
             <button
               class="vpc-variant-btn"
               [class.selected]="publishVariantKey === v.variantKey"
+              [class.uploaded]="isVariantUploaded(v)"
               (click)="publishVariantKey = v.variantKey"
+              [title]="isVariantUploaded(v) ? 'Uploaded to Meta' : ''"
             >
               <span class="vpc-btn-label">{{ getVariantLabel(v.variantKey) }}</span>
               @if (v.width && v.height) {
                 <span class="vpc-btn-dims">{{ v.width }}×{{ v.height }}</span>
+              }
+              @if (isVariantUploaded(v)) {
+                <mat-icon class="vpc-uploaded-badge">check_circle</mat-icon>
               }
             </button>
           }

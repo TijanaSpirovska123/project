@@ -37,6 +37,14 @@ src/app/
 │   ├── campaign/campaign.ts
 │   └── adset/adset.model.ts   # AdSetResponse, AdResponse, StoredAssetDto, CreativeDto
 ├── data/              # Static enums and lookup data
+│   ├── provider/provider.enum.ts          # Provider enum (META, FACEBOOK, etc.)
+│   ├── provider/provider-options.ts       # AD_PLATFORM_OPTIONS, META_VARIANT_LABELS
+│   ├── meta-column-config.ts              # ColumnDef interface + CAMPAIGN/ADSET/AD_COLUMNS
+│   ├── meta-standard-events.ts            # MetaStandardEvent + META_STANDARD_EVENTS list
+│   ├── insights/insights-fields.ts        # Insight metric groups and field config
+│   └── table/                             # TableData, TableHeader, TableButton, ColumnDef models
+├── utils/
+│   └── deep-clone.util.ts                 # deepClone<T> generic utility
 ├── guards/            # authGuard (protects all main routes)
 └── configs/
 ```
@@ -118,7 +126,7 @@ npm test         # Karma unit tests
 ## Important Notes
 
 - `AD_ACCOUNT_SYNC_GUIDE.md` in `src/` has full OAuth and sync architecture documentation
-- Meta standard events list (`SE_LIST`) lives in `meta.component.ts` (100+ conversion events)
+- Meta standard events list (`META_STANDARD_EVENTS`) lives in `data/meta-standard-events.ts` (100+ conversion events); the `ColumnDef` interface for the column customiser is in `data/meta-column-config.ts`
 - Image variants are generated server-side: `ORIGINAL`, `META_SQUARE_1080`, `META_PORTRAIT_1080`, `META_LANDSCAPE_1080`, `META_STORY_1080`
 - Platform key is `'META'` (uppercase enum value) throughout
 

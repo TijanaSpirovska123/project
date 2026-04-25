@@ -31,6 +31,7 @@ import {
 } from '../../models/adset/adset.model';
 import { Campaign } from '../../models/campaign/campaign';
 import { Provider } from '../../data/provider/provider.enum';
+import { AD_PLATFORM_OPTIONS, META_VARIANT_LABELS } from '../../data/provider/provider-options';
 import { DropdownOption } from '../shared/searchable-dropdown.component';
 import { PageDto } from '../../models/ad-creative/page.model';
 
@@ -121,11 +122,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
   utm = { source: '', medium: '', campaign: '', content: '', term: '' };
   utmPreview = '';
 
-  readonly platforms = [
-    { value: Provider.META, label: 'Meta' },
-    { value: Provider.FACEBOOK, label: 'Facebook' },
-    { value: Provider.INSTAGRAM, label: 'Instagram' },
-  ];
+  readonly platforms = AD_PLATFORM_OPTIONS;
 
   constructor(
     private formBuilder: FormBuilder,
@@ -145,6 +142,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.userId = this.authStore.getUserId();
     this.actId = this.authStore.getActId();
+    if (this.actId) this.openPanel('picker');
 
     this.adForm = this.formBuilder.group({
       name: ['', [Validators.required, Validators.maxLength(255)]],
@@ -581,14 +579,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
   }
 
   getVariantLabel(key: string): string {
-    const labels: Record<string, string> = {
-      ORIGINAL: 'Original',
-      META_SQUARE_1080: '1:1 Square (1080×1080)',
-      META_VERTICAL_1080: '4:5 Vertical (1080×1350)',
-      META_STORIES_1080: '9:16 Stories (1080×1920)',
-      META_LANDSCAPE_1200: '1.91:1 Landscape (1200×628)',
-    };
-    return labels[key] || key;
+    return META_VARIANT_LABELS[key] || key;
   }
 
   onUploadNewImage(event: Event): void {

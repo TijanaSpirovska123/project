@@ -200,18 +200,6 @@
                       </button>
                     </div>
                   } @else {
-                    <!-- Two action buttons side by side -->
-                    <div class="creative-action-row">
-                      <button
-                        type="button"
-                        class="btn-select-creative"
-                        [class.error]="hasError('creativeId', 'required')"
-                        (click)="openPanel('picker')"
-                      >
-                        <mat-icon>image_search</mat-icon>
-                        Choose Creative
-                      </button>
-                    </div>
                     @if (hasError("creativeId", "required")) {
                       <div class="error-message">Ad creative is required</div>
                     }

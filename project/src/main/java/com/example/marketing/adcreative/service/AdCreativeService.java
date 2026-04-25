@@ -405,6 +405,9 @@ public class AdCreativeService {
         saved.setUpdatedAt(LocalDateTime.now());
         saved = adAssetRepository.save(saved);
 
+        variant.setMetaImageHash(meta.hash);
+        storedAssetVariantRepository.save(variant);
+
         return toAdAssetDto(saved);
     }
 

@@ -46,6 +46,9 @@ public class StoredAssetVariantEntity {
     @Column(name = "height")
     private Integer height;
 
+    @Column(name = "meta_image_hash")
+    private String metaImageHash;
+
     @Column(name = "meta_video_id")
     private String metaVideoId;
 

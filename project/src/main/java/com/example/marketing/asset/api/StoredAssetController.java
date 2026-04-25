@@ -1,8 +1,10 @@
 package com.example.marketing.asset.api;
 
 import com.example.marketing.asset.dto.CropVariantsRequestDto;
+import com.example.marketing.asset.dto.MetaImageSyncResultDto;
 import com.example.marketing.asset.dto.SetTagsRequestDto;
 import com.example.marketing.asset.dto.StoredAssetDto;
+import com.example.marketing.asset.service.MetaAssetSyncService;
 import com.example.marketing.asset.service.StoredAssetService;
 import com.example.marketing.infrastructure.api.BaseController;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ import static org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE;
 public class StoredAssetController extends BaseController {
 
     private final StoredAssetService service;
+    private final MetaAssetSyncService metaAssetSyncService;
 
     @PostMapping(value = "/upload", consumes = MULTIPART_FORM_DATA_VALUE)
     public BaseResponse<StoredAssetDto> upload(Authentication auth,
@@ -99,6 +102,15 @@ public class StoredAssetController extends BaseController {
                 .location(URI.create(url))
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .build();
+    }
+
+    @PostMapping("/sync-meta-hashes")
+    public BaseResponse<MetaImageSyncResultDto> syncMetaHashes(
+            Authentication auth,
+            @RequestParam String adAccountId) {
+        Long userId = extractUserId(auth);
+        MetaImageSyncResultDto result = metaAssetSyncService.syncImageHashes(userId, adAccountId);
+        return ok(result);
     }
 
     @PostMapping("/{assetId}/variants/crop")

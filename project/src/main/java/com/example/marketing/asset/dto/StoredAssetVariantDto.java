@@ -15,6 +15,7 @@ public class StoredAssetVariantDto {
     private Integer width;
     private Integer height;
 
+    private String metaImageHash;
     private String metaVideoId;
 
     private LocalDateTime createdAt;

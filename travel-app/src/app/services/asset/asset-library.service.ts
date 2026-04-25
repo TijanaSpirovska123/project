@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { CoreService } from '../core/core.service';
 import { environment } from '../../models/environment/environment-properties.model';
-import { StoredAssetDto, StoredAssetStatusDto } from '../../models/adset/adset.model';
+import { MetaImageSyncResultDto, StoredAssetDto, StoredAssetStatusDto } from '../../models/adset/adset.model';
 
 @Injectable({
   providedIn: 'root',
@@ -56,5 +56,11 @@ export class AssetLibraryService extends CoreService {
         responseType: 'blob',
       })
       .pipe(map(blob => URL.createObjectURL(blob)));
+  }
+
+  syncMetaHashes(adAccountId: string): Observable<MetaImageSyncResultDto> {
+    return this.http
+      .post<any>(`${environment.api}/assets/sync-meta-hashes?adAccountId=${encodeURIComponent(adAccountId)}`, null)
+      .pipe(map((res: any) => res?.data ?? res));
   }
 }

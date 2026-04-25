@@ -878,6 +878,7 @@ public class StoredAssetService {
             vd.setObjectKey(ve.getObjectKey());
             vd.setWidth(ve.getWidth());
             vd.setHeight(ve.getHeight());
+            vd.setMetaImageHash(ve.getMetaImageHash());
             vd.setMetaVideoId(ve.getMetaVideoId());
             vd.setCreatedAt(ve.getCreatedAt());
             vd.setUpdatedAt(ve.getUpdatedAt());

@@ -439,6 +439,10 @@ $blue-text: #2b74ff;
   }
 
   .table {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+
     .thead,
     .tr {
       display: grid;
@@ -483,6 +487,10 @@ $blue-text: #2b74ff;
     }
 
     .tbody {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+
       .empty-state-row {
         display: flex;
         flex-direction: column;
@@ -513,6 +521,18 @@ $blue-text: #2b74ff;
         background: $bg;
         &:hover {
           background: #fcfdff;
+        }
+      }
+
+      .tr--ghost {
+        pointer-events: none;
+        min-height: 48px;
+        border-bottom: 1px solid $border;
+        &:hover { background: $bg; }
+        &:last-child {
+          flex: 1;
+          min-height: 0;
+          border-bottom: none;
         }
       }
       .td {

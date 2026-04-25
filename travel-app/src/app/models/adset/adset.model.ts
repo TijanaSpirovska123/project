@@ -5,7 +5,8 @@ export interface StoredAssetVariantDto {
   objectKey: string;
   width: number | null;
   height: number | null;
-  metaVideoId?: string;
+  metaImageHash?: string | null;
+  metaVideoId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -47,6 +48,15 @@ export function getVariantDisplayName(variantType: string): string {
     'META_VIDEO_STORY':      '9:16 Story/Reels (1080×1920)',
   };
   return names[variantType] ?? variantType;
+}
+
+export interface MetaImageSyncResultDto {
+  totalMetaImages: number;
+  totalLocalVariants: number;
+  newlyMatched: number;
+  alreadyMatched: number;
+  removedStale: number;
+  unmatched: number;
 }
 
 export interface AdAssetDto {

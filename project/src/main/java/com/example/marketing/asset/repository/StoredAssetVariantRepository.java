@@ -17,5 +17,9 @@ public interface StoredAssetVariantRepository extends JpaRepository<StoredAssetV
     // Useful guard if you allow "create variant" later
     boolean existsByAssetIdAndVariantKey(Long assetId, String variantKey);
 
+    // Used by MetaAssetSyncService to find variants without a stored hash
+    List<StoredAssetVariantEntity> findByAsset_User_IdAndMetaImageHashIsNull(Long userId);
 
+    // Used by MetaAssetSyncService to verify existing hashes still exist on Meta
+    List<StoredAssetVariantEntity> findByAsset_User_IdAndMetaImageHashIsNotNull(Long userId);
 }

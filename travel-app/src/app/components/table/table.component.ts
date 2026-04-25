@@ -100,6 +100,13 @@ export class ReusableTableComponent implements OnChanges {
   paginatedData: TableData[] = [];
   itemsPerPageOptions: number[] = [5, 10, 25];
 
+  get ghostRowsArray(): null[] {
+    if (this.paginatedData.length === 0) return [];
+    // Fill to itemsPerPage, then +1 stretch row that expands to fill remaining height
+    const fillCount = Math.max(0, this.itemsPerPage - this.paginatedData.length);
+    return Array(fillCount + 1).fill(null);
+  }
+
   // date range (bound to MatDateRange)
   dateStart: Date | null = null;
   dateEnd: Date | null = null;

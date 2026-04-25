@@ -207,6 +207,17 @@
           </div>
         </ng-container>
       </ng-container>
+
+      <!-- Ghost rows to fill remaining height when page is not full -->
+      <div
+        class="tr tr--ghost"
+        [style.grid-template-columns]="getGridTemplate()"
+        *ngFor="let _ of ghostRowsArray"
+      >
+        <div class="td" *ngFor="let h of headers"></div>
+        <div class="td expand-col"></div>
+        <div class="td add-col" *ngIf="showAddCol"></div>
+      </div>
     </div>
   </div>
   </div>

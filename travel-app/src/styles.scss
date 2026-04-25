@@ -410,6 +410,12 @@ body {
           background: $clr-surface-tonal-a10 !important;
         }
       }
+      .tr--ghost {
+        background: $clr-surface-tonal-a0 !important;
+        border-color: $clr-surface-tonal-a20 !important;
+        &:hover { background: $clr-surface-tonal-a0 !important; }
+        &:last-child { border-bottom: none !important; }
+      }
       .child-row {
         background: $clr-surface-tonal-a0 !important;
         border-color: $clr-surface-tonal-a20 !important;
@@ -1509,6 +1515,16 @@ body {
       border-color: $clr-primary-a0 !important;
       .vpc-btn-label { color: $clr-primary-a0 !important; }
     }
+    &.uploaded { border-left-color: $clr-primary-a0 !important; }
+  }
+.platform-badge { color: #464d4d !important; &.uploaded { color: $clr-primary-a0 !important; } }
+  .platform-tile-status {
+    &.status-none { color: #919595 !important; }
+    &.status-uploaded { color: $clr-primary-a0 !important; }
+    &.status-all { color: #48e0d6 !important; }
+  }
+  .platform-tile.all-uploaded {
+    &:hover { border-color: $clr-surface-tonal-a20 !important; background: $clr-surface-tonal-a10 !important; }
   }
   .publish-label {
     color: $clr-surface-tonal-a50 !important;
