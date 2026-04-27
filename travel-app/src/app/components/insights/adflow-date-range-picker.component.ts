@@ -15,6 +15,7 @@ import {
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { DateRange } from '../shared/date-range-picker.component';
+import { startOfDay, parseIsoDate, toIsoDate } from '../../utils/date.util';
 
 export type DatePresetId =
   | 'today'
@@ -88,7 +89,7 @@ export class AdflowDateRangePickerComponent implements OnChanges {
   draftCustomStop: Date | null = null;
   draftCalendarRange: DateRange = { from: null, to: null };
 
-  readonly today = this.startOfDay(new Date());
+  readonly today = startOfDay(new Date());
   private appliedValue: DateRangeSelection = DEFAULT_SELECTION;
 
   constructor(
@@ -115,8 +116,8 @@ export class AdflowDateRangePickerComponent implements OnChanges {
       return 'Custom range';
     }
 
-    const start = this.parseIsoDate(this.appliedValue.dateStart);
-    const stop = this.parseIsoDate(this.appliedValue.dateStop);
+    const start = parseIsoDate(this.appliedValue.dateStart);
+    const stop = parseIsoDate(this.appliedValue.dateStop);
     if (!start || !stop) {
       return 'Custom range';
     }
@@ -134,11 +135,7 @@ export class AdflowDateRangePickerComponent implements OnChanges {
     if (!this.draftCustomStart || !this.draftCustomStop) {
       return true;
     }
-    return this.startOfDay(this.draftCustomStart).getTime() > this.startOfDay(this.draftCustomStop).getTime();
-  }
-
-  get customRangeActive(): boolean {
-    return this.customExpanded;
+    return startOfDay(this.draftCustomStart).getTime() > startOfDay(this.draftCustomStop).getTime();
   }
 
   togglePopover(): void {
@@ -214,8 +211,8 @@ export class AdflowDateRangePickerComponent implements OnChanges {
 
     const nextSelection: DateRangeSelection = {
       preset: null,
-      dateStart: this.toIsoDate(this.draftCustomStart),
-      dateStop: this.toIsoDate(this.draftCustomStop),
+      dateStart: toIsoDate(this.draftCustomStart),
+      dateStop: toIsoDate(this.draftCustomStop),
       compareToPrevious: this.draftCompareToPrevious,
     };
     this.commitSelection(nextSelection);
@@ -297,8 +294,8 @@ export class AdflowDateRangePickerComponent implements OnChanges {
 
   private resetDraftFromApplied(): void {
     this.draftCompareToPrevious = this.appliedValue.compareToPrevious;
-    this.draftCustomStart = this.parseIsoDate(this.appliedValue.dateStart);
-    this.draftCustomStop = this.parseIsoDate(this.appliedValue.dateStop);
+    this.draftCustomStart = parseIsoDate(this.appliedValue.dateStart);
+    this.draftCustomStop = parseIsoDate(this.appliedValue.dateStop);
     this.draftCalendarRange = { from: this.draftCustomStart, to: this.draftCustomStop };
     this.customExpanded = this.appliedValue.preset === null;
     this.focusedPresetIndex = this.initialPresetIndex();
@@ -332,31 +329,5 @@ export class AdflowDateRangePickerComponent implements OnChanges {
       && a.compareToPrevious === b.compareToPrevious;
   }
 
-  private parseIsoDate(value: string | null): Date | null {
-    if (!value) {
-      return null;
-    }
-
-    const parts = value.split('-').map((part) => Number(part));
-    if (parts.length !== 3 || parts.some((part) => Number.isNaN(part))) {
-      return null;
-    }
-
-    return new Date(parts[0], parts[1] - 1, parts[2]);
-  }
-
-  private toIsoDate(value: Date): string {
-    const normalized = this.startOfDay(value);
-    const year = normalized.getFullYear();
-    const month = `${normalized.getMonth() + 1}`.padStart(2, '0');
-    const day = `${normalized.getDate()}`.padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
-  private startOfDay(value: Date): Date {
-    const next = new Date(value);
-    next.setHours(0, 0, 0, 0);
-    return next;
-  }
 }
 

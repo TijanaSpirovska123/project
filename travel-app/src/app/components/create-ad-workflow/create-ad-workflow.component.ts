@@ -14,7 +14,7 @@ import {
 } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AppToastrService } from '../../services/core/app-toastr.service';
-import { forkJoin } from 'rxjs';
+import { forkJoin, firstValueFrom } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { CoreService } from '../../services/core/core.service';
 import { AuthStoreService } from '../../services/core/auth-store.service';
@@ -32,6 +32,8 @@ import {
 import { Campaign } from '../../models/campaign/campaign';
 import { Provider } from '../../data/provider/provider.enum';
 import { AD_PLATFORM_OPTIONS, META_VARIANT_LABELS } from '../../data/provider/provider-options';
+import { AD_STATUS_OPTIONS, CALL_TO_ACTION_OPTIONS } from '../../data/workflow/ad-form-options';
+import { formatFileSize } from '../../utils/format.util';
 import { DropdownOption } from '../shared/searchable-dropdown.component';
 import { PageDto } from '../../models/ad-creative/page.model';
 
@@ -184,13 +186,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
           this.allAdSets = adSets?.data ?? [];
           this.pages = Array.isArray(pages) ? pages : (pages?.data ?? []);
         },
-        error: (err: any) => {
-          if (!this.authStore.isSessionExpiredRedirect()) {
-            this.toastr.error(
-              CoreService.extractErrorMessage(err, 'Failed to load form data'),
-            );
-          }
-        },
+        error: (err: any) => this.handleError(err, 'Failed to load form data'),
       });
   }
 
@@ -216,27 +212,8 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     return this.platforms.map((p) => ({ value: p.value, label: p.label }));
   }
 
-  get statusOptions(): DropdownOption[] {
-    return [
-      { value: 'ACTIVE', label: 'Active' },
-      { value: 'PAUSED', label: 'Paused' },
-    ];
-  }
-
-  get callToActionOptions(): DropdownOption[] {
-    return [
-      { value: 'LEARN_MORE', label: 'Learn More' },
-      { value: 'SHOP_NOW', label: 'Shop Now' },
-      { value: 'SIGN_UP', label: 'Sign Up' },
-      { value: 'CONTACT_US', label: 'Contact Us' },
-      { value: 'DOWNLOAD', label: 'Download' },
-      { value: 'GET_QUOTE', label: 'Get Quote' },
-      { value: 'BOOK_NOW', label: 'Book Now' },
-      { value: 'SUBSCRIBE', label: 'Subscribe' },
-      { value: 'WATCH_MORE', label: 'Watch More' },
-      { value: 'APPLY_NOW', label: 'Apply Now' },
-    ];
-  }
+  readonly statusOptions      = AD_STATUS_OPTIONS;
+  readonly callToActionOptions = CALL_TO_ACTION_OPTIONS;
 
   onCampaignChange(opt: DropdownOption | null): void {
     const campaignId = opt ? String(opt.value) : '';
@@ -281,13 +258,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
           this.campaigns = campaigns?.data ?? [];
           this.allAdSets = adSets?.data ?? [];
         },
-        error: (err: any) => {
-          if (!this.authStore.isSessionExpiredRedirect()) {
-            this.toastr.error(
-              CoreService.extractErrorMessage(err, 'Failed to reload data'),
-            );
-          }
-        },
+        error: (err: any) => this.handleError(err, 'Failed to reload data'),
       });
   }
 
@@ -311,18 +282,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
             this.cdr.markForCheck();
           });
         },
-        error: (err: any) => {
-          this.ngZone.run(() => {
-            if (!this.authStore.isSessionExpiredRedirect()) {
-              this.toastr.error(
-                CoreService.extractErrorMessage(
-                  err,
-                  'Failed to load ad creatives',
-                ),
-              );
-            }
-          });
-        },
+        error: (err: any) => this.ngZone.run(() => this.handleError(err, 'Failed to load ad creatives')),
       });
   }
 
@@ -371,35 +331,36 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     return map[type] || type;
   }
 
-  hasError(controlName: string, errorType: string): boolean {
-    const control = this.adForm.get(controlName);
+  private handleError(err: any, fallback: string): void {
+    if (!this.authStore.isSessionExpiredRedirect()) {
+      this.toastr.error(err ? CoreService.extractErrorMessage(err, fallback) : fallback);
+    }
+  }
+
+  private controlHasError(form: FormGroup, controlName: string, errorType: string): boolean {
+    const control = form.get(controlName);
     return !!(control && control.touched && control.hasError(errorType));
+  }
+
+  hasError(controlName: string, errorType: string): boolean {
+    return this.controlHasError(this.adForm, controlName, errorType);
   }
 
   async publish(): Promise<void> {
     if (!this.adForm.valid) {
       this.adForm.markAllAsTouched();
-      if (!this.authStore.isSessionExpiredRedirect()) {
-        this.toastr.error('Please fill all required fields');
-      }
+      this.handleError(null, 'Please fill all required fields');
       return;
     }
     this.isPublishing = true;
     try {
-      await this.adService
-        .create({
-          ...this.adForm.value,
-          userId: this.userId,
-        })
-        .toPromise();
+      await firstValueFrom(this.adService.create({ ...this.adForm.value, userId: this.userId }));
       this.toastr.success('Ad created successfully!');
       this.router.navigate(['/meta']);
-    } catch {
+    } catch (err) {
       this.isPublishing = false;
       this.cdr.markForCheck();
-      if (!this.authStore.isSessionExpiredRedirect()) {
-        this.toastr.error('Failed to create ad');
-      }
+      this.handleError(err, 'Failed to create ad');
     } finally {
       this.isPublishing = false;
     }
@@ -444,13 +405,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
         next: (res: any) => {
           this.pages = Array.isArray(res) ? res : (res?.data ?? []);
         },
-        error: (err: any) => {
-          if (!this.authStore.isSessionExpiredRedirect()) {
-            this.toastr.error(
-              CoreService.extractErrorMessage(err, 'Failed to load pages'),
-            );
-          }
-        },
+        error: (err: any) => this.handleError(err, 'Failed to load pages'),
       });
   }
 
@@ -467,27 +422,24 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     this.pageDropdownOpen = false;
   }
 
-  get headlineLength(): number {
-    return this.assetCreativeForm.get('headline')?.value?.length ?? 0;
+  private getControlLength(name: string): number {
+    return this.assetCreativeForm.get(name)?.value?.length ?? 0;
   }
 
-  get messageLength(): number {
-    return this.assetCreativeForm.get('message')?.value?.length ?? 0;
-  }
+  get headlineLength(): number { return this.getControlLength('headline'); }
+  get messageLength(): number  { return this.getControlLength('message'); }
 
   buildUtm(): void {
-    const params: string[] = [];
-    if (this.utm.source)
-      params.push(`utm_source=${encodeURIComponent(this.utm.source)}`);
-    if (this.utm.medium)
-      params.push(`utm_medium=${encodeURIComponent(this.utm.medium)}`);
-    if (this.utm.campaign)
-      params.push(`utm_campaign=${encodeURIComponent(this.utm.campaign)}`);
-    if (this.utm.content)
-      params.push(`utm_content=${encodeURIComponent(this.utm.content)}`);
-    if (this.utm.term)
-      params.push(`utm_term=${encodeURIComponent(this.utm.term)}`);
-    this.utmPreview = params.join('&');
+    this.utmPreview = Object.entries({
+      utm_source:   this.utm.source,
+      utm_medium:   this.utm.medium,
+      utm_campaign: this.utm.campaign,
+      utm_content:  this.utm.content,
+      utm_term:     this.utm.term,
+    })
+      .filter(([, v]) => v)
+      .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+      .join('&');
   }
 
   applyUtm(): void {
@@ -516,15 +468,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
             this.preloadPickerThumbs(assets);
           });
         },
-        error: (err: any) => {
-          this.ngZone.run(() => {
-            if (!this.authStore.isSessionExpiredRedirect()) {
-              this.toastr.error(
-                CoreService.extractErrorMessage(err, 'Failed to load assets'),
-              );
-            }
-          });
-        },
+        error: (err: any) => this.ngZone.run(() => this.handleError(err, 'Failed to load assets')),
       });
   }
 
@@ -603,11 +547,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
       },
       error: (err: any) => {
         this.ngZone.run(() => {
-          if (!this.authStore.isSessionExpiredRedirect()) {
-            this.toastr.error(
-              CoreService.extractErrorMessage(err, 'Upload failed'),
-            );
-          }
+          this.handleError(err, 'Upload failed');
           this.isUploadingPickerAsset = false;
         });
       },
@@ -615,8 +555,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
   }
 
   hasAssetCreativeFormError(controlName: string, errorType: string): boolean {
-    const control = this.assetCreativeForm.get(controlName);
-    return !!(control && control.touched && control.hasError(errorType));
+    return this.controlHasError(this.assetCreativeForm, controlName, errorType);
   }
 
   get canSubmitAssetCreative(): boolean {
@@ -634,9 +573,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
   }
 
   formatFileSize(bytes: number): string {
-    if (bytes >= 1_000_000) return (bytes / 1_000_000).toFixed(1) + ' MB';
-    if (bytes >= 1_000) return (bytes / 1_000).toFixed(0) + ' KB';
-    return bytes + ' B';
+    return formatFileSize(bytes);
   }
 
   isImage(asset: StoredAssetDto): boolean {
@@ -745,13 +682,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
           });
         },
         error: (err: any) => {
-          this.ngZone.run(() => {
-            if (!this.authStore.isSessionExpiredRedirect()) {
-              this.toastr.error(
-                CoreService.extractErrorMessage(err, 'Failed to create creative'),
-              );
-            }
-          });
+          this.ngZone.run(() => this.handleError(err, 'Failed to create creative'));
         },
       });
   }

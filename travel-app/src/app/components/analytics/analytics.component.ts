@@ -20,6 +20,9 @@ import {
   AgeBreakdown,
   PerformanceData,
 } from '../../models/analytics/analytics.model';
+import { formatNumber, capitalize } from '../../utils/format.util';
+import { ChartDimensions, drawChartGrid, renderPieChart } from '../../utils/canvas-chart.util';
+import { computeNameHash } from '../../utils/hash.util';
 
 @Component({
   selector: 'app-analytics',
@@ -168,117 +171,51 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnChanges {
   drawPerformanceChart(): void {
     const canvas = this.performanceChartRef?.nativeElement;
     if (!canvas) return;
+    let dataPoints = this.performanceData?.length
+      ? this.performanceData
+      : this.generateRealisticData(this.selectedTimePeriod);
+    dataPoints = dataPoints.slice(-this.selectedTimePeriod);
+    this.renderLineChart(canvas, dataPoints, true);
+  }
 
+  private renderLineChart(
+    canvas: HTMLCanvasElement,
+    dataPoints: PerformanceData[],
+    showDataPoints = false,
+  ): void {
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Clear canvas
+    if (!ctx || dataPoints.length === 0) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Use provided performance data or generate realistic sample data
-    let dataPoints = this.performanceData;
-    if (!dataPoints || dataPoints.length === 0) {
-      dataPoints = this.generateRealisticData(this.selectedTimePeriod);
-    }
-
-    // Limit data points to selected time period
-    dataPoints = dataPoints.slice(-this.selectedTimePeriod);
-
-    if (dataPoints.length === 0) return;
-
-    // Chart dimensions
     const padding = 50;
-    const chartWidth = canvas.width - 2 * padding;
-    const chartHeight = canvas.height - 2 * padding;
+    const dims: ChartDimensions = {
+      padding,
+      chartWidth: canvas.width - 2 * padding,
+      chartHeight: canvas.height - 2 * padding,
+    };
 
-    // Draw background
-    ctx.fillStyle = '#fafbfc';
-    ctx.fillRect(padding, padding, chartWidth, chartHeight);
+    drawChartGrid(ctx, dims, Math.min(7, dataPoints.length), 5);
 
-    // Draw grid and axes
-    ctx.strokeStyle = '#e8ebf2';
-    ctx.lineWidth = 1;
-
-    // Vertical grid lines
-    const verticalLines = Math.min(7, dataPoints.length);
-    for (let i = 0; i <= verticalLines; i++) {
-      const x = padding + (chartWidth / verticalLines) * i;
-      ctx.beginPath();
-      ctx.moveTo(x, padding);
-      ctx.lineTo(x, padding + chartHeight);
-      ctx.stroke();
-    }
-
-    // Horizontal grid lines
-    for (let i = 0; i <= 5; i++) {
-      const y = padding + (chartHeight / 5) * i;
-      ctx.beginPath();
-      ctx.moveTo(padding, y);
-      ctx.lineTo(padding + chartWidth, y);
-      ctx.stroke();
-    }
-
-    // Find max values for scaling
     const maxImpressions = Math.max(...dataPoints.map((d) => d.impressions));
-    const maxReach = Math.max(...dataPoints.map((d) => d.reach));
-    const maxPeople = Math.max(...dataPoints.map((d) => d.people));
-    const maxClicks = Math.max(...dataPoints.map((d) => d.clicks));
+    const maxReach      = Math.max(...dataPoints.map((d) => d.reach));
+    const maxPeople     = Math.max(...dataPoints.map((d) => d.people));
+    const maxClicks     = Math.max(...dataPoints.map((d) => d.clicks));
 
-    const dimensions = { padding, chartWidth, chartHeight };
+    this.drawLine(ctx, { dataPoints, metric: 'impressions', maxValue: maxImpressions, dimensions: dims, style: { color: '#1ca698', lineWidth: 3 } });
+    this.drawLine(ctx, { dataPoints, metric: 'reach',       maxValue: maxReach,       dimensions: dims, style: { color: '#3498db', lineWidth: 2 } });
+    this.drawLine(ctx, { dataPoints, metric: 'people',      maxValue: maxPeople,      dimensions: dims, style: { color: '#9b59b6', lineWidth: 2 } });
+    this.drawLine(ctx, { dataPoints, metric: 'clicks',      maxValue: maxClicks * 10, dimensions: dims, style: { color: '#f39c12', lineWidth: 2 } });
 
-    // Draw impressions line (primary metric)
-    this.drawLine(ctx, {
-      dataPoints,
-      metric: 'impressions',
-      maxValue: maxImpressions,
-      dimensions,
-      style: { color: '#1ca698', lineWidth: 3 },
-    });
+    if (showDataPoints) {
+      this.drawDataPoints(ctx, {
+        dataPoints,
+        maxValues: { impressions: maxImpressions, reach: maxReach, people: maxPeople, clicks: maxClicks },
+        dimensions: dims,
+      });
+    }
 
-    // Draw reach line (secondary metric, scaled)
-    this.drawLine(ctx, {
-      dataPoints,
-      metric: 'reach',
-      maxValue: maxReach,
-      dimensions,
-      style: { color: '#3498db', lineWidth: 2 },
-    });
-
-    // Draw people line (tertiary metric, scaled)
-    this.drawLine(ctx, {
-      dataPoints,
-      metric: 'people',
-      maxValue: maxPeople,
-      dimensions,
-      style: { color: '#9b59b6', lineWidth: 2 },
-    });
-
-    // Draw clicks line (scaled appropriately)
-    this.drawLine(ctx, {
-      dataPoints,
-      metric: 'clicks',
-      maxValue: maxClicks * 10,
-      dimensions,
-      style: { color: '#f39c12', lineWidth: 2 },
-    });
-
-    // Draw data points
-    this.drawDataPoints(ctx, {
-      dataPoints,
-      maxValues: {
-        impressions: maxImpressions,
-        reach: maxReach,
-        people: maxPeople,
-        clicks: maxClicks,
-      },
-      dimensions,
-    });
-
-    // Add legend
     this.drawLegend(ctx, canvas.width, padding);
-
-    // Add Y-axis labels
-    this.drawYAxisLabels(ctx, maxImpressions, padding, chartHeight);
+    this.drawYAxisLabels(ctx, maxImpressions, padding, dims.chartHeight);
   }
 
   private generateRealisticData(days: number): PerformanceData[] {
@@ -445,73 +382,33 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnChanges {
     ctx.font = '10px Arial';
     ctx.fillStyle = '#666';
     ctx.textAlign = 'right';
-
     for (let i = 0; i <= 5; i++) {
       const value = Math.floor((maxValue / 5) * (5 - i));
       const y = padding + (chartHeight / 5) * i;
-
-      if (value >= 1000000) {
-        ctx.fillText(`${(value / 1000000).toFixed(1)}M`, padding - 10, y + 4);
-      } else if (value >= 1000) {
-        ctx.fillText(`${(value / 1000).toFixed(1)}K`, padding - 10, y + 4);
-      } else {
-        ctx.fillText(value.toString(), padding - 10, y + 4);
-      }
+      ctx.fillText(formatNumber(value), padding - 10, y + 4);
     }
-
     ctx.textAlign = 'left';
   }
 
   drawDeviceChart(): void {
     const canvas = this.deviceChartRef?.nativeElement;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const radius = 80;
-
-    let currentAngle = 0;
-
-    this.deviceBreakdown.forEach((device) => {
-      const sliceAngle = (device.percentage / 100) * 2 * Math.PI;
-
-      // Draw slice
-      ctx.fillStyle = device.color;
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY);
-      ctx.arc(
-        centerX,
-        centerY,
-        radius,
-        currentAngle,
-        currentAngle + sliceAngle
-      );
-      ctx.closePath();
-      ctx.fill();
-
-      // Draw border
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      currentAngle += sliceAngle;
-    });
+    if (canvas) renderPieChart(canvas, this.deviceBreakdown);
   }
 
   // Methods for selected item data display
   getSelectedItemTitle(): string {
     if (!this.selectedItemData || !this.selectedItemType) return '';
+    return `${capitalize(this.selectedItemType)}: ${this.selectedItemData.name || 'Unknown'}`;
+  }
 
-    const typeName =
-      this.selectedItemType.charAt(0).toUpperCase() +
-      this.selectedItemType.slice(1);
-    return `${typeName}: ${this.selectedItemData.name || 'Unknown'}`;
+  private getItemNameHash(): number {
+    return computeNameHash(this.selectedItemData?.name);
+  }
+
+  private getTypeMultiplier(adsetFactor = 0.6, adFactor = 0.3): number {
+    if (this.selectedItemType === 'adset') return adsetFactor;
+    if (this.selectedItemType === 'ad') return adFactor;
+    return 1.0;
   }
 
   getSelectedItemFields(): Array<{
@@ -700,23 +597,8 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnChanges {
   }
 
   private generateSelectedItemMetrics(): CampaignMetrics {
-    // Generate realistic metrics based on selected item
-    let baseMultiplier = 1.0;
-    if (this.selectedItemType === 'adset') {
-      baseMultiplier = 0.6;
-    } else if (this.selectedItemType === 'ad') {
-      baseMultiplier = 0.3;
-    }
-
-    // Use selected item name hash for consistent data per item
-    const nameHash = this.selectedItemData?.name
-      ? this.selectedItemData.name.split('').reduce((a: number, b: string) => {
-          a = (a << 5) - a + b.charCodeAt(0);
-          return a & a;
-        }, 0)
-      : 0;
-
-    const random = Math.abs(Math.sin(nameHash)) * 1000;
+    const baseMultiplier = this.getTypeMultiplier();
+    const random = Math.abs(Math.sin(this.getItemNameHash())) * 1000;
 
     const impressions = Math.floor((30000 + (random % 80000)) * baseMultiplier);
     const reach = Math.floor(impressions * (0.72 + (random % 100) / 500));
@@ -752,16 +634,7 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnChanges {
 
   getSelectedItemDeviceBreakdown(): DeviceBreakdown[] {
     if (!this.selectedItemData) return [];
-
-    // Generate consistent device breakdown based on item
-    const nameHash = this.selectedItemData?.name
-      ? this.selectedItemData.name.split('').reduce((a: number, b: string) => {
-          a = (a << 5) - a + b.charCodeAt(0);
-          return a & a;
-        }, 0)
-      : 0;
-
-    const random = Math.abs(Math.sin(nameHash)) * 100;
+    const random = Math.abs(Math.sin(this.getItemNameHash())) * 100;
     const mobileBase = 55 + (random % 25); // 55-80%
     const desktopBase = Math.floor(
       (100 - mobileBase) * (0.6 + (random % 30) / 100)
@@ -781,16 +654,7 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnChanges {
 
   getSelectedItemAgeBreakdown(): AgeBreakdown[] {
     if (!this.selectedItemData) return [];
-
-    // Generate consistent age breakdown based on item
-    const nameHash = this.selectedItemData?.name
-      ? this.selectedItemData.name.split('').reduce((a: number, b: string) => {
-          a = (a << 5) - a + b.charCodeAt(0);
-          return a & a;
-        }, 0)
-      : 0;
-
-    const random = Math.abs(Math.sin(nameHash)) * 1000;
+    const random = Math.abs(Math.sin(this.getItemNameHash())) * 1000;
 
     return [
       {
@@ -839,109 +703,14 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnChanges {
   drawSelectedItemPerformanceChart(): void {
     const canvas = this.selectedItemChartRef?.nativeElement;
     if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Generate performance data for selected item
-    const dataPoints = this.generateSelectedItemPerformanceData(
-      this.selectedTimePeriod
-    );
-
-    if (dataPoints.length === 0) return;
-
-    // Chart dimensions
-    const padding = 50;
-    const chartWidth = canvas.width - 2 * padding;
-    const chartHeight = canvas.height - 2 * padding;
-
-    // Draw background
-    ctx.fillStyle = '#fafbfc';
-    ctx.fillRect(padding, padding, chartWidth, chartHeight);
-
-    // Draw grid and axes
-    ctx.strokeStyle = '#e8ebf2';
-    ctx.lineWidth = 1;
-
-    // Vertical grid lines
-    const verticalLines = Math.min(7, dataPoints.length);
-    for (let i = 0; i <= verticalLines; i++) {
-      const x = padding + (chartWidth / verticalLines) * i;
-      ctx.beginPath();
-      ctx.moveTo(x, padding);
-      ctx.lineTo(x, padding + chartHeight);
-      ctx.stroke();
-    }
-
-    // Horizontal grid lines
-    for (let i = 0; i <= 5; i++) {
-      const y = padding + (chartHeight / 5) * i;
-      ctx.beginPath();
-      ctx.moveTo(padding, y);
-      ctx.lineTo(padding + chartWidth, y);
-      ctx.stroke();
-    }
-
-    // Find max values for scaling
-    const maxImpressions = Math.max(...dataPoints.map((d) => d.impressions));
-    const maxReach = Math.max(...dataPoints.map((d) => d.reach));
-    const maxPeople = Math.max(...dataPoints.map((d) => d.people));
-    const maxClicks = Math.max(...dataPoints.map((d) => d.clicks));
-
-    const dimensions = { padding, chartWidth, chartHeight };
-
-    // Draw lines for different metrics
-    this.drawLine(ctx, {
-      dataPoints,
-      metric: 'impressions',
-      maxValue: maxImpressions,
-      dimensions,
-      style: { color: '#1ca698', lineWidth: 3 },
-    });
-
-    this.drawLine(ctx, {
-      dataPoints,
-      metric: 'reach',
-      maxValue: maxReach,
-      dimensions,
-      style: { color: '#3498db', lineWidth: 2 },
-    });
-
-    this.drawLine(ctx, {
-      dataPoints,
-      metric: 'people',
-      maxValue: maxPeople,
-      dimensions,
-      style: { color: '#9b59b6', lineWidth: 2 },
-    });
-
-    this.drawLine(ctx, {
-      dataPoints,
-      metric: 'clicks',
-      maxValue: maxClicks * 10,
-      dimensions,
-      style: { color: '#f39c12', lineWidth: 2 },
-    });
-
-    // Add legend and labels
-    this.drawLegend(ctx, canvas.width, padding);
-    this.drawYAxisLabels(ctx, maxImpressions, padding, chartHeight);
+    this.renderLineChart(canvas, this.generateSelectedItemPerformanceData(this.selectedTimePeriod));
   }
 
   private generateSelectedItemPerformanceData(days: number): PerformanceData[] {
     const data: PerformanceData[] = [];
     const baseDate = new Date();
     baseDate.setDate(baseDate.getDate() - days);
-
-    let baseMultiplier = 1.0;
-    if (this.selectedItemType === 'adset') {
-      baseMultiplier = 0.6;
-    } else if (this.selectedItemType === 'ad') {
-      baseMultiplier = 0.3;
-    }
+    const baseMultiplier = this.getTypeMultiplier();
 
     for (let i = 0; i < days; i++) {
       const date = new Date(baseDate);
@@ -978,45 +747,7 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnChanges {
 
   drawSelectedItemDeviceChart(): void {
     const canvas = this.selectedDeviceChartRef?.nativeElement;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const radius = 80;
-
-    let currentAngle = 0;
-    const deviceData = this.getSelectedItemDeviceBreakdown();
-
-    deviceData.forEach((device) => {
-      const sliceAngle = (device.percentage / 100) * 2 * Math.PI;
-
-      // Draw slice
-      ctx.fillStyle = device.color;
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY);
-      ctx.arc(
-        centerX,
-        centerY,
-        radius,
-        currentAngle,
-        currentAngle + sliceAngle
-      );
-      ctx.closePath();
-      ctx.fill();
-
-      // Draw border
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      currentAngle += sliceAngle;
-    });
+    if (canvas) renderPieChart(canvas, this.getSelectedItemDeviceBreakdown());
   }
 
   // Method to get analytics title
@@ -1026,12 +757,8 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnChanges {
     }
     if (this.preloadedItemData) {
       const itemType = this.determineItemType(this.preloadedItemData);
-      const typeName = itemType
-        ? itemType.charAt(0).toUpperCase() + itemType.slice(1)
-        : 'Item';
-      return `${typeName}: ${
-        this.preloadedItemData.name || 'Default Campaign'
-      } - Analytics`;
+      const typeName = itemType ? capitalize(itemType) : 'Item';
+      return `${typeName}: ${this.preloadedItemData.name || 'Default Campaign'} - Analytics`;
     }
     return 'Campaign Analytics Dashboard';
   }
@@ -1049,22 +776,22 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnChanges {
     return [
       {
         label: 'Impressions',
-        value: this.formatNumber(metrics.impressions),
+        value: formatNumber(metrics.impressions),
         change: Math.round(metrics.impressionsChange * 10) / 10,
       },
       {
         label: 'Reach',
-        value: this.formatNumber(metrics.reach),
+        value: formatNumber(metrics.reach),
         change: Math.round(metrics.reachChange * 10) / 10,
       },
       {
         label: 'Clicks',
-        value: this.formatNumber(metrics.clicks),
+        value: formatNumber(metrics.clicks),
         change: Math.round(metrics.clicksChange * 10) / 10,
       },
       {
         label: 'Conversions',
-        value: this.formatNumber(metrics.conversions),
+        value: formatNumber(metrics.conversions),
         change: Math.round(metrics.conversionsChange * 10) / 10,
       },
       {
@@ -1087,16 +814,6 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnChanges {
       : this.campaignMetrics;
   }
 
-  private formatNumber(value: number): string {
-    if (value >= 1000000) {
-      return `${(value / 1000000).toFixed(1)}M`;
-    } else if (value >= 1000) {
-      return `${(value / 1000).toFixed(1)}K`;
-    } else {
-      return value.toString();
-    }
-  }
-
   // Method to get engagement statistics
   getEngagementStats(): {
     likes: number;
@@ -1117,15 +834,7 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnChanges {
       };
     }
 
-    // Generate consistent engagement data based on selected item
-    const nameHash = this.selectedItemData?.name
-      ? this.selectedItemData.name.split('').reduce((a: number, b: string) => {
-          a = (a << 5) - a + b.charCodeAt(0);
-          return a & a;
-        }, 0)
-      : 0;
-
-    const random = Math.abs(Math.sin(nameHash)) * 1000;
+    const random = Math.abs(Math.sin(this.getItemNameHash())) * 1000;
     const metrics = this.getSelectedItemMetrics();
 
     // Calculate engagement based on impressions and clicks
@@ -1168,37 +877,14 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnChanges {
 
     if (dataPoints.length === 0) return;
 
-    // Chart dimensions
     const padding = 40;
-    const chartWidth = canvas.width - 2 * padding;
-    const chartHeight = canvas.height - 2 * padding;
-
-    // Draw background
-    ctx.fillStyle = '#fafbfc';
-    ctx.fillRect(padding, padding, chartWidth, chartHeight);
-
-    // Draw grid
-    ctx.strokeStyle = '#e8ebf2';
-    ctx.lineWidth = 1;
-
-    // Vertical grid lines
-    const verticalLines = Math.min(5, dataPoints.length);
-    for (let i = 0; i <= verticalLines; i++) {
-      const x = padding + (chartWidth / verticalLines) * i;
-      ctx.beginPath();
-      ctx.moveTo(x, padding);
-      ctx.lineTo(x, padding + chartHeight);
-      ctx.stroke();
-    }
-
-    // Horizontal grid lines
-    for (let i = 0; i <= 4; i++) {
-      const y = padding + (chartHeight / 4) * i;
-      ctx.beginPath();
-      ctx.moveTo(padding, y);
-      ctx.lineTo(padding + chartWidth, y);
-      ctx.stroke();
-    }
+    const dims: ChartDimensions = {
+      padding,
+      chartWidth: canvas.width - 2 * padding,
+      chartHeight: canvas.height - 2 * padding,
+    };
+    const { chartWidth, chartHeight } = dims;
+    drawChartGrid(ctx, dims, Math.min(5, dataPoints.length), 4);
 
     // Find max engagement rate for scaling
     const maxRate = Math.max(...dataPoints.map((d) => d.rate));
@@ -1252,13 +938,7 @@ export class AnalyticsComponent implements OnInit, AfterViewInit, OnChanges {
     const data: Array<{ date: string; rate: number }> = [];
     const baseDate = new Date();
     baseDate.setDate(baseDate.getDate() - days);
-
-    let baseMultiplier = 1.0;
-    if (this.selectedItemType === 'adset') {
-      baseMultiplier = 0.8;
-    } else if (this.selectedItemType === 'ad') {
-      baseMultiplier = 0.6;
-    }
+    const baseMultiplier = this.getTypeMultiplier(0.8, 0.6);
 
     for (let i = 0; i < days; i++) {
       const date = new Date(baseDate);

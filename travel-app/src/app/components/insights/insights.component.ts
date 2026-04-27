@@ -35,6 +35,7 @@ import {
   METRIC_CONFIG,
 } from '../../models/insights/insight.model';
 import { DatePresetId, DateRangeSelection } from './adflow-date-range-picker.component';
+import { toIsoDate } from '../../utils/date.util';
 import { InsightsSavedViewService } from '../../services/insights/insights-saved-view.service';
 import { InsightsSavedView, InsightsViewConfig } from '../../models/insights/insights-saved-view.model';
 import {
@@ -2436,10 +2437,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
   // ---------- Helpers ----------
 
   private formatDate(d: Date): string {
-    const year = d.getFullYear();
-    const month = `${d.getMonth() + 1}`.padStart(2, '0');
-    const day = `${d.getDate()}`.padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return toIsoDate(d);
   }
 
   formatMetricLabel(key: string): string {

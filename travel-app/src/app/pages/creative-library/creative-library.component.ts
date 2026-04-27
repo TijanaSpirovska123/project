@@ -16,6 +16,7 @@ import { CoreService } from '../../services/core/core.service';
 import { AuthStoreService } from '../../services/core/auth-store.service';
 import { StoredAssetDto, StoredAssetVariantDto } from '../../models/adset/adset.model';
 import { PageDto, PagePostDto } from '../../models/ad-creative/page.model';
+import { formatFileSize } from '../../utils/format.util';
 
 @Component({
   selector: 'app-creative-library',
@@ -733,9 +734,7 @@ export class CreativeLibraryComponent implements OnInit, OnDestroy {
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
   formatFileSize(bytes: number): string {
-    if (bytes >= 1_000_000) return (bytes / 1_000_000).toFixed(1) + ' MB';
-    if (bytes >= 1_000) return (bytes / 1_000).toFixed(0) + ' KB';
-    return bytes + ' B';
+    return formatFileSize(bytes);
   }
 
   isImage(asset: StoredAssetDto): boolean {

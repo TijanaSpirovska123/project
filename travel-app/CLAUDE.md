@@ -39,12 +39,17 @@ src/app/
 ├── data/              # Static enums and lookup data
 │   ├── provider/provider.enum.ts          # Provider enum (META, FACEBOOK, etc.)
 │   ├── provider/provider-options.ts       # AD_PLATFORM_OPTIONS, META_VARIANT_LABELS
+│   └── workflow/ad-form-options.ts        # AD_STATUS_OPTIONS, CALL_TO_ACTION_OPTIONS
 │   ├── meta-column-config.ts              # ColumnDef interface + CAMPAIGN/ADSET/AD_COLUMNS
 │   ├── meta-standard-events.ts            # MetaStandardEvent + META_STANDARD_EVENTS list
 │   ├── insights/insights-fields.ts        # Insight metric groups and field config
 │   └── table/                             # TableData, TableHeader, TableButton, ColumnDef models
 ├── utils/
-│   └── deep-clone.util.ts                 # deepClone<T> generic utility
+│   ├── deep-clone.util.ts                 # deepClone<T> generic utility
+│   ├── format.util.ts                     # formatNumber(n), capitalize(s), formatFileSize(n) — used across components
+│   ├── hash.util.ts                       # computeNameHash(name) — deterministic hash for consistent mock data
+│   ├── date.util.ts                       # startOfDay, parseIsoDate, toIsoDate — shared by date-range-picker + insights
+│   └── canvas-chart.util.ts               # drawChartGrid, renderPieChart, drawVerticalBarChart — shared canvas helpers
 ├── guards/            # authGuard (protects all main routes)
 └── configs/
 ```

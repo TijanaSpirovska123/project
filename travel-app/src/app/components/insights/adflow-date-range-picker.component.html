@@ -42,12 +42,12 @@
     </section>
 
     <section class="picker-section custom-section">
-      <button type="button" class="custom-toggle" [class.active]="customRangeActive" (click)="toggleCustomExpanded()">
+      <button type="button" class="custom-toggle" [class.active]="customExpanded" (click)="toggleCustomExpanded()">
         <span>Custom range</span>
-        <mat-icon class="custom-chevron" [class.rotated]="customRangeActive">expand_more</mat-icon>
+        <mat-icon class="custom-chevron" [class.rotated]="customExpanded">expand_more</mat-icon>
       </button>
 
-      <div class="custom-panel" *ngIf="customRangeActive">
+      <div class="custom-panel" *ngIf="customExpanded">
         <div class="custom-calendar-wrap">
           <app-date-range-picker [inline]="true" [ngModel]="draftCalendarRange" (rangeChange)="onCustomCalendarChange($event)"></app-date-range-picker>
         </div>

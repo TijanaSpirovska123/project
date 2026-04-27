@@ -9,13 +9,9 @@ import {
   AfterViewInit,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import {
-  CampaignMetrics,
-  DeviceBreakdown,
-  AgeBreakdown,
-  PerformanceData,
-} from '../../models/analytics/analytics.model';
 import { ModalConfig } from '../../models/analytics/analytics-modal.model';
+import { computeNameHash } from '../../utils/hash.util';
+import { BarItem, drawVerticalBarChart, renderPieChart } from '../../utils/canvas-chart.util';
 
 @Component({
   selector: 'app-analytics-modal',
@@ -65,17 +61,15 @@ export class AnalyticsModalComponent
     }, 200);
   }
 
+  private getTypeMultiplier(adsetFactor = 0.6, adFactor = 0.3): number {
+    if (this.itemType === 'adset') return adsetFactor;
+    if (this.itemType === 'ad') return adFactor;
+    return 1.0;
+  }
+
   private generateModalData(): void {
     if (!this.itemData || !this.modalConfig) return;
-
-    const nameHash = this.itemData?.name
-      ? this.itemData.name.split('').reduce((a: number, b: string) => {
-          a = (a << 5) - a + b.charCodeAt(0);
-          return a & a;
-        }, 0)
-      : 0;
-
-    const random = Math.abs(Math.sin(nameHash)) * 1000;
+    const random = Math.abs(Math.sin(computeNameHash(this.itemData?.name))) * 1000;
 
     switch (this.modalConfig.type) {
       case 'performance':
@@ -103,13 +97,7 @@ export class AnalyticsModalComponent
   }
 
   private generatePerformanceData(random: number): void {
-    let baseMultiplier = 1.0;
-    if (this.itemType === 'adset') {
-      baseMultiplier = 0.6;
-    } else if (this.itemType === 'ad') {
-      baseMultiplier = 0.3;
-    }
-
+    const baseMultiplier = this.getTypeMultiplier();
     const impressions = Math.floor((30000 + (random % 80000)) * baseMultiplier);
     const reach = Math.floor(impressions * (0.72 + (random % 100) / 500));
     const clicks = Math.floor(impressions * (0.012 + (random % 100) / 4000));
@@ -289,113 +277,32 @@ export class AnalyticsModalComponent
     ctx: CanvasRenderingContext2D,
     canvas: HTMLCanvasElement
   ): void {
-    // Draw a simple bar chart for performance metrics
-    const metrics = ['impressions', 'reach', 'clicks'];
-    const values = metrics.map((m) =>
-      parseInt(this.modalMetrics[m]?.replace(/,/g, '') || '0')
-    );
-    const maxValue = Math.max(...values);
-
-    const barWidth = canvas.width / (metrics.length * 1.5);
-    const maxBarHeight = canvas.height - 40;
-
-    ctx.fillStyle = '#1ca698';
-
-    metrics.forEach((metric, index) => {
-      const value = values[index];
-      const barHeight = (value / maxValue) * maxBarHeight;
-      const x = (index + 0.5) * barWidth;
-      const y = canvas.height - barHeight - 20;
-
-      ctx.fillRect(x, y, barWidth * 0.8, barHeight);
-
-      // Label
-      ctx.fillStyle = '#20233a';
-      ctx.font = '12px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(metric, x + barWidth * 0.4, canvas.height - 5);
-      ctx.fillStyle = '#1ca698';
-    });
+    const bars: BarItem[] = ['impressions', 'reach', 'clicks'].map((m) => ({
+      label: m,
+      value: Number.parseInt(this.modalMetrics[m]?.replaceAll(',', '') || '0'),
+    }));
+    drawVerticalBarChart(ctx, canvas, bars, '#1ca698', 1.5, 0.5);
   }
 
   private drawDemographicsChart(
-    ctx: CanvasRenderingContext2D,
+    _ctx: CanvasRenderingContext2D,
     canvas: HTMLCanvasElement
   ): void {
     if (!this.modalMetrics.ageGroups) return;
-
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const radius = Math.min(centerX, centerY) - 20;
-
-    let currentAngle = 0;
-    const colors = [
-      '#1ca698',
-      '#3498db',
-      '#9b59b6',
-      '#f39c12',
-      '#e74c3c',
-      '#2ecc71',
-    ];
-
-    this.modalMetrics.ageGroups.forEach((group: any, index: number) => {
-      const sliceAngle = (group.percentage / 100) * 2 * Math.PI;
-
-      ctx.fillStyle = colors[index % colors.length];
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY);
-      ctx.arc(
-        centerX,
-        centerY,
-        radius,
-        currentAngle,
-        currentAngle + sliceAngle
-      );
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      currentAngle += sliceAngle;
-    });
+    const colors = ['#1ca698', '#3498db', '#9b59b6', '#f39c12', '#e74c3c', '#2ecc71'];
+    const segments = this.modalMetrics.ageGroups.map((g: any, i: number) => ({
+      percentage: g.percentage,
+      color: colors[i % colors.length],
+    }));
+    renderPieChart(canvas, segments, Math.min(canvas.width, canvas.height) / 2 - 20);
   }
 
   private drawDeviceChart(
-    ctx: CanvasRenderingContext2D,
+    _ctx: CanvasRenderingContext2D,
     canvas: HTMLCanvasElement
   ): void {
     if (!this.modalMetrics.devices) return;
-
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const radius = Math.min(centerX, centerY) - 20;
-
-    let currentAngle = 0;
-
-    this.modalMetrics.devices.forEach((device: any) => {
-      const sliceAngle = (device.percentage / 100) * 2 * Math.PI;
-
-      ctx.fillStyle = device.color;
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY);
-      ctx.arc(
-        centerX,
-        centerY,
-        radius,
-        currentAngle,
-        currentAngle + sliceAngle
-      );
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      currentAngle += sliceAngle;
-    });
+    renderPieChart(canvas, this.modalMetrics.devices, Math.min(canvas.width, canvas.height) / 2 - 20);
   }
 
   private drawTimelineChart(
@@ -403,28 +310,11 @@ export class AnalyticsModalComponent
     canvas: HTMLCanvasElement
   ): void {
     if (!this.modalMetrics.peakHours) return;
-
-    const data = this.modalMetrics.peakHours;
-    const maxActivity = Math.max(...data.map((h: any) => h.activity));
-    const barWidth = canvas.width / (data.length * 1.2);
-    const maxBarHeight = canvas.height - 40;
-
-    ctx.fillStyle = '#3498db';
-
-    data.forEach((hour: any, index: number) => {
-      const barHeight = (hour.activity / maxActivity) * maxBarHeight;
-      const x = (index + 0.1) * barWidth;
-      const y = canvas.height - barHeight - 20;
-
-      ctx.fillRect(x, y, barWidth * 0.8, barHeight);
-
-      // Hour label
-      ctx.fillStyle = '#20233a';
-      ctx.font = '10px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(hour.hour, x + barWidth * 0.4, canvas.height - 5);
-      ctx.fillStyle = '#3498db';
-    });
+    const bars: BarItem[] = this.modalMetrics.peakHours.map((h: any) => ({
+      label: h.hour,
+      value: h.activity,
+    }));
+    drawVerticalBarChart(ctx, canvas, bars, '#3498db');
   }
 
   private drawConversionsChart(
@@ -432,27 +322,13 @@ export class AnalyticsModalComponent
     canvas: HTMLCanvasElement
   ): void {
     if (!this.modalMetrics.conversionTypes) return;
-
-    const data = this.modalMetrics.conversionTypes;
-    const maxCount = Math.max(...data.map((c: any) => c.count));
-    const barWidth = canvas.width / (data.length * 1.2);
-    const maxBarHeight = canvas.height - 40;
     const colors = ['#1ca698', '#f39c12', '#9b59b6', '#e74c3c'];
-
-    data.forEach((conversion: any, index: number) => {
-      const barHeight = (conversion.count / maxCount) * maxBarHeight;
-      const x = (index + 0.1) * barWidth;
-      const y = canvas.height - barHeight - 20;
-
-      ctx.fillStyle = colors[index % colors.length];
-      ctx.fillRect(x, y, barWidth * 0.8, barHeight);
-
-      // Type label
-      ctx.fillStyle = '#20233a';
-      ctx.font = '10px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(conversion.type, x + barWidth * 0.4, canvas.height - 5);
-    });
+    const bars: BarItem[] = this.modalMetrics.conversionTypes.map((c: any, i: number) => ({
+      label: c.type,
+      value: c.count,
+      color: colors[i % colors.length],
+    }));
+    drawVerticalBarChart(ctx, canvas, bars);
   }
 
   private drawBudgetChart(
