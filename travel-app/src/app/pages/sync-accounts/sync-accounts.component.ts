@@ -309,11 +309,6 @@ export class SyncAccountsComponent implements OnInit, OnDestroy {
       next: () => {
         this.disconnectingAccount = null;
         this.toastr.success(`"${account.adAccountName}" disconnected successfully`);
-        this.adAccounts = this.adAccounts.filter(a => a.adAccountId !== account.adAccountId);
-        if (this.adAccounts.length === 0) {
-          this.closeSyncModal();
-          this.loadConnectionStatus();
-        }
         this.cdr.detectChanges();
       },
       error: () => {
