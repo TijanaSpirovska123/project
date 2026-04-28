@@ -257,6 +257,7 @@ export class SyncAccountsComponent implements OnInit, OnDestroy {
                 const ads = adsRes?.data || [];
                 platform.syncing = false;
                 platform.lastSynced = new Date().toISOString();
+                this.syncState.markMetaDataChanged();
                 this.syncStep = '';
                 this.syncStepNum = 0;
                 this.cdr.detectChanges();
@@ -308,6 +309,7 @@ export class SyncAccountsComponent implements OnInit, OnDestroy {
     this.oauthService.disconnectAdAccount(account.adAccountId).subscribe({
       next: () => {
         this.disconnectingAccount = null;
+        this.syncState.markMetaDataChanged();
         this.toastr.success(`"${account.adAccountName}" disconnected successfully`);
         this.cdr.detectChanges();
       },
@@ -348,6 +350,7 @@ export class SyncAccountsComponent implements OnInit, OnDestroy {
         next: () => {
           platform.connected = false;
           platform.lastSynced = null;
+          this.syncState.markMetaDataChanged();
           this.showDisconnectDialog = false;
           this.disconnectPlatform = null;
           this.toastr.info('Account disconnected. Your synced data remains in the app.');

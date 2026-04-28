@@ -464,11 +464,6 @@ export class MetaComponent implements OnInit {
   }
 
   fetchCampaigns(): void {
-    if (!this.actId) {
-      this.toastr.warning('No Meta ad account linked to this user');
-      this.finishRequest();
-      return;
-    }
     this.campaignService.getAllByPlatform(Provider.META).subscribe({
       next: (res) => {
         try {
@@ -496,10 +491,6 @@ export class MetaComponent implements OnInit {
   }
 
   fetchAdSets(): void {
-    if (!this.actId) {
-      this.finishRequest();
-      return;
-    }
     this.adSetService.getAllByPlatform(Provider.META).subscribe({
       next: (res) => {
         try {
@@ -526,10 +517,6 @@ export class MetaComponent implements OnInit {
   }
 
   fetchAds(): void {
-    if (!this.actId) {
-      this.finishRequest();
-      return;
-    }
     this.adService.getAllByPlatform(Provider.META).subscribe({
       next: (res) => {
         try {

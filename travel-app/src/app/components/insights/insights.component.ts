@@ -8,15 +8,15 @@ import {
   HostListener,
 } from '@angular/core';
 import { Router, ActivatedRoute, NavigationEnd } from '@angular/router';
-import { Subscription } from 'rxjs';
-import { filter } from 'rxjs/operators';
-import { finalize } from 'rxjs/operators';
+import { Observable, Subscription, forkJoin, of } from 'rxjs';
+import { filter, finalize, map } from 'rxjs/operators';
 import { Chart, registerables } from 'chart.js';
 import { AppToastrService } from '../../services/core/app-toastr.service';
 
 Chart.register(...registerables);
 import { CoreService } from '../../services/core/core.service';
 import { AuthStoreService } from '../../services/core/auth-store.service';
+import { SyncAccountsStateService } from '../../services/core/sync-accounts-state.service';
 import { InsightsService } from '../../services/insights/insights.service';
 import { CampaignService } from '../../services/campaign/campaign.service';
 import { AdSetService } from '../../services/adset/adset.service';
@@ -249,6 +249,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
     private readonly adSetService: AdSetService,
     private readonly adService: AdService,
     private readonly oauthService: OAuthService,
+    private readonly syncState: SyncAccountsStateService,
     private readonly cdr: ChangeDetectorRef,
     private readonly router: Router,
     private readonly route: ActivatedRoute,
@@ -277,6 +278,14 @@ export class InsightsComponent implements OnInit, OnDestroy {
         this.showTopPerformers = false;
         this.showSpendDistribution = false;
       });
+    this.navSubscription.add(
+      this.syncState.onMetaDataChanged().subscribe((stamp) => {
+        if (!stamp) {
+          return;
+        }
+        this.handleMetaDataChanged();
+      }),
+    );
   }
 
   ngOnDestroy(): void {
@@ -700,6 +709,27 @@ export class InsightsComponent implements OnInit, OnDestroy {
     this.tabDataLoaded = [false, false, false];
   }
 
+  private clearObjectCache(): void {
+    InsightsComponent.cachedCampaigns = null;
+    InsightsComponent.cachedAdSets = null;
+    InsightsComponent.cachedAds = null;
+  }
+
+  private handleMetaDataChanged(): void {
+    this.actId = this.authStore.getActId();
+    this.clearCache();
+    this.clearObjectCache();
+    this.availableCampaigns = [];
+    this.availableAdSets = [];
+    this.availableAds = [];
+    this.campaignInsights = [];
+    this.adSetInsights = [];
+    this.adInsights = [];
+    this.loadAvailableObjects();
+    this.loadConnectionStatus();
+    this.cdr.detectChanges();
+  }
+
   // ---------- Load Available Objects ----------
 
   private loadAvailableObjects(): void {
@@ -767,8 +797,13 @@ export class InsightsComponent implements OnInit, OnDestroy {
   }
 
   loadAllData(): void {
-    if (!this.actId) {
-      this.toastr.warning('No Meta ad account linked to this user');
+    if (this.getDefaultMetaAccountIds().length === 0) {
+      this.campaignInsights = [];
+      this.adSetInsights = [];
+      this.adInsights = [];
+      this.tabDataLoaded = [true, true, true];
+      this.refreshCurrentView();
+      this.cdr.detectChanges();
       return;
     }
     // Check insights cache first — avoids API calls on re-navigation
@@ -788,23 +823,79 @@ export class InsightsComponent implements OnInit, OnDestroy {
     this.fetchTabData(this.activeTabIndex);
   }
 
-  /** POST — sync from Meta API; only called via the Sync button */
+  /** POST sync from Meta API; only called via the Sync button */
   syncAllData(): void {
-    if (!this.actId) return;
-    this.isLoading = true;
-    const actId = this.actId;
-    let remaining = 3;
-    const tempCampaign: InsightSnapshot[] = [];
-    const tempAdSet: InsightSnapshot[] = [];
-    const tempAd: InsightSnapshot[] = [];
+    const campaignSync$ = this.syncObjectInsightsByAccount(
+      this.availableCampaigns,
+      this.selectedCampaignIds,
+      (adAccountId, ids) => ({
+        provider: Provider.META,
+        adAccountId,
+        objectType: 'CAMPAIGN',
+        fetchMode: ids.length === 1 ? 'PER_OBJECT' : 'BATCH_IDS',
+        objectExternalIds: ids,
+        dateStart: this.dateStart,
+        dateStop: this.dateStop,
+        timeIncrement: 1,
+        timeIncrementAllDays: true,
+        fields: Array.from(this.selectedCampaignFields),
+        actionBreakdowns: 'action_type',
+        actionReportTime: 'impression',
+      }),
+      (body) => this.insightsService.syncCampaignsBatch(body),
+    );
+    const adSetSync$ = this.syncObjectInsightsByAccount(
+      this.availableAdSets,
+      this.selectedAdSetIds,
+      (adAccountId, ids) => ({
+        provider: Provider.META,
+        adAccountId,
+        objectType: 'ADSET',
+        fetchMode: ids.length === 1 ? 'PER_OBJECT' : 'BATCH_IDS',
+        objectExternalIds: ids,
+        dateStart: this.dateStart,
+        dateStop: this.dateStop,
+        timeIncrement: 1,
+        timeIncrementAllDays: true,
+        fields: Array.from(this.selectedAdSetFields),
+        actionBreakdowns: 'action_type',
+        actionReportTime: 'impression',
+      }),
+      (body) => this.insightsService.syncAdSetsBatch(body),
+    );
+    const adSync$ = this.syncObjectInsightsByAccount(
+      this.availableAds,
+      this.selectedAdIds,
+      (adAccountId, ids) => ({
+        provider: Provider.META,
+        adAccountId,
+        objectType: 'AD',
+        fetchMode: ids.length === 1 ? 'PER_OBJECT' : 'BATCH_IDS',
+        objectExternalIds: ids,
+        dateStart: this.dateStart,
+        dateStop: this.dateStop,
+        timeIncrement: 1,
+        timeIncrementAllDays: true,
+        fields: Array.from(this.selectedAdFields),
+        actionBreakdowns: 'action_type',
+        actionReportTime: 'impression',
+      }),
+      (body) => this.insightsService.syncAdsBatch(body),
+    );
+    if (!campaignSync$ && !adSetSync$ && !adSync$) {
+      return;
+    }
 
-    const onAllDone = () => {
-      remaining--;
-      if (remaining === 0) {
-        // All 3 syncs complete — populate insights atomically from sync responses
-        this.campaignInsights = tempCampaign;
-        this.adSetInsights = tempAdSet;
-        this.adInsights = tempAd;
+    this.isLoading = true;
+    forkJoin({
+      campaigns: campaignSync$ ?? of([]),
+      adSets: adSetSync$ ?? of([]),
+      ads: adSync$ ?? of([]),
+    }).subscribe({
+      next: ({ campaigns, adSets, ads }) => {
+        this.campaignInsights = campaigns;
+        this.adSetInsights = adSets;
+        this.adInsights = ads;
         this.setCache('campaign', this.campaignInsights);
         this.setCache('adset', this.adSetInsights);
         this.setCache('ad', this.adInsights);
@@ -812,119 +903,15 @@ export class InsightsComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
         this.tabDataLoaded = [true, true, true];
         this.refreshCurrentView();
-      }
-    };
-
-    // --- Campaigns ---
-    const campaignIds =
-      this.selectedCampaignIds.size > 0
-        ? Array.from(this.selectedCampaignIds)
-        : this.availableCampaigns
-            .filter((c) => c.externalId)
-            .map((c) => c.externalId as string);
-
-    const campaignBody: any = {
-      provider: Provider.META,
-      adAccountId: `act_${actId}`,
-      objectType: 'CAMPAIGN',
-      fetchMode: campaignIds.length === 1 ? 'PER_OBJECT' : 'BATCH_IDS',
-      objectExternalIds: campaignIds,
-      dateStart: this.dateStart,
-      dateStop: this.dateStop,
-      timeIncrement: 1,
-      timeIncrementAllDays: true,
-      fields: Array.from(this.selectedCampaignFields),
-      actionBreakdowns: 'action_type',
-      actionReportTime: 'impression',
-    };
-
-    this.insightsService
-      .syncCampaignsBatch(campaignBody)
-      .pipe(finalize(onAllDone))
-      .subscribe({
-        next: (res) => {
-          tempCampaign.push(...(res?.data ?? []));
-        },
-        error: (err: any) => {
-          if (!this.authStore.isSessionExpiredRedirect()) {
-            this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to sync campaign insights'));
-          }
-        },
-      });
-
-    // --- Ad Sets ---
-    const adSetIds =
-      this.selectedAdSetIds.size > 0
-        ? Array.from(this.selectedAdSetIds)
-        : this.availableAdSets
-            .filter((a) => a.externalId)
-            .map((a) => a.externalId);
-
-    const adSetBody: any = {
-      provider: Provider.META,
-      adAccountId: `act_${actId}`,
-      objectType: 'ADSET',
-      fetchMode: adSetIds.length === 1 ? 'PER_OBJECT' : 'BATCH_IDS',
-      objectExternalIds: adSetIds,
-      dateStart: this.dateStart,
-      dateStop: this.dateStop,
-      timeIncrement: 1,
-      timeIncrementAllDays: true,
-      fields: Array.from(this.selectedAdSetFields),
-      actionBreakdowns: 'action_type',
-      actionReportTime: 'impression',
-    };
-
-    this.insightsService
-      .syncAdSetsBatch(adSetBody)
-      .pipe(finalize(onAllDone))
-      .subscribe({
-        next: (res) => {
-          tempAdSet.push(...(res?.data ?? []));
-        },
-        error: (err: any) => {
-          if (!this.authStore.isSessionExpiredRedirect()) {
-            this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to sync ad set insights'));
-          }
-        },
-      });
-
-    // --- Ads ---
-    const adIds =
-      this.selectedAdIds.size > 0
-        ? Array.from(this.selectedAdIds)
-        : this.availableAds
-            .filter((a) => a.externalId)
-            .map((a) => a.externalId);
-
-    const adBody: any = {
-      provider: Provider.META,
-      adAccountId: `act_${actId}`,
-      objectType: 'AD',
-      fetchMode: adIds.length === 1 ? 'PER_OBJECT' : 'BATCH_IDS',
-      objectExternalIds: adIds,
-      dateStart: this.dateStart,
-      dateStop: this.dateStop,
-      timeIncrement: 1,
-      timeIncrementAllDays: true,
-      fields: Array.from(this.selectedAdFields),
-      actionBreakdowns: 'action_type',
-      actionReportTime: 'impression',
-    };
-
-    this.insightsService
-      .syncAdsBatch(adBody)
-      .pipe(finalize(onAllDone))
-      .subscribe({
-        next: (res) => {
-          tempAd.push(...(res?.data ?? []));
-        },
-        error: (err: any) => {
-          if (!this.authStore.isSessionExpiredRedirect()) {
-            this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to sync ad insights'));
-          }
-        },
-      });
+      },
+      error: (err: any) => {
+        this.isLoading = false;
+        this.cdr.detectChanges();
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to sync insights'));
+        }
+      },
+    });
   }
 
   private makeBatchDone(size: number): () => void {
@@ -944,25 +931,28 @@ export class InsightsComponent implements OnInit, OnDestroy {
   }
 
   fetchCampaignInsights(): void {
-    if (!this.actId) return;
+    const accountIds = this.getAccountIdsForQuery(
+      this.availableCampaigns,
+      this.selectedCampaignIds,
+    );
+    if (accountIds.length === 0) return;
     this.isLoading = true;
     const batchDone = this.makeBatchDone(1);
-    const ids =
-      this.selectedCampaignIds.size > 0
-        ? Array.from(this.selectedCampaignIds)
-        : undefined;
-    this.insightsService
-      .queryCampaigns(
-        Provider.META,
-        this.actId,
-        this.dateStart,
-        this.dateStop,
-        ids,
-      )
+    this.queryInsightsByAccount(
+      accountIds,
+      this.selectedCampaignIds,
+      (accountId) =>
+        this.insightsService.queryCampaigns(
+          Provider.META,
+          accountId,
+          this.dateStart,
+          this.dateStop,
+        ),
+    )
       .pipe(finalize(batchDone))
       .subscribe({
-        next: (res) => {
-          this.campaignInsights = res?.data ?? [];
+        next: (data) => {
+          this.campaignInsights = data;
         },
         error: () => {
           this.isLoading = false;
@@ -975,25 +965,28 @@ export class InsightsComponent implements OnInit, OnDestroy {
   }
 
   fetchAdSetInsights(): void {
-    if (!this.actId) return;
+    const accountIds = this.getAccountIdsForQuery(
+      this.availableAdSets,
+      this.selectedAdSetIds,
+    );
+    if (accountIds.length === 0) return;
     this.isLoading = true;
     const batchDone = this.makeBatchDone(1);
-    const ids =
-      this.selectedAdSetIds.size > 0
-        ? Array.from(this.selectedAdSetIds)
-        : undefined;
-    this.insightsService
-      .queryAdSets(
-        Provider.META,
-        this.actId,
-        this.dateStart,
-        this.dateStop,
-        ids,
-      )
+    this.queryInsightsByAccount(
+      accountIds,
+      this.selectedAdSetIds,
+      (accountId) =>
+        this.insightsService.queryAdSets(
+          Provider.META,
+          accountId,
+          this.dateStart,
+          this.dateStop,
+        ),
+    )
       .pipe(finalize(batchDone))
       .subscribe({
-        next: (res) => {
-          this.adSetInsights = res?.data ?? [];
+        next: (data) => {
+          this.adSetInsights = data;
         },
         error: () => {
           this.isLoading = false;
@@ -1006,17 +999,28 @@ export class InsightsComponent implements OnInit, OnDestroy {
   }
 
   fetchAdInsights(): void {
-    if (!this.actId) return;
+    const accountIds = this.getAccountIdsForQuery(
+      this.availableAds,
+      this.selectedAdIds,
+    );
+    if (accountIds.length === 0) return;
     this.isLoading = true;
     const batchDone = this.makeBatchDone(1);
-    const ids =
-      this.selectedAdIds.size > 0 ? Array.from(this.selectedAdIds) : undefined;
-    this.insightsService
-      .queryAds(Provider.META, this.actId, this.dateStart, this.dateStop, ids)
+    this.queryInsightsByAccount(
+      accountIds,
+      this.selectedAdIds,
+      (accountId) =>
+        this.insightsService.queryAds(
+          Provider.META,
+          accountId,
+          this.dateStart,
+          this.dateStop,
+        ),
+    )
       .pipe(finalize(batchDone))
       .subscribe({
-        next: (res) => {
-          this.adInsights = res?.data ?? [];
+        next: (data) => {
+          this.adInsights = data;
         },
         error: () => {
           this.isLoading = false;
@@ -1031,7 +1035,6 @@ export class InsightsComponent implements OnInit, OnDestroy {
   // ---------- Tab GET Fetch ----------
 
   private fetchTabData(tabIndex: number): void {
-    if (!this.actId) return;
     const type = tabIndex === 0 ? 'campaign' : tabIndex === 1 ? 'adset' : 'ad';
     const cached = this.getCached(type);
     if (cached) {
@@ -1044,17 +1047,6 @@ export class InsightsComponent implements OnInit, OnDestroy {
       return;
     }
     this.isLoading = true;
-    const actId = this.actId;
-    const campIds =
-      this.selectedCampaignIds.size > 0
-        ? Array.from(this.selectedCampaignIds)
-        : undefined;
-    const adSetIds =
-      this.selectedAdSetIds.size > 0
-        ? Array.from(this.selectedAdSetIds)
-        : undefined;
-    const adIds =
-      this.selectedAdIds.size > 0 ? Array.from(this.selectedAdIds) : undefined;
     const onDone = (snapshots: InsightSnapshot[]) => {
       if (tabIndex === 0) this.campaignInsights = snapshots;
       else if (tabIndex === 1) this.adSetInsights = snapshots;
@@ -1070,48 +1062,225 @@ export class InsightsComponent implements OnInit, OnDestroy {
       }
     };
     const onFinalize = () => {
-      // Dismiss spinner immediately before any rendering work
       this.isLoading = false;
       this.cdr.detectChanges();
       this.refreshCurrentView();
     };
+
+    let request$: Observable<InsightSnapshot[]>;
     if (tabIndex === 0) {
-      this.insightsService
-        .queryCampaigns(
-          Provider.META,
-          actId,
-          this.dateStart,
-          this.dateStop,
-          campIds,
-        )
-        .pipe(finalize(onFinalize))
-        .subscribe({
-          next: (r) => onDone(r?.data ?? []),
-          error: () => onFail('Failed to fetch campaign insights'),
-        });
+      const accountIds = this.getAccountIdsForQuery(
+        this.availableCampaigns,
+        this.selectedCampaignIds,
+      );
+      if (accountIds.length === 0) {
+        onDone([]);
+        onFinalize();
+        return;
+      }
+      request$ = this.queryInsightsByAccount(
+        accountIds,
+        this.selectedCampaignIds,
+        (accountId) =>
+          this.insightsService.queryCampaigns(
+            Provider.META,
+            accountId,
+            this.dateStart,
+            this.dateStop,
+          ),
+      );
     } else if (tabIndex === 1) {
-      this.insightsService
-        .queryAdSets(
-          Provider.META,
-          actId,
-          this.dateStart,
-          this.dateStop,
-          adSetIds,
-        )
-        .pipe(finalize(onFinalize))
-        .subscribe({
-          next: (r) => onDone(r?.data ?? []),
-          error: () => onFail('Failed to fetch ad set insights'),
-        });
+      const accountIds = this.getAccountIdsForQuery(
+        this.availableAdSets,
+        this.selectedAdSetIds,
+      );
+      if (accountIds.length === 0) {
+        onDone([]);
+        onFinalize();
+        return;
+      }
+      request$ = this.queryInsightsByAccount(
+        accountIds,
+        this.selectedAdSetIds,
+        (accountId) =>
+          this.insightsService.queryAdSets(
+            Provider.META,
+            accountId,
+            this.dateStart,
+            this.dateStop,
+          ),
+      );
     } else {
-      this.insightsService
-        .queryAds(Provider.META, actId, this.dateStart, this.dateStop, adIds)
-        .pipe(finalize(onFinalize))
-        .subscribe({
-          next: (r) => onDone(r?.data ?? []),
-          error: () => onFail('Failed to fetch ad insights'),
-        });
+      const accountIds = this.getAccountIdsForQuery(
+        this.availableAds,
+        this.selectedAdIds,
+      );
+      if (accountIds.length === 0) {
+        onDone([]);
+        onFinalize();
+        return;
+      }
+      request$ = this.queryInsightsByAccount(
+        accountIds,
+        this.selectedAdIds,
+        (accountId) =>
+          this.insightsService.queryAds(
+            Provider.META,
+            accountId,
+            this.dateStart,
+            this.dateStop,
+          ),
+      );
     }
+
+    request$
+      .pipe(finalize(onFinalize))
+      .subscribe({
+        next: (data) => onDone(data),
+        error: () =>
+          onFail(
+            tabIndex === 0
+              ? 'Failed to fetch campaign insights'
+              : tabIndex === 1
+                ? 'Failed to fetch ad set insights'
+                : 'Failed to fetch ad insights',
+          ),
+      });
+  }
+
+  private getDefaultMetaAccountIds(): string[] {
+    const accountIds = this.getDistinctAccountIds([
+      ...this.availableCampaigns.map((campaign) => campaign.adAccountId),
+      ...this.availableAdSets.map((adSet) => adSet.adAccountId),
+      ...this.availableAds.map((ad) => ad.adAccountId),
+    ]);
+    if (accountIds.length > 0) {
+      return accountIds;
+    }
+    if (!this.actId) {
+      return [];
+    }
+    return this.getDistinctAccountIds([this.actId, this.formatAccountId(this.actId)]);
+  }
+
+  private getAccountIdsForQuery<T extends { adAccountId?: string | null; externalId?: string | null }>(
+    objects: T[],
+    selectedIds: Set<string>,
+  ): string[] {
+    if (selectedIds.size === 0) {
+      const accountIds = this.getDistinctAccountIds(
+        objects.map((object) => object.adAccountId ?? null),
+      );
+      return accountIds.length > 0 ? accountIds : this.getDefaultMetaAccountIds();
+    }
+    return this.getDistinctAccountIds(
+      objects
+        .filter((object) => !!object.externalId && selectedIds.has(object.externalId ?? ''))
+        .map((object) => object.adAccountId ?? null),
+    );
+  }
+
+  private getDistinctAccountIds(accountIds: Array<string | null | undefined>): string[] {
+    const seen = new Set<string>();
+    const normalized: string[] = [];
+    for (const accountId of accountIds) {
+      const value = accountId?.trim();
+      if (!value || seen.has(value)) {
+        continue;
+      }
+      seen.add(value);
+      normalized.push(value);
+    }
+    return normalized;
+  }
+
+  private formatAccountId(accountId: string): string {
+    return accountId.startsWith('act_') ? accountId : `act_${accountId}`;
+  }
+
+  private groupObjectIdsByAccount<T extends { adAccountId?: string | null; externalId?: string | null }>(
+    objects: T[],
+    selectedIds: Set<string>,
+  ): Map<string, string[]> {
+    const groups = new Map<string, string[]>();
+    const filteredObjects = objects.filter((object) => {
+      if (!object.adAccountId || !object.externalId) {
+        return false;
+      }
+      return selectedIds.size === 0 || selectedIds.has(object.externalId ?? '');
+    });
+    for (const object of filteredObjects) {
+      const accountId = object.adAccountId!.trim();
+      const externalId = object.externalId!.trim();
+      const existing = groups.get(accountId);
+      if (existing) {
+        existing.push(externalId);
+      } else {
+        groups.set(accountId, [externalId]);
+      }
+    }
+    return groups;
+  }
+
+  private queryInsightsByAccount(
+    accountIds: string[],
+    selectedIds: Set<string>,
+    requestFactory: (accountId: string) => Observable<{ data: InsightSnapshot[] }>,
+  ): Observable<InsightSnapshot[]> {
+    if (accountIds.length === 0) {
+      return of([]);
+    }
+    return forkJoin(
+      accountIds.map((accountId) =>
+        requestFactory(accountId).pipe(map((response) => response?.data ?? [])),
+      ),
+    ).pipe(
+      map((responses) => {
+        const merged = this.dedupeSnapshots(responses.flat());
+        if (selectedIds.size === 0) {
+          return merged;
+        }
+        return merged.filter((snapshot) => selectedIds.has(snapshot.objectExternalId ?? ''));
+      }),
+    );
+  }
+
+  private syncObjectInsightsByAccount<T extends { adAccountId?: string | null; externalId?: string | null }>(
+    objects: T[],
+    selectedIds: Set<string>,
+    bodyFactory: (adAccountId: string, ids: string[]) => any,
+    requestFactory: (body: any) => Observable<{ data: InsightSnapshot[] }>,
+  ): Observable<InsightSnapshot[]> | null {
+    const groups = this.groupObjectIdsByAccount(objects, selectedIds);
+    if (groups.size === 0) {
+      return null;
+    }
+    return forkJoin(
+      Array.from(groups.entries()).map(([accountId, ids]) =>
+        requestFactory(bodyFactory(accountId, ids)).pipe(
+          map((response) => response?.data ?? []),
+        ),
+      ),
+    ).pipe(map((responses) => this.dedupeSnapshots(responses.flat())));
+  }
+
+  private dedupeSnapshots(snapshots: InsightSnapshot[]): InsightSnapshot[] {
+    const seen = new Set<string>();
+    return snapshots.filter((snapshot) => {
+      const key = [
+        snapshot.id ?? '',
+        snapshot.adAccountId ?? '',
+        snapshot.objectType ?? '',
+        snapshot.objectExternalId ?? '',
+        snapshot.dateStart ?? '',
+        snapshot.dateStop ?? '',
+      ].join('|');
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
   }
 
   private refreshCurrentView(): void {
