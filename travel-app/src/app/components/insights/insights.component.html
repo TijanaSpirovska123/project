@@ -214,8 +214,8 @@
     <!-- Filter Controls Row: collapse toggle + sync (tabs removed — level selector now in tree header) -->
     <div class="filter-controls-row">
       <div class="filter-left">
-        <button class="filter-toggle-btn" (click)="selectionExpanded = !selectionExpanded">
-          <span class="filter-chevron" [class.rotated]="selectionExpanded">▾</span>
+        <button class="filter-toggle-btn" [class.active]="filterPanelOpen" (click)="filterPanelOpen = !filterPanelOpen">
+          <span class="filter-chevron" [class.rotated]="filterPanelOpen">▾</span>
           Filters
           <span class="filter-count-badge">
             {{ selectedCampaignIds.size + selectedAdSetIds.size + selectedAdIds.size }}
@@ -231,6 +231,98 @@
         <mat-icon>sync</mat-icon>
         Sync
       </button>
+    </div>
+
+    <!-- ── Three-column filter panel (new) ── -->
+    <div class="filter-panel" [class.open]="filterPanelOpen">
+      <div class="filter-panel-inner">
+
+        <!-- Campaigns column -->
+        <div class="filter-col">
+          <div class="filter-col-header">
+            CAMPAIGNS
+            <span class="filter-col-count">({{ selectedCampaignIds.size }}/{{ availableCampaigns.length }})</span>
+          </div>
+          <input class="filter-col-search" type="text" placeholder="Search…"
+                 [(ngModel)]="campaignSearch" (click)="$event.stopPropagation()" />
+          <div class="filter-col-list">
+            @for (c of filterPanelCampaigns; track c.id) {
+              <div class="filter-col-item"
+                   [class.filter-col-item-checked]="isCampaignSelected(c)"
+                   (click)="toggleCampaign(c)">
+                <span class="filter-checkbox" [class.filter-checkbox-checked]="isCampaignSelected(c)">
+                  @if (isCampaignSelected(c)) {
+                    <mat-icon class="filter-check-icon">check</mat-icon>
+                  }
+                </span>
+                <span class="filter-item-name" [title]="c.name">{{ c.name }}</span>
+              </div>
+            }
+            @if (!filterPanelCampaigns.length) {
+              <div class="filter-col-empty">No campaigns</div>
+            }
+          </div>
+        </div>
+
+        <div class="filter-col-divider"></div>
+
+        <!-- Ad Sets column -->
+        <div class="filter-col">
+          <div class="filter-col-header">
+            AD SETS
+            <span class="filter-col-count">({{ selectedAdSetIds.size }}/{{ filterPanelAdSets.length }})</span>
+          </div>
+          <input class="filter-col-search" type="text" placeholder="Search…"
+                 [(ngModel)]="adSetSearch" (click)="$event.stopPropagation()" />
+          <div class="filter-col-list">
+            @for (a of filterPanelAdSets; track a.id) {
+              <div class="filter-col-item"
+                   [class.filter-col-item-checked]="isAdSetSelected(a)"
+                   (click)="toggleAdSet(a)">
+                <span class="filter-checkbox" [class.filter-checkbox-checked]="isAdSetSelected(a)">
+                  @if (isAdSetSelected(a)) {
+                    <mat-icon class="filter-check-icon">check</mat-icon>
+                  }
+                </span>
+                <span class="filter-item-name" [title]="a.name">{{ a.name }}</span>
+              </div>
+            }
+            @if (!filterPanelAdSets.length) {
+              <div class="filter-col-empty">No ad sets</div>
+            }
+          </div>
+        </div>
+
+        <div class="filter-col-divider"></div>
+
+        <!-- Ads column -->
+        <div class="filter-col">
+          <div class="filter-col-header">
+            ADS
+            <span class="filter-col-count">({{ selectedAdIds.size }}/{{ filterPanelAds.length }})</span>
+          </div>
+          <input class="filter-col-search" type="text" placeholder="Search…"
+                 [(ngModel)]="adSearch" (click)="$event.stopPropagation()" />
+          <div class="filter-col-list">
+            @for (ad of filterPanelAds; track ad.id) {
+              <div class="filter-col-item"
+                   [class.filter-col-item-checked]="isAdSelected(ad)"
+                   (click)="toggleAd(ad)">
+                <span class="filter-checkbox" [class.filter-checkbox-checked]="isAdSelected(ad)">
+                  @if (isAdSelected(ad)) {
+                    <mat-icon class="filter-check-icon">check</mat-icon>
+                  }
+                </span>
+                <span class="filter-item-name" [title]="ad.name">{{ ad.name }}</span>
+              </div>
+            }
+            @if (!filterPanelAds.length) {
+              <div class="filter-col-empty">No ads</div>
+            }
+          </div>
+        </div>
+
+      </div>
     </div>
 
     <!-- Collapsible Unified Tree Panel -->
@@ -545,9 +637,9 @@
       </ng-container>
     </div>
 
-    <!-- Performance Chart -->
+    <!-- Performance Chart (enhanced SVG) -->
     <div class="graph-section">
-      <!-- Change 3: context label showing what the graph is plotting -->
+      <!-- Context label showing what the graph is plotting -->
       <div class="graph-context-bar">
         @if (selectedTreeRow) {
           <span class="graph-context-label">
@@ -563,30 +655,50 @@
           </span>
         }
       </div>
+
+      <!-- Header: title left, Line/Bar toggle right -->
       <div class="graph-header">
         <span class="graph-title">Performance Over Time</span>
         <div class="graph-type-toggle">
-          <button
-            class="toggle-btn"
-            [class.active]="chartType === 'line'"
-            (click)="setChartType('line')"
-          >
+          <button class="toggle-btn" [class.active]="chartType === 'line'" (click)="setChartType('line')">
             <mat-icon>show_chart</mat-icon> Line
           </button>
-          <button
-            class="toggle-btn"
-            [class.active]="chartType === 'bar'"
-            (click)="setChartType('bar')"
-          >
+          <button class="toggle-btn" [class.active]="chartType === 'bar'" (click)="setChartType('bar')">
             <mat-icon>bar_chart</mat-icon> Bar
           </button>
         </div>
       </div>
+
+      <!-- Metric toggle pills (between header and chart) -->
+      <div class="chart-metric-pills-row">
+        @for (block of metricBlocks; track block.index) {
+          @if (block.metricKey) {
+            <button
+              class="chart-metric-pill"
+              [class.active]="activeMetrics.includes(block.metricKey)"
+              [style.border-color]="activeMetrics.includes(block.metricKey) ? getMetricColor(block.metricKey) : null"
+              [style.background-color]="activeMetrics.includes(block.metricKey) ? (getMetricColor(block.metricKey) + '20') : null"
+              (click)="toggleActiveMetric(block.metricKey)"
+            >
+              <span class="pill-dot"
+                    [style.background]="activeMetrics.includes(block.metricKey) ? getMetricColor(block.metricKey) : '#94a3b8'">
+              </span>
+              {{ block.label }}
+            </button>
+          }
+        }
+      </div>
+
+      <!-- SVG chart area -->
       <div class="graph-wrapper">
         @if (isLoading) {
           <div class="skeleton skeleton-chart"></div>
         } @else {
-          <canvas #insightGraph class="insight-graph-canvas"></canvas>
+          <app-insights-svg-chart
+            [data]="chartData"
+            [activeMetrics]="activeMetrics"
+            [chartType]="chartType"
+          ></app-insights-svg-chart>
         }
       </div>
     </div>

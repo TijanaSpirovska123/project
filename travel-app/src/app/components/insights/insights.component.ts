@@ -35,6 +35,7 @@ import {
   METRIC_CONFIG,
 } from '../../models/insights/insight.model';
 import { DatePresetId, DateRangeSelection } from './adflow-date-range-picker.component';
+import { ChartDataPoint, METRIC_COLORS } from './insights-svg-chart.component';
 import { toIsoDate } from '../../utils/date.util';
 import { InsightsSavedViewService } from '../../services/insights/insights-saved-view.service';
 import { InsightsSavedView, InsightsViewConfig } from '../../models/insights/insights-saved-view.model';
@@ -153,6 +154,14 @@ export class InsightsComponent implements OnInit, OnDestroy {
 
   // Object selection panel expand/collapse
   selectionExpanded = true;
+
+  // Three-column filter panel open/close state
+  filterPanelOpen = false;
+
+  // Active metrics shown on the SVG chart (subset of metricBlocks keys)
+  activeMetrics: string[] = ['impressions', 'reach', 'clicks', 'spend', 'ctr', 'cpm'];
+
+  readonly metricColors = METRIC_COLORS;
 
   // Per-column search strings
   campaignSearch = '';
@@ -430,6 +439,73 @@ export class InsightsComponent implements OnInit, OnDestroy {
 
   get checkedRowCount(): number {
     return this.selectedCampaignIds.size + this.selectedAdSetIds.size + this.selectedAdIds.size;
+  }
+
+  // ---------- Filter Panel Getters (three-column quick filter) ----------
+
+  get filterPanelCampaigns(): typeof this.availableCampaigns {
+    const q = this.campaignSearch.toLowerCase().trim();
+    if (!q) return this.availableCampaigns;
+    return this.availableCampaigns.filter(c =>
+      c.name?.toLowerCase().includes(q) || c.externalId?.toLowerCase().includes(q)
+    );
+  }
+
+  get filterPanelAdSets(): typeof this.availableAdSets {
+    const q = this.adSetSearch.toLowerCase().trim();
+    if (!q) return this.availableAdSets;
+    return this.availableAdSets.filter(a => a.name?.toLowerCase().includes(q));
+  }
+
+  get filterPanelAds(): typeof this.availableAds {
+    const q = this.adSearch.toLowerCase().trim();
+    if (!q) return this.availableAds;
+    return this.availableAds.filter(ad => ad.name?.toLowerCase().includes(q));
+  }
+
+  // ---------- Chart Data Getter (for SVG chart) ----------
+
+  get chartData(): ChartDataPoint[] {
+    const snapshots = this.getGraphSnapshots();
+    if (!snapshots.length) return [];
+
+    const dateMap = new Map<string, any[]>();
+    for (const snap of snapshots) {
+      for (const entry of snap.rawData?.data ?? []) {
+        const key = (entry['date_start'] as string) ?? snap.dateStart;
+        if (!dateMap.has(key)) dateMap.set(key, []);
+        dateMap.get(key)!.push(entry);
+      }
+    }
+
+    const dates = Array.from(dateMap.keys()).sort();
+    return dates.map(d => {
+      const entries = dateMap.get(d) ?? [];
+      const point: ChartDataPoint = { label: d.slice(5) };
+      for (const key of this.activeMetrics) {
+        point[key] = entries.reduce((sum: number, e: any) => {
+          const { value } = this.extractMetricValue(e, key);
+          return sum + value;
+        }, 0);
+      }
+      return point;
+    });
+  }
+
+  // ---------- Chart metric pill toggle ----------
+
+  toggleActiveMetric(key: string): void {
+    if (this.activeMetrics.includes(key)) {
+      if (this.activeMetrics.length > 1) {
+        this.activeMetrics = this.activeMetrics.filter(m => m !== key);
+      }
+    } else {
+      this.activeMetrics = [...this.activeMetrics, key];
+    }
+  }
+
+  getMetricColor(key: string): string {
+    return METRIC_COLORS[key] ?? '#60A5FA';
   }
 
   getPlatformInfo(key: string): { icon: string; label: string } {
@@ -1396,85 +1472,10 @@ export class InsightsComponent implements OnInit, OnDestroy {
     this.drawGraph();
   }
 
+  // SVG chart is declarative — Angular re-renders it via the chartData getter.
+  // This stub is kept so existing call sites continue to work without changes.
   drawGraph(): void {
-    const canvas = this.graphCanvasRef?.nativeElement;
-    if (!canvas) return;
-    if (this.chartInstance) {
-      this.chartInstance.destroy();
-      this.chartInstance = null;
-    }
-
-    // Change 3: use selectedTreeRow entity data when one row is highlighted
-    const snapshots = this.getGraphSnapshots();
-    if (!snapshots.length) return;
-
-    const dateMap = new Map<string, any[]>();
-    for (const snap of snapshots) {
-      for (const entry of snap.rawData?.data ?? []) {
-        const key: string = entry['date_start'] ?? snap.dateStart;
-        if (!dateMap.has(key)) dateMap.set(key, []);
-        dateMap.get(key)!.push(entry);
-      }
-    }
-    const dates = Array.from(dateMap.keys()).sort();
-    const activeBlocks = this.metricBlocks.filter((b) => b.metricKey);
-
-    const datasets = activeBlocks.map((block, si) => ({
-      label: this.formatMetricLabel(block.metricKey!),
-      data: dates.map((d) => {
-        const entries = dateMap.get(d) ?? [];
-        return entries.reduce((sum: number, e: any) => {
-          const { value } = this.extractMetricValue(e, block.metricKey!);
-          return sum + value;
-        }, 0);
-      }),
-      borderColor: CHART_COLORS[si % CHART_COLORS.length],
-      backgroundColor: CHART_COLORS[si % CHART_COLORS.length] + '22',
-      fill: true,
-      tension: 0.4,
-      pointRadius: 4,
-      pointHoverRadius: 7,
-      borderWidth: 2.5,
-    }));
-
-    this.chartInstance = new Chart(canvas, {
-      type: this.chartType,
-      data: { labels: dates.map((d) => d.slice(5)), datasets },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: {
-            position: 'top',
-            labels: {
-              font: { family: 'Inter, sans-serif', size: 12 },
-              usePointStyle: true,
-            },
-          },
-          tooltip: {
-            callbacks: {
-              label: (ctx: any) =>
-                ` ${ctx.dataset.label}: ${this.formatNumber(ctx.parsed.y)}`,
-            },
-          },
-        },
-        scales: {
-          x: {
-            grid: { color: '#e8ebf2' },
-            ticks: { font: { size: 11 }, maxRotation: 45, color: '#64748b' },
-          },
-          y: {
-            grid: { color: '#e8ebf2' },
-            ticks: {
-              font: { size: 11 },
-              color: '#64748b',
-              callback: (value: any) => this.formatNumber(Number(value)),
-            },
-          },
-        },
-      },
-    } as any);
+    this.cdr.detectChanges();
   }
 
   drawSpendChart(): void {

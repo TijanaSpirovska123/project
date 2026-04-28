@@ -1,0 +1,106 @@
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.svg-chart-outer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.chart-svg {
+  display: block;
+  overflow: visible;
+}
+
+.grid-line {
+  stroke: #e8ebf2;
+  stroke-width: 1;
+}
+
+.axis-label {
+  font-size: 10px;
+  fill: #94a3b8;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.data-dot {
+  transition: r 0.1s ease;
+}
+
+.bar-rect {
+  transition: fill 0.12s ease;
+}
+
+.hover-zone {
+  cursor: crosshair;
+}
+
+// ── Tooltip ──────────────────────────────────────────────────────────────────
+.chart-tooltip {
+  position: absolute;
+  top: 16px;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 10px 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  z-index: 100;
+  min-width: 140px;
+  white-space: nowrap;
+  transform: translateX(10px);
+
+  &.tooltip-flip {
+    transform: translateX(calc(-100% - 10px));
+  }
+}
+
+.tooltip-date {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+  margin-bottom: 7px;
+  font-family: 'Inter', system-ui, sans-serif;
+  letter-spacing: 0.3px;
+}
+
+.tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-family: 'Inter', system-ui, sans-serif;
+
+  &:last-child { margin-bottom: 0; }
+}
+
+.tooltip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tooltip-metric {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.65);
+  flex: 1;
+}
+
+.tooltip-value {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  font-variant-numeric: tabular-nums;
+}
+
+// ── Dark mode: axis labels become lighter ────────────────────────────────────
+:host-context([data-theme="dark"]),
+:host-context(body.dark-mode) {
+  .grid-line { stroke: rgba(255, 255, 255, 0.05); }
+  .axis-label { fill: #606a6a; }
+}

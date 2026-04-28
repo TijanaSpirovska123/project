@@ -52,6 +52,7 @@ import { AppErrorStateComponent } from './components/shared/error-state.componen
 import { SearchableDropdownComponent } from './components/shared/searchable-dropdown.component';
 import { DateRangePickerComponent } from './components/shared/date-range-picker.component';
 import { AdflowDateRangePickerComponent } from './components/insights/adflow-date-range-picker.component';
+import { InsightsSvgChartComponent } from './components/insights/insights-svg-chart.component';
 
 @NgModule({
   declarations: [
@@ -66,6 +67,7 @@ import { AdflowDateRangePickerComponent } from './components/insights/adflow-dat
     CreateAdWorkflowComponent,
     InsightsComponent,
     AdflowDateRangePickerComponent,
+    InsightsSvgChartComponent,
     CreativeLibraryComponent,
     SyncAccountsComponent,
   ],

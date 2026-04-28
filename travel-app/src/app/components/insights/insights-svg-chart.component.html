@@ -1,0 +1,143 @@
+<div class="svg-chart-outer">
+  <svg
+    [attr.viewBox]="'0 0 ' + SVG_W + ' ' + SVG_H"
+    width="100%"
+    height="100%"
+    preserveAspectRatio="none"
+    class="chart-svg"
+    (mousemove)="onSvgMouseMove($event)"
+    (mouseleave)="onSvgMouseLeave()"
+  >
+    <defs>
+      @for (metric of activeMetrics; track metric; let i = $index) {
+        @if (i === 0) {
+          <linearGradient [id]="'grad-' + metric" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" [attr.stop-color]="getColor(metric)" stop-opacity="0.18"/>
+            <stop offset="100%" [attr.stop-color]="getColor(metric)" stop-opacity="0"/>
+          </linearGradient>
+        }
+      }
+    </defs>
+
+    <!-- Grid lines -->
+    @for (n of gridLines; track n) {
+      <line
+        [attr.x1]="PAD_LEFT"
+        [attr.y1]="gridY(n)"
+        [attr.x2]="SVG_W - PAD_RIGHT"
+        [attr.y2]="gridY(n)"
+        class="grid-line"
+      />
+      <text
+        [attr.x]="PAD_LEFT - 6"
+        [attr.y]="gridY(n) + 4"
+        text-anchor="end"
+        class="axis-label"
+      >{{ gridLabel(n) }}</text>
+    }
+
+    <!-- Bar mode: primary metric bars -->
+    @if (chartType === 'bar' && activeMetrics.length && data.length) {
+      @for (point of data; track i; let i = $index) {
+        <rect
+          [attr.x]="getBarX(i)"
+          [attr.y]="getBarY(activeMetrics[0], i)"
+          [attr.width]="barW"
+          [attr.height]="getBarHeight(activeMetrics[0], i)"
+          rx="3"
+          [attr.fill]="hoveredIndex === i ? getColor(activeMetrics[0]) : getColor(activeMetrics[0]) + '99'"
+          class="bar-rect"
+        />
+      }
+    }
+
+    <!-- Line mode: area gradient fill for primary metric only -->
+    @if (chartType === 'line' && activeMetrics.length && data.length) {
+      <path
+        [attr.d]="getAreaPath(activeMetrics[0])"
+        [attr.fill]="'url(#grad-' + activeMetrics[0] + ')'"
+      />
+    }
+
+    <!-- Lines and dots for each active metric -->
+    @for (metric of activeMetrics; track metric; let mi = $index) {
+      @if (chartType === 'line' || mi > 0) {
+        <path
+          [attr.d]="getLinePath(metric)"
+          fill="none"
+          [attr.stroke]="getColor(metric)"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        @for (point of data; track i; let i = $index) {
+          <circle
+            [attr.cx]="getLineX(i)"
+            [attr.cy]="getY(metric, i)"
+            [attr.r]="hoveredIndex === i ? 5 : 3"
+            [attr.fill]="getColor(metric)"
+            stroke="#0F172A"
+            stroke-width="2"
+            class="data-dot"
+          />
+        }
+      }
+    }
+
+    <!-- Crosshair vertical line -->
+    @if (hoveredIndex !== null) {
+      <line
+        [attr.x1]="crosshairX(hoveredIndex)"
+        [attr.y1]="PAD_TOP"
+        [attr.x2]="crosshairX(hoveredIndex)"
+        [attr.y2]="PAD_TOP + innerH"
+        stroke="rgba(255,255,255,0.15)"
+        stroke-width="1"
+        stroke-dasharray="4"
+      />
+    }
+
+    <!-- Invisible hover zones spanning full chart height -->
+    @for (point of data; track i; let i = $index) {
+      <rect
+        [attr.x]="hoverZoneX(i)"
+        [attr.y]="PAD_TOP"
+        [attr.width]="hoverZoneW(i)"
+        [attr.height]="innerH"
+        fill="transparent"
+        class="hover-zone"
+        (mouseenter)="hoveredIndex = i"
+      />
+    }
+
+    <!-- X-axis date labels -->
+    @for (point of data; track i; let i = $index) {
+      @if (showXLabel(i)) {
+        <text
+          [attr.x]="chartType === 'bar' ? getBarMidX(i) : getLineX(i)"
+          [attr.y]="SVG_H - 8"
+          text-anchor="middle"
+          class="axis-label"
+        >{{ point.label }}</text>
+      }
+    }
+  </svg>
+
+  <!-- Floating tooltip -->
+  @if (hoveredIndex !== null && data.length) {
+    <div
+      class="chart-tooltip"
+      [class.tooltip-flip]="tooltipOnLeft"
+      [style.left]="tooltipLeftPct + '%'"
+    >
+      <div class="tooltip-date">{{ data[hoveredIndex].label }}</div>
+      @for (metric of activeMetrics; track metric) {
+        <div class="tooltip-row">
+          <span class="tooltip-dot" [style.background]="getColor(metric)"></span>
+          <span class="tooltip-metric">{{ getLabel(metric) }}</span>
+          <span class="tooltip-value">{{ formatTooltipValue(metric, hoveredIndex) }}</span>
+        </div>
+      }
+    </div>
+  }
+</div>
