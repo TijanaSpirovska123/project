@@ -383,6 +383,16 @@ public class AdSetService extends AbstractPlatformService<AdSetEntity, AdSetDto,
         return adSetRepository.findByUserAndPlatformAndAdAccountIdAndExternalIdIn(user, platform, adAccountId, externalIds);
     }
 
+    @Override
+    protected void deleteAllByUserAndPlatformAndAdAccount(Long userId, String platform, String adAccountId) {
+        adSetRepository.deleteAllByUserIdAndPlatformAndAdAccountId(userId, platform, adAccountId);
+    }
+
+    @Override
+    protected void deleteAllByUserAndPlatform(Long userId, String platform) {
+        adSetRepository.deleteAllByUserIdAndPlatform(userId, platform);
+    }
+
     /**
      * Get ads for a specific ad set, filtered by platform.
      */

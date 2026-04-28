@@ -3,6 +3,10 @@ package com.example.marketing.campaign.repository;
 import com.example.marketing.campaign.entity.CampaignEntity;
 import com.example.marketing.user.entity.UserEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.List;
@@ -25,4 +29,19 @@ public interface CampaignRepository extends JpaRepository<CampaignEntity, Long> 
     Optional<CampaignEntity> findByUserAndPlatformAndExternalId(
             UserEntity user, String platform, String externalId
     );
+
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM CampaignEntity c WHERE c.user.id = :userId AND c.platform = :platform AND c.adAccountId = :adAccountId")
+    void deleteAllByUserIdAndPlatformAndAdAccountId(
+            @Param("userId") Long userId,
+            @Param("platform") String platform,
+            @Param("adAccountId") String adAccountId);
+
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM CampaignEntity c WHERE c.user.id = :userId AND c.platform = :platform")
+    void deleteAllByUserIdAndPlatform(
+            @Param("userId") Long userId,
+            @Param("platform") String platform);
 }

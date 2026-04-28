@@ -274,4 +274,14 @@ public class AdService extends AbstractPlatformService<AdEntity, AdDto, AdStrate
     protected List<AdEntity> findExisting(UserEntity user, String platform, String adAccountId, Collection<String> externalIds) {
         return adRepository.findByUserAndPlatformAndAdAccountIdAndExternalIdIn(user, platform, adAccountId, externalIds);
     }
+
+    @Override
+    protected void deleteAllByUserAndPlatformAndAdAccount(Long userId, String platform, String adAccountId) {
+        adRepository.deleteAllByUserIdAndPlatformAndAdAccountId(userId, platform, adAccountId);
+    }
+
+    @Override
+    protected void deleteAllByUserAndPlatform(Long userId, String platform) {
+        adRepository.deleteAllByUserIdAndPlatform(userId, platform);
+    }
 }

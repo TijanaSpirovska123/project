@@ -42,6 +42,7 @@ export class SyncAccountsComponent implements OnInit, OnDestroy {
   syncing = false;
   adAccounts: AdAccountConnection[] = [];
   selectedAccount: AdAccountConnection | null = null;
+  disconnectingAccount: string | null = null;
   private syncingPlatform: PlatformCard | null = null;
 
   private syncStateSub?: Subscription;
@@ -292,6 +293,35 @@ export class SyncAccountsComponent implements OnInit, OnDestroy {
           this.toastr.error(CoreService.extractErrorMessage(err, 'Failed to sync campaigns'));
         }
         onError();
+      },
+    });
+  }
+
+  disconnectAdAccount(account: AdAccountConnection): void {
+    if (!confirm(
+      `Disconnect "${account.adAccountName}"? ` +
+      `This will remove all synced campaigns, ad sets, and ads for this account.`
+    )) return;
+
+    this.disconnectingAccount = account.adAccountId;
+
+    this.oauthService.disconnectAdAccount(account.adAccountId).subscribe({
+      next: () => {
+        this.disconnectingAccount = null;
+        this.toastr.success(`"${account.adAccountName}" disconnected successfully`);
+        this.adAccounts = this.adAccounts.filter(a => a.adAccountId !== account.adAccountId);
+        if (this.adAccounts.length === 0) {
+          this.closeSyncModal();
+          this.loadConnectionStatus();
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.disconnectingAccount = null;
+        this.cdr.detectChanges();
+        if (!this.authStore.isSessionExpiredRedirect()) {
+          this.toastr.error('Failed to disconnect ad account');
+        }
       },
     });
   }

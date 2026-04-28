@@ -222,6 +222,22 @@
                   @if (account.timezoneName) { · {{ account.timezoneName }} }
                 </div>
               </div>
+              <button
+                class="account-disconnect-btn"
+                (click)="$event.stopPropagation(); disconnectAdAccount(account)"
+                [disabled]="disconnectingAccount === account.adAccountId || syncing"
+                title="Disconnect this ad account"
+              >
+                @if (disconnectingAccount === account.adAccountId) {
+                  <div class="btn-spinner account-disconnect-spinner"></div>
+                } @else {
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2" width="14" height="14">
+                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+                    <line x1="12" y1="2" x2="12" y2="12"/>
+                  </svg>
+                }
+              </button>
             </div>
           }
         </div>
@@ -256,7 +272,7 @@
     <div class="dialog-card" (click)="$event.stopPropagation()">
       <h3 class="dialog-title">Disconnect {{ disconnectPlatform.name }}?</h3>
       <p class="dialog-body">
-        Your synced data will remain in the app, but you won't be able to sync new data until you reconnect.
+        This will remove all synced campaigns, ad sets, and ads for {{ disconnectPlatform.name }}. You can reconnect and sync again at any time.
       </p>
       <div class="dialog-actions">
         <button class="dialog-btn cancel" (click)="cancelDisconnect()">Cancel</button>

@@ -695,6 +695,42 @@
   }
 }
 
+.account-disconnect-btn {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--tbl-muted, #94a3b8);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 150ms;
+  font-family: inherit;
+  padding: 0;
+
+  &:hover:not(:disabled) {
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #ef4444;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.account-disconnect-spinner {
+  width: 12px !important;
+  height: 12px !important;
+  border: 2px solid rgba(0, 0, 0, 0.15) !important;
+  border-top-color: #ef4444 !important;
+}
+
 .account-info { flex: 1; min-width: 0; }
 
 .account-name {

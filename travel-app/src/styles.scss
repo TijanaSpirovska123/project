@@ -703,6 +703,15 @@ body {
   .account-name { color: $clr-primary-a40 !important; }
   .account-meta { color: $clr-surface-tonal-a50 !important; }
 
+  .account-disconnect-btn {
+    color: $clr-surface-tonal-a50 !important;
+    &:hover:not(:disabled) {
+      background: rgba(239, 68, 68, 0.15) !important;
+      border-color: rgba(239, 68, 68, 0.4) !important;
+      color: #f87171 !important;
+    }
+  }
+
   .modal-actions {
     border-top-color: $clr-surface-tonal-a20 !important;
   }
@@ -1213,6 +1222,10 @@ body {
 
     .picker-section + .picker-section {
       border-top-color: $clr-surface-tonal-a20 !important;
+    }
+
+    .picker-left {
+      border-right-color: $clr-surface-tonal-a20 !important;
     }
 
     .preset-row,

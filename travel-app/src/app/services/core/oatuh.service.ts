@@ -50,4 +50,11 @@ export class OAuthService extends CoreService {
   getConnectedAdAccounts(provider: string): Observable<AdAccountConnection[]> {
     return this.getByPath(`ad-account-connections/accounts?provider=${provider}`);
   }
+
+  disconnectAdAccount(adAccountId: string): Observable<void> {
+    return this.http.delete<void>(
+      `${this.URL}/meta/connections/${adAccountId}`,
+      { withCredentials: true }
+    );
+  }
 }

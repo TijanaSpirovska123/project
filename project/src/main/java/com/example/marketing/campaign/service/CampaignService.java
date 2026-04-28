@@ -212,6 +212,16 @@ public class CampaignService extends AbstractPlatformService<
         return campaignRepository.findByUserAndPlatformAndAdAccountIdAndExternalIdIn(user, platform, adAccountId, externalIds);
     }
 
+    @Override
+    protected void deleteAllByUserAndPlatformAndAdAccount(Long userId, String platform, String adAccountId) {
+        campaignRepository.deleteAllByUserIdAndPlatformAndAdAccountId(userId, platform, adAccountId);
+    }
+
+    @Override
+    protected void deleteAllByUserAndPlatform(Long userId, String platform) {
+        campaignRepository.deleteAllByUserIdAndPlatform(userId, platform);
+    }
+
     @Transactional
     public CampaignDto updateByExternalId(Long userId, Provider platform, String externalId, CampaignDto dto) {
         UserEntity user = userRepository.findById(userId)

@@ -41,6 +41,20 @@ public abstract class AbstractPlatformService<
     protected abstract void applyDtoToNewEntity(D dto, E entity, UserEntity user, Provider provider, String adAccountId);
     protected abstract List<E> findExisting(UserEntity user, String platform, String adAccountId, Collection<String> externalIds);
 
+    // ===== required hooks for delete (implemented by each concrete service) =====
+    protected abstract void deleteAllByUserAndPlatformAndAdAccount(Long userId, String platform, String adAccountId);
+    protected abstract void deleteAllByUserAndPlatform(Long userId, String platform);
+
+    @Transactional
+    public void wipeAdAccount(UserEntity user, Provider platform, String adAccountId) {
+        deleteAllByUserAndPlatformAndAdAccount(user.getId(), platform.name(), adAccountId);
+    }
+
+    @Transactional
+    public void wipePlatform(UserEntity user, Provider platform) {
+        deleteAllByUserAndPlatform(user.getId(), platform.name());
+    }
+
     // ===== optional hooks (defaults: no-op) =====
     protected void applyDtoToExistingEntity(D dto, E existing) { /* no-op */ }
     protected Map<String, Object> dtoRawData(D dto) { return null; }
