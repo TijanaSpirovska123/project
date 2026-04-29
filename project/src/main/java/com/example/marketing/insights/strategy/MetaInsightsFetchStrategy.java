@@ -7,6 +7,7 @@ import com.example.marketing.insights.util.InsightObjectType;
 import com.example.marketing.oauth.service.TokenService;
 import com.example.marketing.user.entity.UserEntity;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
@@ -15,9 +16,12 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class MetaInsightsFetchStrategy implements InsightsFetchStrategy {
+
+    private static final int META_BATCH_ID_LIMIT = 50;
 
     private final PlatformClientRegistry clients;
     private final TokenService tokens;
@@ -226,23 +230,35 @@ public class MetaInsightsFetchStrategy implements InsightsFetchStrategy {
         String token = tokens.getAccessToken(user, Provider.META);
         var client = clients.of(Provider.META);
 
-        String ids = StreamSupport.stream(objectIds.spliterator(), false)
-                .collect(Collectors.joining(","));
+        List<String> allIds = StreamSupport.stream(objectIds.spliterator(), false)
+                .filter(id -> id != null && !id.isBlank())
+                .collect(Collectors.toList());
 
-        Map<String, String> q = new HashMap<>(queryParams);
-        q.put("ids", ids);
-
-        ResponseEntity<Map> resp = client.get("insights", q, token);
-        Map<String, Object> body = validateAndReturn(resp, "batch ids=" + ids);
-
+        int totalBatches = (int) Math.ceil((double) allIds.size() / META_BATCH_ID_LIMIT);
         Map<String, Map<String, Object>> result = new LinkedHashMap<>();
-        for (var entry : body.entrySet()) {
-            if (entry.getValue() instanceof Map<?, ?> perObject) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> typed = (Map<String, Object>) perObject;
-                result.put(entry.getKey(), typed);
+
+        for (int i = 0; i < allIds.size(); i += META_BATCH_ID_LIMIT) {
+            List<String> chunk = allIds.subList(i, Math.min(i + META_BATCH_ID_LIMIT, allIds.size()));
+            String ids = String.join(",", chunk);
+
+            log.info("Fetching Meta insights batch {}/{} ({} IDs)",
+                    (i / META_BATCH_ID_LIMIT) + 1, totalBatches, chunk.size());
+
+            Map<String, String> q = new HashMap<>(queryParams);
+            q.put("ids", ids);
+
+            ResponseEntity<Map> resp = client.get("insights", q, token);
+            Map<String, Object> body = validateAndReturn(resp, "batch ids=" + ids);
+
+            for (var entry : body.entrySet()) {
+                if (entry.getValue() instanceof Map<?, ?> perObject) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> typed = (Map<String, Object>) perObject;
+                    result.put(entry.getKey(), typed);
+                }
             }
         }
+
         return result;
     }
 
