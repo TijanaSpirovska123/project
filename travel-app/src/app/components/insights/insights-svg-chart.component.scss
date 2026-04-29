@@ -26,9 +26,6 @@
   font-family: 'Inter', system-ui, sans-serif;
 }
 
-.data-dot {
-  transition: r 0.1s ease;
-}
 
 .bar-rect {
   transition: fill 0.12s ease;
@@ -98,9 +95,35 @@
   font-variant-numeric: tabular-nums;
 }
 
+// ── Period legend ─────────────────────────────────────────────────────────────
+.chart-period-legend {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-label {
+  font-size: 10px;
+  color: #94a3b8;
+  font-family: 'Inter', system-ui, sans-serif;
+  letter-spacing: 0.2px;
+}
+
 // ── Dark mode: axis labels become lighter ────────────────────────────────────
 :host-context([data-theme="dark"]),
 :host-context(body.dark-mode) {
   .grid-line { stroke: rgba(255, 255, 255, 0.05); }
   .axis-label { fill: #606a6a; }
+  .legend-label { color: #606a6a; }
 }

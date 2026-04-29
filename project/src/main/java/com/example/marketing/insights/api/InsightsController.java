@@ -4,6 +4,7 @@ import com.example.marketing.infrastructure.api.BaseController;
 import com.example.marketing.infrastructure.util.Provider;
 import com.example.marketing.insights.dto.*;
 import com.example.marketing.insights.dto.CompareRequestDto;
+import com.example.marketing.insights.dto.InsightsBreakdownRowDto;
 import com.example.marketing.insights.util.FetchMode;
 import com.example.marketing.insights.util.InsightObjectType;
 import com.example.marketing.insights.service.InsightsService;
@@ -257,6 +258,23 @@ public class InsightsController extends BaseController {
     @GetMapping("/metrics")
     public BaseResponse<List<String>> metricNames() {
         return ok(service.listMetricNames());
+    }
+
+    // -------------------------------------------------------------------------
+    // BREAKDOWN by dimension
+    // GET /api/insights/breakdown?provider=META&adAccountId=...&dimension=age&dateStart=...&dateStop=...
+    // -------------------------------------------------------------------------
+
+    @GetMapping("/breakdown")
+    public BaseResponse<List<InsightsBreakdownRowDto>> breakdown(
+            Authentication auth,
+            @RequestParam Provider provider,
+            @RequestParam String adAccountId,
+            @RequestParam String dimension,
+            @RequestParam LocalDate dateStart,
+            @RequestParam LocalDate dateStop) {
+        Long userId = extractUserId(auth);
+        return ok(service.breakdown(userId, provider, adAccountId, dimension, dateStart, dateStop));
     }
 
     // -------------------------------------------------------------------------

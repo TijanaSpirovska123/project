@@ -1,0 +1,87 @@
+<div class="breakdown-panel">
+  <!-- Panel header -->
+  <div class="panel-header">
+    <span class="panel-label">BREAKDOWN</span>
+    <button class="dim-trigger" (click)="toggleDropdown(dimTriggerEl)" #dimTriggerEl>
+      <span>{{ dimensionLabel }}</span>
+      <svg class="chevron" [class.open]="dropdownOpen" width="10" height="10" viewBox="0 0 10 10" fill="none">
+        <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Loading state -->
+  @if (isLoading) {
+    <div class="panel-rows">
+      @for (i of [1,2,3,4]; track i) {
+        <div class="row-skeleton">
+          <div class="skel skel-label"></div>
+          <div class="skel skel-bar"></div>
+          <div class="skel skel-pct"></div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Empty / no data state -->
+  @else if (!rows.length) {
+    <div class="panel-empty">
+      <span>No breakdown data yet — sync to fetch</span>
+    </div>
+  }
+
+  <!-- Rows -->
+  @else {
+    <div class="panel-rows">
+      @for (row of rows; track row.dimensionValue) {
+        <div
+          class="dim-row"
+          [class.active]="isRowActive(row)"
+          (click)="clickRow(row)"
+        >
+          <span class="row-label" [class.active]="isRowActive(row)">{{ row.dimensionValue }}</span>
+          <div class="row-bar-track">
+            <div
+              class="row-bar-fill"
+              [class.active]="isRowActive(row)"
+              [style.width.%]="row.share"
+            ></div>
+          </div>
+          <span class="row-pct">{{ row.share | number:'1.0-0' }}%</span>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<!-- Dimension dropdown (portalled via fixed position) -->
+@if (dropdownOpen) {
+  <div
+    class="dim-dropdown-menu"
+    [style.top.px]="dropdownTop"
+    [style.left.px]="dropdownLeft"
+    (click)="$event.stopPropagation()"
+  >
+    @for (group of dimensionGroups; track group) {
+      @if (getDimensionsForGroup(group).length) {
+        <div class="dropdown-group-header">{{ group }}</div>
+        @for (dim of getDimensionsForGroup(group); track dim.key) {
+          <button
+            class="dropdown-option"
+            [class.selected]="isDimensionSelected(dim.key)"
+            [class.disabled]="isDimensionDisabled(dim.key)"
+            [disabled]="isDimensionDisabled(dim.key)"
+            (click)="selectDimension(dim.key)"
+          >
+            <span>{{ dim.label }}</span>
+            @if (isDimensionSelected(dim.key)) {
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" class="check-icon">
+                <path d="M2 6L5 9L10 3" stroke="#1ca698" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            }
+          </button>
+        }
+      }
+    }
+  </div>
+}

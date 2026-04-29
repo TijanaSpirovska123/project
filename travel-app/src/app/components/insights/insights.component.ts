@@ -40,6 +40,10 @@ import { toIsoDate } from '../../utils/date.util';
 import { InsightsSavedViewService } from '../../services/insights/insights-saved-view.service';
 import { InsightsSavedView, InsightsViewConfig } from '../../models/insights/insights-saved-view.model';
 import {
+  SegmentFilter,
+  InsightsBreakdownRow,
+} from './insights-breakdown.types';
+import {
   CHART_COLORS,
   DEFAULT_DATE_SELECTION,
   ROLLING_PRESET_DAYS,
@@ -201,6 +205,15 @@ export class InsightsComponent implements OnInit, OnDestroy {
 
   // ---------- Change 5 — Sort + bulk ----------
   sortBy: { column: string; direction: 'asc' | 'desc' } | null = null;
+
+  // ---------- Breakdown panels ----------
+  leftDimension = 'age';
+  rightDimension = 'gender';
+  activeSegment: SegmentFilter | null = null;
+  leftBreakdownRows: InsightsBreakdownRow[] = [];
+  rightBreakdownRows: InsightsBreakdownRow[] = [];
+  leftBreakdownLoading = false;
+  rightBreakdownLoading = false;
 
   // Viewport width for side-by-side availability check
   private viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
@@ -499,6 +512,113 @@ export class InsightsComponent implements OnInit, OnDestroy {
       }
       return point;
     });
+  }
+
+  // ---------- Previous period chart data ----------
+
+  get previousChartData(): ChartDataPoint[] {
+    if (!this.dateSelection.compareToPrevious) return [];
+    const tabType = this.activeTabIndex === 0 ? 'campaign' : this.activeTabIndex === 1 ? 'adset' : 'ad';
+    const durMs = new Date(this.dateStop).getTime() - new Date(this.dateStart).getTime();
+    const prevStop = new Date(new Date(this.dateStart).getTime() - 86400000);
+    const prevStart = new Date(prevStop.getTime() - durMs);
+    const prevKey = `${tabType}__${this.formatDate(prevStart)}__${this.formatDate(prevStop)}`;
+    const prevSnaps = InsightsComponent['insightsCache'].get(prevKey) ?? [];
+    if (!prevSnaps.length) return [];
+
+    const dateMap = new Map<string, any[]>();
+    for (const snap of prevSnaps) {
+      for (const entry of snap.rawData?.data ?? []) {
+        const key = (entry['date_start'] as string) ?? snap.dateStart;
+        if (!dateMap.has(key)) dateMap.set(key, []);
+        dateMap.get(key)!.push(entry);
+      }
+    }
+    const dates = Array.from(dateMap.keys()).sort();
+    return dates.map(d => {
+      const entries = dateMap.get(d) ?? [];
+      const point: ChartDataPoint = { label: d.slice(5) };
+      for (const key of this.activeMetrics) {
+        point[key] = entries.reduce((sum: number, e: any) => {
+          const { value } = this.extractMetricValue(e, key);
+          return sum + value;
+        }, 0);
+      }
+      return point;
+    });
+  }
+
+  get chartSubtitle(): string {
+    if (!this.dateStart || !this.dateStop) return '';
+    const range = `${this.dateStart.slice(5)} – ${this.dateStop.slice(5)}`;
+    const segPart = this.activeSegment ? ` · ${this.activeSegment.segmentLabel}` : '';
+    if (!this.dateSelection.compareToPrevious) return range + segPart;
+    const durMs = new Date(this.dateStop).getTime() - new Date(this.dateStart).getTime();
+    const days = Math.round(durMs / 86400000);
+    return `${range} vs previous ${days} days${segPart}`;
+  }
+
+  // ---------- Breakdown panel handlers ----------
+
+  onSegmentChange(seg: SegmentFilter | null): void {
+    this.activeSegment = seg;
+    this.updateBlockValues();
+    this.cdr.detectChanges();
+  }
+
+  onLeftDimensionChange(dim: string): void {
+    this.leftDimension = dim;
+    this.loadLeftBreakdown();
+    this.saveLastView();
+  }
+
+  onRightDimensionChange(dim: string): void {
+    this.rightDimension = dim;
+    this.loadRightBreakdown();
+    this.saveLastView();
+  }
+
+  clearSegmentFilter(): void {
+    this.activeSegment = null;
+    this.updateBlockValues();
+    this.cdr.detectChanges();
+  }
+
+  private loadLeftBreakdown(): void {
+    if (!this.actId || !this.dateStart || !this.dateStop) return;
+    this.leftBreakdownLoading = true;
+    this.insightsService.getBreakdown(
+      this.activePlatform,
+      this.actId,
+      this.leftDimension,
+      this.dateStart,
+      this.dateStop,
+    ).pipe(finalize(() => { this.leftBreakdownLoading = false; this.cdr.detectChanges(); }))
+    .subscribe({
+      next: (res) => { this.leftBreakdownRows = res?.data ?? []; },
+      error: () => { this.leftBreakdownRows = []; },
+    });
+  }
+
+  private loadRightBreakdown(): void {
+    if (!this.actId || !this.dateStart || !this.dateStop) return;
+    this.rightBreakdownLoading = true;
+    this.insightsService.getBreakdown(
+      this.activePlatform,
+      this.actId,
+      this.rightDimension,
+      this.dateStart,
+      this.dateStop,
+    ).pipe(finalize(() => { this.rightBreakdownLoading = false; this.cdr.detectChanges(); }))
+    .subscribe({
+      next: (res) => { this.rightBreakdownRows = res?.data ?? []; },
+      error: () => { this.rightBreakdownRows = []; },
+    });
+  }
+
+  loadBreakdownData(): void {
+    this.loadLeftBreakdown();
+    this.loadRightBreakdown();
   }
 
   // ---------- Chart metric pill toggle ----------
@@ -816,6 +936,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
       this.adInsights = cachedD;
       this.tabDataLoaded = [true, true, true];
       this.refreshCurrentView();
+      this.loadBreakdownData();
       this.cdr.detectChanges();
       return;
     }
@@ -903,6 +1024,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
         this.tabDataLoaded = [true, true, true];
         this.refreshCurrentView();
+        this.loadBreakdownData();
       },
       error: (err: any) => {
         this.isLoading = false;
@@ -1389,13 +1511,20 @@ export class InsightsComponent implements OnInit, OnDestroy {
     const prevKey = `${tabType}__${this.formatDate(prevStart)}__${this.formatDate(prevStop)}`;
     const prevSnaps = InsightsComponent['insightsCache'].get(prevKey) ?? null;
 
+    // TODO: replace with server-side filtering when breakdown endpoint supports it
+    const segMult = this.activeSegment ? (this.activeSegment.share / 100) : 1;
+
     this.metricBlocks = this.metricBlocks.map((block) => {
-      const value = this.aggregateMetric(block.metricKey, snapshots);
+      let value = this.aggregateMetric(block.metricKey, snapshots);
+      if (this.activeSegment && block.metricKey && value !== '—') {
+        const raw = this.aggregateMetricRaw(block.metricKey, snapshots);
+        value = this.formatValue(raw * segMult, this.getMetricFormat(block.metricKey));
+      }
       let trend: number | undefined;
       let trendDirection: 'up' | 'down' | 'neutral' | undefined;
       if (this.dateSelection.compareToPrevious && prevSnaps && block.metricKey) {
-        const prevVal = this.aggregateMetricRaw(block.metricKey, prevSnaps);
-        const curVal = this.aggregateMetricRaw(block.metricKey, snapshots);
+        const prevVal = this.aggregateMetricRaw(block.metricKey, prevSnaps) * segMult;
+        const curVal = this.aggregateMetricRaw(block.metricKey, snapshots) * segMult;
         if (prevVal > 0) {
           trend = ((curVal - prevVal) / prevVal) * 100;
           trendDirection = trend > 1 ? 'up' : trend < -1 ? 'down' : 'neutral';
@@ -1631,6 +1760,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
     if (this.dateStart && this.dateStop) {
       this.clearCache();
       this.loadAllData();
+      this.loadBreakdownData();
     }
   }
 
@@ -1954,6 +2084,9 @@ export class InsightsComponent implements OnInit, OnDestroy {
         sideBySideMode: this.sideBySideMode,
         selectedPlatforms: this.selectedPlatforms,
         sortBy: this.sortBy,
+        leftDimension: this.leftDimension,
+        rightDimension: this.rightDimension,
+        activeSegment: this.activeSegment,
       };
       localStorage.setItem(InsightsComponent.LAST_VIEW_KEY, JSON.stringify(view));
     } catch { /* quota exceeded or SSR */ }
@@ -1998,6 +2131,9 @@ export class InsightsComponent implements OnInit, OnDestroy {
         this.selectedPlatforms = view.selectedPlatforms;
       }
       if (view.sortBy !== undefined) this.sortBy = view.sortBy;
+      if (view.leftDimension) this.leftDimension = view.leftDimension;
+      if (view.rightDimension) this.rightDimension = view.rightDimension;
+      if (view.activeSegment !== undefined) this.activeSegment = view.activeSegment;
       this.dateRangeSelected = true;
       return true;
     } catch { return false; }
@@ -2082,6 +2218,9 @@ export class InsightsComponent implements OnInit, OnDestroy {
       this.selectedPlatforms = cfg.selectedPlatforms;
     }
     this.sortBy = cfg.sortBy ?? null;
+    this.leftDimension = cfg.leftBreakdownDimension ?? 'age';
+    this.rightDimension = cfg.rightBreakdownDimension ?? 'gender';
+    this.activeSegment = cfg.activeSegment ?? null;
 
     this.dateRangeSelected = true;
     this.activeSavedView = view;
@@ -2089,6 +2228,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
     this.savedViewsDropdownOpen = false;
     this.clearCache();
     this.loadAllData();
+    this.loadBreakdownData();
     this.saveLastView();
     this.cdr.detectChanges();
   }
@@ -2335,6 +2475,10 @@ export class InsightsComponent implements OnInit, OnDestroy {
       selectedPlatforms: [...this.selectedPlatforms],
       // Change 5
       sortBy: this.sortBy,
+      // Breakdown
+      leftBreakdownDimension: this.leftDimension,
+      rightBreakdownDimension: this.rightDimension,
+      activeSegment: this.activeSegment,
     };
   }
 

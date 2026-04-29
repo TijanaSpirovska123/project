@@ -59,7 +59,20 @@
       />
     }
 
-    <!-- Lines and dots for each active metric -->
+    <!-- Previous period dashed line (rendered below current line) -->
+    @if (hasPreviousData) {
+      <path
+        [attr.d]="getPrevLinePath(activeMetrics[0])"
+        fill="none"
+        stroke="#2a3a42"
+        stroke-width="1.5"
+        stroke-dasharray="3 3"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    }
+
+    <!-- Lines for each active metric -->
     @for (metric of activeMetrics; track metric; let mi = $index) {
       @if (chartType === 'line' || mi > 0) {
         <path
@@ -70,17 +83,6 @@
           stroke-linecap="round"
           stroke-linejoin="round"
         />
-        @for (point of data; track i; let i = $index) {
-          <circle
-            [attr.cx]="getLineX(i)"
-            [attr.cy]="getY(metric, i)"
-            [attr.r]="hoveredIndex === i ? 5 : 3"
-            [attr.fill]="getColor(metric)"
-            stroke="#0F172A"
-            stroke-width="2"
-            class="data-dot"
-          />
-        }
       }
     }
 
@@ -122,6 +124,24 @@
       }
     }
   </svg>
+
+  <!-- Previous period legend -->
+  @if (hasPreviousData) {
+    <div class="chart-period-legend">
+      <span class="legend-item">
+        <svg width="16" height="4" style="display:inline-block;vertical-align:middle;">
+          <line x1="0" y1="2" x2="16" y2="2" stroke="#1ca698" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
+        <span class="legend-label">Current</span>
+      </span>
+      <span class="legend-item">
+        <svg width="16" height="4" style="display:inline-block;vertical-align:middle;">
+          <line x1="0" y1="2" x2="16" y2="2" stroke="#2a3a42" stroke-width="1.5" stroke-dasharray="3 3" stroke-linecap="round"/>
+        </svg>
+        <span class="legend-label">Previous</span>
+      </span>
+    </div>
+  }
 
   <!-- Floating tooltip -->
   @if (hoveredIndex !== null && data.length) {

@@ -1230,6 +1230,18 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
   }
 }
 
+.graph-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.graph-subtitle {
+  font-size: 11px;
+  color: $text-muted;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
 .graph-type-toggle {
   display: flex;
   gap: 4px;
@@ -2649,6 +2661,37 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
   }
 }
 
+// ─── Segment filter chip ──────────────────────────────────────────────────────
+.segment-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.segment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(28, 166, 152, 0.12);
+  border: 1px solid rgba(28, 166, 152, 0.4);
+  border-radius: 999px;
+  padding: 4px 12px 4px 8px;
+  font-size: 11px;
+  color: #1ca698;
+  font-family: 'Inter', system-ui, sans-serif;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover { background: rgba(28, 166, 152, 0.20); }
+
+  .chip-x {
+    font-size: 14px;
+    line-height: 1;
+    font-weight: 400;
+    color: #1ca698;
+  }
+}
+
 // ─── Dark mode — Graph section, Filter Panel + Chart Pills ────────────────────
 :host-context([data-theme="dark"]),
 :host-context(body.dark-mode) {
@@ -2741,6 +2784,15 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
       border-color: #48e0d6;
       color: #48e0d6;
     }
+  }
+
+  .graph-subtitle { color: #606a6a; }
+
+  .segment-chip {
+    background: rgba(72, 224, 214, 0.08);
+    border-color: rgba(72, 224, 214, 0.3);
+    color: #48e0d6;
+    .chip-x { color: #48e0d6; }
   }
 }
 

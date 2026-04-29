@@ -43,5 +43,10 @@ export interface InsightsViewConfig {
 
   // Change 5 — sort
   sortBy?: { column: string; direction: 'asc' | 'desc' } | null;
+
+  // Breakdown panels
+  leftBreakdownDimension?: string;
+  rightBreakdownDimension?: string;
+  activeSegment?: { dimensionKey: string; segmentKey: string; segmentLabel: string; share: number } | null;
 }
 

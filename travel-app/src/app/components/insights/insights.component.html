@@ -135,6 +135,16 @@
       </button>
     </div>
 
+    <!-- Active segment filter chip -->
+    @if (activeSegment) {
+      <div class="segment-chip-row">
+        <button class="segment-chip" (click)="clearSegmentFilter()">
+          <span class="chip-x">×</span>
+          <span>Filtered: {{ activeSegment.segmentLabel }}</span>
+        </button>
+      </div>
+    }
+
     <!-- KPI Metric Blocks: 6 cards -->
     <div class="metric-blocks-grid">
       @if (isLoading) {
@@ -658,7 +668,12 @@
 
       <!-- Header: title left, Line/Bar toggle right -->
       <div class="graph-header">
-        <span class="graph-title">Performance Over Time</span>
+        <div class="graph-title-group">
+          <span class="graph-title">Performance Over Time</span>
+          @if (chartSubtitle) {
+            <span class="graph-subtitle">{{ chartSubtitle }}</span>
+          }
+        </div>
         <div class="graph-type-toggle">
           <button class="toggle-btn" [class.active]="chartType === 'line'" (click)="setChartType('line')">
             <mat-icon>show_chart</mat-icon> Line
@@ -696,6 +711,7 @@
         } @else {
           <app-insights-svg-chart
             [data]="chartData"
+            [previousData]="previousChartData"
             [activeMetrics]="activeMetrics"
             [chartType]="chartType"
           ></app-insights-svg-chart>
@@ -703,6 +719,19 @@
       </div>
     </div>
 
+    <!-- Breakdown Panels -->
+    <app-insights-breakdown-panels
+      [leftDimension]="leftDimension"
+      [rightDimension]="rightDimension"
+      [leftRows]="leftBreakdownRows"
+      [rightRows]="rightBreakdownRows"
+      [leftLoading]="leftBreakdownLoading"
+      [rightLoading]="rightBreakdownLoading"
+      [activeSegment]="activeSegment"
+      (segmentChange)="onSegmentChange($event)"
+      (leftDimensionChange)="onLeftDimensionChange($event)"
+      (rightDimensionChange)="onRightDimensionChange($event)"
+    ></app-insights-breakdown-panels>
 
   </div>
 </div>

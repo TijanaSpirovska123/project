@@ -1,0 +1,25 @@
+<div class="breakdown-panels-grid">
+  <app-insights-breakdown-panel
+    [dimension]="leftDimension"
+    [rows]="leftRows"
+    [isLoading]="leftLoading"
+    [activeSegment]="activeSegment"
+    [otherDimension]="rightDimension"
+    (segmentSelect)="onLeftSegment($event)"
+    (dimensionSelect)="onLeftDimension($event)"
+  ></app-insights-breakdown-panel>
+
+  <app-insights-breakdown-panel
+    [dimension]="rightDimension"
+    [rows]="rightRows"
+    [isLoading]="rightLoading"
+    [activeSegment]="activeSegment"
+    [otherDimension]="leftDimension"
+    (segmentSelect)="onRightSegment($event)"
+    (dimensionSelect)="onRightDimension($event)"
+  ></app-insights-breakdown-panel>
+</div>
+
+<div class="breakdown-hint">
+  Switch dimensions in either panel · Click a row to filter
+</div>

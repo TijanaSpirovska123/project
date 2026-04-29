@@ -1,0 +1,27 @@
+.breakdown-panels-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+
+  @media (max-width: 680px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.breakdown-hint {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 11px;
+  color: #94a3b8;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: rgba(28, 166, 152, 0.04);
+  border: 1px solid rgba(28, 166, 152, 0.15);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+// ── Dark mode ─────────────────────────────────────────────────────────────────
+:host-context([data-theme="dark"]),
+:host-context(body.dark-mode) {
+  .breakdown-hint { color: #606a6a; }
+}

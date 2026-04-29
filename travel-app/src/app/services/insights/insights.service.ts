@@ -7,6 +7,7 @@ import {
   InsightResponse,
   InsightSyncRequest,
 } from '../../models/insights/insight.model';
+import { InsightsBreakdownRow } from '../../components/insights/insights-breakdown.types';
 
 @Injectable({
   providedIn: 'root',
@@ -113,6 +114,25 @@ export class InsightsService extends CoreService {
   getMetricNames(): Observable<{ data: string[]; success: boolean }> {
     return this.http.get<{ data: string[]; success: boolean }>(
       `${this.URL}/metrics`,
+    );
+  }
+
+  getBreakdown(
+    provider: string,
+    adAccountId: string,
+    dimension: string,
+    dateStart: string,
+    dateStop: string,
+  ): Observable<{ data: InsightsBreakdownRow[]; success: boolean }> {
+    const params = new HttpParams()
+      .set('provider', provider)
+      .set('adAccountId', adAccountId)
+      .set('dimension', dimension)
+      .set('dateStart', dateStart)
+      .set('dateStop', dateStop);
+    return this.http.get<{ data: InsightsBreakdownRow[]; success: boolean }>(
+      `${this.URL}/breakdown`,
+      { params },
     );
   }
 }

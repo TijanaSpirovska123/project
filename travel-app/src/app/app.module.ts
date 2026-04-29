@@ -53,6 +53,8 @@ import { SearchableDropdownComponent } from './components/shared/searchable-drop
 import { DateRangePickerComponent } from './components/shared/date-range-picker.component';
 import { AdflowDateRangePickerComponent } from './components/insights/adflow-date-range-picker.component';
 import { InsightsSvgChartComponent } from './components/insights/insights-svg-chart.component';
+import { InsightsBreakdownPanelComponent } from './components/insights/insights-breakdown-panel.component';
+import { InsightsBreakdownPanelsComponent } from './components/insights/insights-breakdown-panels.component';
 
 @NgModule({
   declarations: [
@@ -68,6 +70,8 @@ import { InsightsSvgChartComponent } from './components/insights/insights-svg-ch
     InsightsComponent,
     AdflowDateRangePickerComponent,
     InsightsSvgChartComponent,
+    InsightsBreakdownPanelComponent,
+    InsightsBreakdownPanelsComponent,
     CreativeLibraryComponent,
     SyncAccountsComponent,
   ],

@@ -65,6 +65,7 @@ function defaultFmt(v: number): string {
 })
 export class InsightsSvgChartComponent implements OnChanges {
   @Input() data: ChartDataPoint[] = [];
+  @Input() previousData: ChartDataPoint[] = [];
   @Input() activeMetrics: string[] = [];
   @Input() chartType: 'line' | 'bar' = 'line';
 
@@ -144,6 +145,29 @@ export class InsightsSvgChartComponent implements OnChanges {
     if (!this.data.length) return '';
     return 'M ' + this.data.map((_, i) =>
       `${this.getLineX(i).toFixed(1)},${this.getY(metric, i).toFixed(1)}`
+    ).join(' L ');
+  }
+
+  get hasPreviousData(): boolean {
+    return this.chartType === 'line' && this.previousData.length > 0 && this.activeMetrics.length > 0;
+  }
+
+  getPrevLineX(i: number): number {
+    const n = this.previousData.length;
+    if (n <= 1) return this.PAD_LEFT + this.innerW / 2;
+    return this.PAD_LEFT + (i / (n - 1)) * this.innerW;
+  }
+
+  getPrevY(metric: string, i: number): number {
+    const value = (this.previousData[i]?.[metric] as number) ?? 0;
+    const ratio = value / this.primaryMax;
+    return this.PAD_TOP + this.innerH - ratio * this.innerH;
+  }
+
+  getPrevLinePath(metric: string): string {
+    if (!this.previousData.length) return '';
+    return 'M ' + this.previousData.map((_, i) =>
+      `${this.getPrevLineX(i).toFixed(1)},${this.getPrevY(metric, i).toFixed(1)}`
     ).join(' L ');
   }
 

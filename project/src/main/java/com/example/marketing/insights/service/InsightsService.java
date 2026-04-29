@@ -3,6 +3,7 @@ package com.example.marketing.insights.service;
 import com.example.marketing.insights.dto.CompareRequestDto;
 import com.example.marketing.insights.dto.InsightSnapshotDto;
 import com.example.marketing.insights.dto.InsightSyncRequestDto;
+import com.example.marketing.insights.dto.InsightsBreakdownRowDto;
 import com.example.marketing.insights.entity.InsightSnapshotEntity;
 import com.example.marketing.insights.mapper.InsightsSnapshotMapper;
 import com.example.marketing.insights.repository.InsightMetricRepository;
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -329,6 +331,99 @@ public class InsightsService {
 
     private static double round2(double val) {
         return Math.round(val * 100.0) / 100.0;
+    }
+
+    // -----------------------------------------------------------------------
+    // Breakdown by dimension
+    // -----------------------------------------------------------------------
+
+    @Transactional(readOnly = true)
+    public List<InsightsBreakdownRowDto> breakdown(Long userId, Provider provider, String adAccountId,
+            String dimension, LocalDate dateStart, LocalDate dateStop) {
+        UserEntity user = getUserOrThrow(userId);
+
+        List<InsightSnapshotEntity> snapshots = new ArrayList<>();
+        for (InsightObjectType type : List.of(InsightObjectType.CAMPAIGN, InsightObjectType.ADSET, InsightObjectType.AD)) {
+            snapshots.addAll(snapshotRepository
+                    .findByUserAndProviderAndAdAccountIdAndObjectTypeAndDateRange(
+                            user, provider, adAccountId, type, dateStart, dateStop));
+        }
+
+        // dimensionValue -> [spend, impressions, clicks, reach, revenueForRoas]
+        Map<String, double[]> aggMap = new LinkedHashMap<>();
+
+        for (InsightSnapshotEntity snap : snapshots) {
+            if (snap.getRawJson() == null) continue;
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> raw = objectMapper.readValue(snap.getRawJson(), Map.class);
+                @SuppressWarnings("unchecked")
+                List<Object> dataList = (List<Object>) raw.get("data");
+                if (dataList == null) continue;
+
+                for (Object item : dataList) {
+                    if (!(item instanceof Map)) continue;
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> row = (Map<String, Object>) item;
+
+                    Object dimValue = row.get(dimension);
+                    if (dimValue == null) continue;
+
+                    String dimStr = String.valueOf(dimValue);
+                    double[] agg = aggMap.computeIfAbsent(dimStr, k -> new double[5]);
+                    agg[0] += toDouble(row.get("spend"));
+                    agg[1] += toDouble(row.get("impressions"));
+                    agg[2] += toDouble(row.get("clicks"));
+                    agg[3] += toDouble(row.get("reach"));
+                    agg[4] += extractRoasRevenue(row);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        if (aggMap.isEmpty()) return List.of();
+
+        double totalSpend = aggMap.values().stream().mapToDouble(a -> a[0]).sum();
+
+        return aggMap.entrySet().stream()
+                .map(e -> {
+                    double[] a = e.getValue();
+                    double ctr = a[1] > 0 ? (a[2] / a[1]) * 100 : 0;
+                    double roas = a[0] > 0 ? a[4] / a[0] : 0;
+                    double share = totalSpend > 0 ? (a[0] / totalSpend) * 100 : 0;
+                    return InsightsBreakdownRowDto.builder()
+                            .dimension(dimension)
+                            .dimensionValue(e.getKey())
+                            .spend(round2(a[0]))
+                            .impressions((long) a[1])
+                            .clicks((long) a[2])
+                            .reach((long) a[3])
+                            .ctr(round2(ctr))
+                            .roas(round2(roas))
+                            .share(round2(share))
+                            .build();
+                })
+                .sorted(Comparator.comparingDouble(InsightsBreakdownRowDto::getShare).reversed())
+                .collect(Collectors.toList());
+    }
+
+    @SuppressWarnings("unchecked")
+    private double extractRoasRevenue(Map<String, Object> row) {
+        Object purchaseRoas = row.get("purchase_roas");
+        if (purchaseRoas instanceof List<?> list && !list.isEmpty()) {
+            Object first = list.get(0);
+            if (first instanceof Map<?,?> m) return toDouble(m.get("value"));
+        }
+        Object actionValues = row.get("action_values");
+        if (actionValues instanceof List<?> avList) {
+            for (Object av : avList) {
+                if (av instanceof Map<?,?> m
+                        && "offsite_conversion.fb_pixel_purchase".equals(m.get("action_type"))) {
+                    return toDouble(m.get("value"));
+                }
+            }
+        }
+        return 0;
     }
 
 }
