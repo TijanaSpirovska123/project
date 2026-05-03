@@ -2652,6 +2652,86 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
   opacity: 0.9;
 }
 
+// ─── Chart Zoom Preset Buttons ────────────────────────────────────────────────
+.chart-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.chart-zoom-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border: 1px solid $border;
+  border-radius: 8px;
+  background: transparent;
+  color: $text-secondary;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover:not(.active) {
+    border-color: $primary;
+    color: $text-primary;
+  }
+
+  &.active {
+    background: #1ca698;
+    border-color: #1ca698;
+    color: white;
+  }
+}
+
+// ─── Chart Empty State ────────────────────────────────────────────────────────
+.chart-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 8px;
+  padding: 32px;
+  text-align: center;
+}
+
+.chart-empty-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.chart-empty-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: $text-primary;
+  margin: 0;
+}
+
+.chart-empty-sub {
+  font-size: 0.82rem;
+  color: $text-secondary;
+  margin: 0;
+}
+
+.chart-empty-sync-btn {
+  margin-top: 8px;
+  padding: 8px 20px;
+  border: none;
+  border-radius: 10px;
+  background: #1ca698;
+  color: white;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover { background: #17958a; }
+}
+
 // ─── Filter toggle button active state ──────────────────────────────────────────
 .filter-toggle-btn {
   &.active {
@@ -2724,6 +2804,25 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
   }
 
   .chart-metric-pills-row { border-color: #303838; }
+
+  .chart-zoom-btn {
+    border-color: #464d4d;
+    color: #919595;
+
+    &:hover:not(.active) {
+      border-color: #48e0d6;
+      color: #bbf2ed;
+    }
+
+    &.active {
+      background: #1ca698;
+      border-color: #1ca698;
+      color: #1b2323;
+    }
+  }
+
+  .chart-empty-title { color: #bbf2ed; }
+  .chart-empty-sub   { color: #919595; }
 
 
   .filter-panel-inner {

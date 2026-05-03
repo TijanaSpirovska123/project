@@ -704,13 +704,31 @@
         }
       </div>
 
+      <!-- Zoom preset buttons -->
+      <div class="chart-zoom-row">
+        @for (preset of ['1W','2W','1M','3M','all']; track preset) {
+          <button
+            class="chart-zoom-btn"
+            [class.active]="chartZoomPreset === preset"
+            (click)="setChartZoom(preset)"
+          >{{ preset === 'all' ? 'All' : preset }}</button>
+        }
+      </div>
+
       <!-- SVG chart area -->
       <div class="graph-wrapper">
         @if (isLoading) {
           <div class="skeleton skeleton-chart"></div>
+        } @else if (!hasDailyData && !chartData.length) {
+          <div class="chart-empty-state">
+            <span class="chart-empty-icon">📅</span>
+            <p class="chart-empty-title">No daily data available</p>
+            <p class="chart-empty-sub">Sync with daily breakdown to see the performance chart.</p>
+            <button class="chart-empty-sync-btn" (click)="syncAllData()">Sync daily data</button>
+          </div>
         } @else {
           <app-insights-svg-chart
-            [data]="chartData"
+            [data]="visibleChartData"
             [previousData]="previousChartData"
             [activeMetrics]="activeMetrics"
             [chartType]="chartType"

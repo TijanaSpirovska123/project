@@ -12,42 +12,54 @@ export interface ChartDataPoint {
 }
 
 export const METRIC_COLORS: Record<string, string> = {
-  impressions: '#34D399',
-  reach:       '#60A5FA',
-  clicks:      '#A78BFA',
-  spend:       '#FBBF24',
-  ctr:         '#F87171',
-  cpm:         '#2DD4BF',
-  cpc:         '#FB923C',
-  roas:        '#818CF8',
-  frequency:   '#E879F9',
-  revenue:     '#4ADE80',
+  impressions:      '#34D399',
+  reach:            '#60A5FA',
+  clicks:           '#A78BFA',
+  spend:            '#FBBF24',
+  ctr:              '#F87171',
+  cpm:              '#2DD4BF',
+  cpc:              '#FB923C',
+  roas:             '#818CF8',
+  frequency:        '#E879F9',
+  revenue:          '#4ADE80',
+  linkClicks:       '#818CF8',
+  postEngagement:   '#4ADE80',
+  landingPageViews: '#F472B6',
+  outboundClicks:   '#38BDF8',
 };
 
 const METRIC_LABELS: Record<string, string> = {
-  impressions: 'Impressions',
-  reach:       'Reach',
-  clicks:      'Clicks',
-  spend:       'Spend',
-  ctr:         'CTR',
-  cpm:         'CPM',
-  cpc:         'CPC',
-  roas:        'ROAS',
-  frequency:   'Frequency',
-  revenue:     'Revenue',
+  impressions:      'Impressions',
+  reach:            'Reach',
+  clicks:           'Clicks',
+  spend:            'Spend',
+  ctr:              'CTR',
+  cpm:              'CPM',
+  cpc:              'CPC',
+  roas:             'ROAS',
+  frequency:        'Frequency',
+  revenue:          'Revenue',
+  linkClicks:       'Link Clicks',
+  postEngagement:   'Post Engagement',
+  landingPageViews: 'Landing Page Views',
+  outboundClicks:   'Outbound Clicks',
 };
 
 const METRIC_FORMATS: Record<string, (v: number) => string> = {
-  impressions: v => v >= 1_000_000 ? (v / 1_000_000).toFixed(1) + 'M' : v >= 1000 ? (v / 1000).toFixed(1) + 'K' : String(Math.round(v)),
-  reach:       v => v >= 1_000_000 ? (v / 1_000_000).toFixed(1) + 'M' : v >= 1000 ? (v / 1000).toFixed(1) + 'K' : String(Math.round(v)),
-  clicks:      v => v >= 1000 ? (v / 1000).toFixed(1) + 'K' : String(Math.round(v)),
-  spend:       v => '$' + v.toFixed(2),
-  ctr:         v => v.toFixed(2) + '%',
-  cpm:         v => '$' + v.toFixed(2),
-  cpc:         v => '$' + v.toFixed(2),
-  roas:        v => v.toFixed(2) + 'x',
-  frequency:   v => v.toFixed(1) + 'x',
-  revenue:     v => '$' + v.toFixed(2),
+  impressions:      v => v >= 1_000_000 ? (v / 1_000_000).toFixed(1) + 'M' : v >= 1_000 ? (v / 1_000).toFixed(1) + 'K' : String(Math.round(v)),
+  reach:            v => v >= 1_000_000 ? (v / 1_000_000).toFixed(1) + 'M' : v >= 1_000 ? (v / 1_000).toFixed(1) + 'K' : String(Math.round(v)),
+  clicks:           v => Math.round(v).toLocaleString(),
+  spend:            v => v >= 1_000 ? '$' + (v / 1_000).toFixed(1) + 'K' : '$' + v.toFixed(2),
+  ctr:              v => v.toFixed(2) + '%',
+  cpm:              v => v >= 1_000 ? '$' + (v / 1_000).toFixed(1) + 'K' : '$' + v.toFixed(2),
+  cpc:              v => v >= 1_000 ? '$' + (v / 1_000).toFixed(1) + 'K' : '$' + v.toFixed(2),
+  roas:             v => v.toFixed(2) + 'x',
+  frequency:        v => v.toFixed(2) + 'x',
+  revenue:          v => v >= 1_000 ? '$' + (v / 1_000).toFixed(1) + 'K' : '$' + v.toFixed(2),
+  linkClicks:       v => Math.round(v).toLocaleString(),
+  postEngagement:   v => Math.round(v).toLocaleString(),
+  landingPageViews: v => Math.round(v).toLocaleString(),
+  outboundClicks:   v => Math.round(v).toLocaleString(),
 };
 
 function defaultFmt(v: number): string {
@@ -197,9 +209,11 @@ export class InsightsSvgChartComponent implements OnChanges {
 
   // ── X-axis labels ──
   get xLabelStep(): number {
-    if (this.data.length <= 10) return 1;
-    if (this.data.length <= 20) return 2;
-    return Math.ceil(this.data.length / 10);
+    const n = this.data.length;
+    if (n <= 7)  return 1;
+    if (n <= 30) return 7;
+    if (n <= 90) return 14;
+    return 30;
   }
 
   showXLabel(i: number): boolean {

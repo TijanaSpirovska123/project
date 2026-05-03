@@ -487,6 +487,19 @@ export class InsightsComponent implements OnInit, OnDestroy {
 
   // ---------- Chart Data Getter (for SVG chart) ----------
 
+  private static readonly RATE_METRICS = new Set([
+    'ctr', 'cpm', 'cpc', 'frequency',
+    'unique_ctr', 'inline_link_click_ctr', 'estimated_ad_recall_rate',
+  ]);
+
+  private static formatChartDateLabel(iso: string): string {
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const parts = iso.split('-');
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    return (MONTHS[m - 1] ?? '') + ' ' + d;
+  }
+
   get chartData(): ChartDataPoint[] {
     const snapshots = this.getGraphSnapshots();
     if (!snapshots.length) return [];
@@ -495,6 +508,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
     for (const snap of snapshots) {
       for (const entry of snap.rawData?.data ?? []) {
         const key = (entry['date_start'] as string) ?? snap.dateStart;
+        if (!key) continue;
         if (!dateMap.has(key)) dateMap.set(key, []);
         dateMap.get(key)!.push(entry);
       }
@@ -503,14 +517,47 @@ export class InsightsComponent implements OnInit, OnDestroy {
     const dates = Array.from(dateMap.keys()).sort();
     return dates.map(d => {
       const entries = dateMap.get(d) ?? [];
-      const point: ChartDataPoint = { label: d.slice(5) };
+      const point: ChartDataPoint = { label: InsightsComponent.formatChartDateLabel(d), date: d };
       for (const key of this.activeMetrics) {
-        point[key] = entries.reduce((sum: number, e: any) => {
-          const { value } = this.extractMetricValue(e, key);
-          return sum + value;
-        }, 0);
+        if (InsightsComponent.RATE_METRICS.has(key)) {
+          const vals = entries
+            .map((e: any) => this.extractMetricValue(e, key))
+            .filter(r => r.found);
+          point[key] = vals.length ? vals.reduce((s, r) => s + r.value, 0) / vals.length : 0;
+        } else {
+          point[key] = entries.reduce((sum: number, e: any) => {
+            const { value } = this.extractMetricValue(e, key);
+            return sum + value;
+          }, 0);
+        }
       }
       return point;
+    });
+  }
+
+  // ---------- Zoom preset ----------
+
+  chartZoomPreset: '1W' | '2W' | '1M' | '3M' | 'all' = 'all';
+
+  setChartZoom(preset: string): void {
+    this.chartZoomPreset = preset as '1W' | '2W' | '1M' | '3M' | 'all';
+  }
+
+  get visibleChartData(): ChartDataPoint[] {
+    const all = this.chartData;
+    if (this.chartZoomPreset === 'all' || all.length === 0) return all;
+    const days: Record<string, number> = { '1W': 7, '2W': 14, '1M': 30, '3M': 90 };
+    return all.slice(-( days[this.chartZoomPreset] ?? all.length));
+  }
+
+  // ---------- Daily data detection ----------
+
+  get hasDailyData(): boolean {
+    const snapshots = this.getGraphSnapshots();
+    if (!snapshots.length) return false;
+    return snapshots.some(s => {
+      const rows: any[] = s.rawData?.data ?? [];
+      return rows.some((r: any) => r.date_start && r.date_start === r.date_stop);
     });
   }
 
@@ -537,12 +584,19 @@ export class InsightsComponent implements OnInit, OnDestroy {
     const dates = Array.from(dateMap.keys()).sort();
     return dates.map(d => {
       const entries = dateMap.get(d) ?? [];
-      const point: ChartDataPoint = { label: d.slice(5) };
+      const point: ChartDataPoint = { label: InsightsComponent.formatChartDateLabel(d), date: d };
       for (const key of this.activeMetrics) {
-        point[key] = entries.reduce((sum: number, e: any) => {
-          const { value } = this.extractMetricValue(e, key);
-          return sum + value;
-        }, 0);
+        if (InsightsComponent.RATE_METRICS.has(key)) {
+          const vals = entries
+            .map((e: any) => this.extractMetricValue(e, key))
+            .filter(r => r.found);
+          point[key] = vals.length ? vals.reduce((s, r) => s + r.value, 0) / vals.length : 0;
+        } else {
+          point[key] = entries.reduce((sum: number, e: any) => {
+            const { value } = this.extractMetricValue(e, key);
+            return sum + value;
+          }, 0);
+        }
       }
       return point;
     });
