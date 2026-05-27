@@ -1,11 +1,25 @@
 <div class="svg-chart-outer">
+  <!-- Reset zoom button -->
+  @if (isZoomed) {
+    <button class="zoom-reset-btn" type="button" (click)="resetZoom()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 11A9 9 0 1 0 12 21"/>
+        <polyline points="21 3 21 11 13 11"/>
+      </svg>
+      Reset zoom
+    </button>
+  }
+
   <svg
     [attr.viewBox]="'0 0 ' + SVG_W + ' ' + SVG_H"
     width="100%"
     height="100%"
     preserveAspectRatio="none"
     class="chart-svg"
+    [class.chart-dragging]="isDragging"
+    (mousedown)="onSvgMouseDown($event)"
     (mousemove)="onSvgMouseMove($event)"
+    (mouseup)="onSvgMouseUp($event)"
     (mouseleave)="onSvgMouseLeave()"
   >
     <defs>
@@ -37,8 +51,8 @@
     }
 
     <!-- Bar mode: primary metric bars -->
-    @if (chartType === 'bar' && activeMetrics.length && data.length) {
-      @for (point of data; track i; let i = $index) {
+    @if (chartType === 'bar' && activeMetrics.length && visData.length) {
+      @for (point of visData; track i; let i = $index) {
         <rect
           [attr.x]="getBarX(i)"
           [attr.y]="getBarY(activeMetrics[0], i)"
@@ -52,7 +66,7 @@
     }
 
     <!-- Line mode: area gradient fill for primary metric only -->
-    @if (chartType === 'line' && activeMetrics.length && data.length) {
+    @if (chartType === 'line' && activeMetrics.length && visData.length) {
       <path
         [attr.d]="getAreaPath(activeMetrics[0])"
         [attr.fill]="'url(#grad-' + activeMetrics[0] + ')'"
@@ -87,9 +101,9 @@
     }
 
     <!-- Dots at each data point (line mode only) -->
-    @if (chartType === 'line' && data.length) {
+    @if (chartType === 'line' && visData.length) {
       @for (metric of activeMetrics; track metric) {
-        @for (point of data; track i; let i = $index) {
+        @for (point of visData; track i; let i = $index) {
           <circle
             [attr.cx]="getLineX(i)"
             [attr.cy]="getY(metric, i)"
@@ -103,8 +117,20 @@
       }
     }
 
+    <!-- Drag-to-zoom selection rectangle -->
+    @if (isDragging && dragRectW > 4) {
+      <rect
+        [attr.x]="dragRectX"
+        [attr.y]="PAD_TOP"
+        [attr.width]="dragRectW"
+        [attr.height]="innerH"
+        class="drag-selection"
+        pointer-events="none"
+      />
+    }
+
     <!-- Crosshair vertical line -->
-    @if (hoveredIndex !== null) {
+    @if (hoveredIndex !== null && !isDragging) {
       <line
         [attr.x1]="crosshairX(hoveredIndex)"
         [attr.y1]="PAD_TOP"
@@ -117,7 +143,7 @@
     }
 
     <!-- Invisible hover zones spanning full chart height -->
-    @for (point of data; track i; let i = $index) {
+    @for (point of visData; track i; let i = $index) {
       <rect
         [attr.x]="hoverZoneX(i)"
         [attr.y]="PAD_TOP"
@@ -125,12 +151,30 @@
         [attr.height]="innerH"
         fill="transparent"
         class="hover-zone"
-        (mouseenter)="hoveredIndex = i"
+        (mouseenter)="!isDragging && (hoveredIndex = i)"
       />
     }
 
-    <!-- X-axis date labels -->
-    @for (point of data; track i; let i = $index) {
+    <!-- X-axis: fixed from/till labels always anchored to chart edges -->
+    @if (xRangeStartLabel) {
+      <text
+        [attr.x]="PAD_LEFT"
+        [attr.y]="SVG_H - 8"
+        text-anchor="start"
+        class="axis-label"
+      >{{ xRangeStartLabel }}</text>
+    }
+    @if (xRangeStopLabel) {
+      <text
+        [attr.x]="SVG_W - PAD_RIGHT"
+        [attr.y]="SVG_H - 8"
+        text-anchor="end"
+        class="axis-label"
+      >{{ xRangeStopLabel }}</text>
+    }
+
+    <!-- X-axis: intermediate date labels (first/last already shown above) -->
+    @for (point of visData; track i; let i = $index) {
       @if (showXLabel(i)) {
         <text
           [attr.x]="chartType === 'bar' ? getBarMidX(i) : getLineX(i)"
@@ -160,14 +204,14 @@
     </div>
   }
 
-  <!-- Floating tooltip -->
-  @if (hoveredIndex !== null && data.length) {
+  <!-- Floating tooltip (suppressed while dragging) -->
+  @if (hoveredIndex !== null && visData.length && !isDragging) {
     <div
       class="chart-tooltip"
       [class.tooltip-flip]="tooltipOnLeft"
       [style.left]="tooltipLeftPct + '%'"
     >
-      <div class="tooltip-date">{{ data[hoveredIndex].label }}</div>
+      <div class="tooltip-date">{{ visData[hoveredIndex].label }}</div>
       @for (metric of activeMetrics; track metric) {
         <div class="tooltip-row">
           <span class="tooltip-dot" [style.background]="getColor(metric)"></span>

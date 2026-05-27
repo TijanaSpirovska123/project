@@ -20,6 +20,7 @@
   <div
     *ngIf="isOpen"
     class="picker-popover"
+    [class.popover-flipped]="popoverFlipped"
     role="menu"
     aria-label="Date range presets"
     (keydown)="onPopoverKeydown($event)"

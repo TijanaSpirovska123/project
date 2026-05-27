@@ -71,7 +71,8 @@
 .picker-popover {
   position: absolute;
   top: calc(100% + 6px);
-  right: 0;
+  right: 0;          // default: right-align (opens leftward, suits right-side triggers)
+  left: auto;
   width: auto;
   min-width: 500px;
   max-width: calc(100vw - 32px);
@@ -81,6 +82,12 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   z-index: 600;
   overflow: hidden;
+
+  // When the trigger is near the left edge, open rightward to avoid left-overflow
+  &.popover-flipped {
+    right: auto;
+    left: 0;
+  }
 }
 
 .picker-columns {

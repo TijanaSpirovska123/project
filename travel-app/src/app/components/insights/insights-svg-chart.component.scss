@@ -40,6 +40,46 @@
   cursor: crosshair;
 }
 
+// When actively dragging, make the whole SVG show an ew-resize cursor
+.chart-svg.chart-dragging,
+.chart-svg.chart-dragging .hover-zone {
+  cursor: ew-resize;
+}
+
+// ── Drag-to-zoom selection rectangle ─────────────────────────────────────────
+.drag-selection {
+  fill: rgba(28, 166, 152, 0.12);
+  stroke: #1ca698;
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+// ── Reset zoom button ─────────────────────────────────────────────────────────
+.zoom-reset-btn {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #1ca698;
+  background: rgba(28, 166, 152, 0.10);
+  border: 1px solid rgba(28, 166, 152, 0.35);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    background: rgba(28, 166, 152, 0.18);
+    border-color: #1ca698;
+  }
+}
+
 // ── Tooltip ──────────────────────────────────────────────────────────────────
 .chart-tooltip {
   position: absolute;
@@ -125,10 +165,20 @@
   letter-spacing: 0.2px;
 }
 
-// ── Dark mode: axis labels become lighter ────────────────────────────────────
+// ── Dark mode ────────────────────────────────────────────────────────────────
 :host-context([data-theme="dark"]),
 :host-context(body.dark-mode) {
   .grid-line { stroke: rgba(255, 255, 255, 0.05); }
   .axis-label { fill: #606a6a; }
   .legend-label { color: #606a6a; }
+  .zoom-reset-btn {
+    color: #48e0d6;
+    background: rgba(72, 224, 214, 0.10);
+    border-color: rgba(72, 224, 214, 0.30);
+    &:hover { background: rgba(72, 224, 214, 0.18); border-color: #48e0d6; }
+  }
+  .drag-selection {
+    fill: rgba(72, 224, 214, 0.10);
+    stroke: #48e0d6;
+  }
 }

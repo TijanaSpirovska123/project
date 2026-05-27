@@ -80,8 +80,12 @@ export class InsightsSvgChartComponent implements OnChanges {
   @Input() previousData: ChartDataPoint[] = [];
   @Input() activeMetrics: string[] = [];
   @Input() chartType: 'line' | 'bar' = 'line';
-  /** Total number of days in the selected range — drives X-axis density. */
+  /** Total days in the selected range — drives X-axis label density. */
   @Input() totalDays = 0;
+  /** ISO date string for the start of the selected range (e.g. "2025-01-01"). */
+  @Input() dateStart = '';
+  /** ISO date string for the end of the selected range (e.g. "2025-05-27"). */
+  @Input() dateStop = '';
 
   readonly SVG_W = 700;
   readonly SVG_H = 300;
@@ -96,20 +100,51 @@ export class InsightsSvgChartComponent implements OnChanges {
   hoveredIndex: number | null = null;
   tooltipSvgX = 0;
 
-  private primaryMax = 1;
   readonly metricColors = METRIC_COLORS;
   readonly gridLines = [0, 1, 2, 3, 4];
 
-  ngOnChanges(_changes: SimpleChanges): void {
-    this.computePrimaryMax();
+  // ── Zoom state ────────────────────────────────────────────────────────────
+  /** Indices into `data[]` for the current zoom window. Null = no zoom. */
+  zoomWindow: { start: number; end: number } | null = null;
+  isDragging = false;
+  /** SVG-space X at drag start (for rendering the selection rect). */
+  dragPixelStart = 0;
+  /** SVG-space X at current drag position. */
+  dragPixelCurrent = 0;
+  private dragDataStart = -1;  // visData index at mousedown
+
+  /** Slice of data currently in view (respects zoomWindow). */
+  get visData(): ChartDataPoint[] {
+    if (!this.zoomWindow) return this.data;
+    const s = Math.max(this.zoomWindow.start, 0);
+    const e = Math.min(this.zoomWindow.end, this.data.length - 1);
+    return s < e ? this.data.slice(s, e + 1) : this.data;
+  }
+
+  get isZoomed(): boolean { return this.zoomWindow !== null; }
+
+  resetZoom(): void {
+    this.zoomWindow = null;
+    this.isDragging = false;
+    this.dragDataStart = -1;
     this.hoveredIndex = null;
   }
 
-  private computePrimaryMax(): void {
+  /** Drag selection rect left edge in SVG coords. */
+  get dragRectX(): number { return Math.min(this.dragPixelStart, this.dragPixelCurrent); }
+  /** Drag selection rect width in SVG coords. */
+  get dragRectW(): number { return Math.abs(this.dragPixelCurrent - this.dragPixelStart); }
+
+  // ── Primary-metric max (reactive getter, uses visData) ────────────────────
+  private get primaryMax(): number {
     const primary = this.activeMetrics[0];
-    if (!primary || !this.data.length) { this.primaryMax = 1; return; }
-    const values = this.data.map(d => (d[primary] as number) ?? 0);
-    this.primaryMax = Math.max(...values, 1);
+    if (!primary || !this.visData.length) return 1;
+    return Math.max(...this.visData.map(d => (d[primary] as number) ?? 0), 1);
+  }
+
+  ngOnChanges(_changes: SimpleChanges): void {
+    this.zoomWindow = null;   // reset zoom when input data changes
+    this.hoveredIndex = null;
   }
 
   getColor(metric: string): string {
@@ -120,14 +155,15 @@ export class InsightsSvgChartComponent implements OnChanges {
     return METRIC_LABELS[metric] ?? metric;
   }
 
-  // ── Line mode: edge-to-edge X positioning ──
+  // ── Line mode: edge-to-edge X positioning (uses visData) ──────────────────
   getLineX(i: number): number {
-    if (this.data.length <= 1) return this.PAD_LEFT + this.innerW / 2;
-    return this.PAD_LEFT + (i / (this.data.length - 1)) * this.innerW;
+    const n = this.visData.length;
+    if (n <= 1) return this.PAD_LEFT + this.innerW / 2;
+    return this.PAD_LEFT + (i / (n - 1)) * this.innerW;
   }
 
-  // ── Bar mode: slot-based X positioning ──
-  get slotW(): number { return this.innerW / Math.max(this.data.length, 1); }
+  // ── Bar mode: slot-based X positioning ────────────────────────────────────
+  get slotW(): number { return this.innerW / Math.max(this.visData.length, 1); }
   get barW(): number { return this.slotW * 0.6; }
 
   getBarX(i: number): number {
@@ -138,15 +174,15 @@ export class InsightsSvgChartComponent implements OnChanges {
     return this.getBarX(i) + this.barW / 2;
   }
 
-  // ── Y positioning (primary metric scale) ──
+  // ── Y positioning (primary metric scale) ──────────────────────────────────
   getY(metric: string, i: number): number {
-    const value = (this.data[i]?.[metric] as number) ?? 0;
+    const value = (this.visData[i]?.[metric] as number) ?? 0;
     const ratio = value / this.primaryMax;
     return this.PAD_TOP + this.innerH - ratio * this.innerH;
   }
 
   getBarHeight(metric: string, i: number): number {
-    const value = (this.data[i]?.[metric] as number) ?? 0;
+    const value = (this.visData[i]?.[metric] as number) ?? 0;
     return (value / this.primaryMax) * this.innerH;
   }
 
@@ -154,10 +190,60 @@ export class InsightsSvgChartComponent implements OnChanges {
     return this.PAD_TOP + this.innerH - this.getBarHeight(metric, i);
   }
 
-  // ── SVG paths ──
+  // ── Range label helpers (for X-axis from/till) ────────────────────────────
+
+  private formatRangeLabel(iso: string): string {
+    if (!iso) return '';
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const parts = iso.split('-');
+    if (parts.length < 3) return iso;
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    return (MONTHS[m - 1] ?? '') + ' ' + d;
+  }
+
+  /**
+   * Left-edge label for the x-axis.
+   * When zoomed, shows the first visible data-point date.
+   * Otherwise shows the dateStart input, falling back to the first data label.
+   */
+  get xRangeStartLabel(): string {
+    if (this.isZoomed && this.visData.length > 0) {
+      const d = this.visData[0]?.['date'] as string;
+      if (d) return this.formatRangeLabel(d);
+    }
+    if (this.dateStart) return this.formatRangeLabel(this.dateStart);
+    return (this.visData[0]?.label as string) ?? '';
+  }
+
+  /**
+   * Right-edge label for the x-axis.
+   * When zoomed, shows the last visible data-point date.
+   * Otherwise shows the dateStop input, falling back to the last data label.
+   */
+  get xRangeStopLabel(): string {
+    if (this.isZoomed && this.visData.length > 0) {
+      const last = this.visData.length - 1;
+      const d = this.visData[last]?.['date'] as string;
+      if (d) return this.formatRangeLabel(d);
+    }
+    if (this.dateStop) return this.formatRangeLabel(this.dateStop);
+    const last = this.visData.length - 1;
+    return last >= 0 ? ((this.visData[last]?.label as string) ?? '') : '';
+  }
+
+  // ── SVG paths ─────────────────────────────────────────────────────────────
   getLinePath(metric: string): string {
-    if (!this.data.length) return '';
-    return 'M ' + this.data.map((_, i) =>
+    if (!this.visData.length) return '';
+    if (this.visData.length === 1) {
+      // Single data point: draw a horizontal line across the full chart width
+      // so the value is clearly visible as a line, not just an isolated dot.
+      const y  = this.getY(metric, 0).toFixed(1);
+      const x1 = this.PAD_LEFT.toFixed(1);
+      const x2 = (this.PAD_LEFT + this.innerW).toFixed(1);
+      return `M ${x1},${y} L ${x2},${y}`;
+    }
+    return 'M ' + this.visData.map((_, i) =>
       `${this.getLineX(i).toFixed(1)},${this.getY(metric, i).toFixed(1)}`
     ).join(' L ');
   }
@@ -186,17 +272,24 @@ export class InsightsSvgChartComponent implements OnChanges {
   }
 
   getAreaPath(metric: string): string {
-    if (!this.data.length) return '';
+    if (!this.visData.length) return '';
     const bottom = this.PAD_TOP + this.innerH;
-    const first = this.getLineX(0).toFixed(1);
-    const last = this.getLineX(this.data.length - 1).toFixed(1);
-    const line = this.data.map((_, i) =>
+    if (this.visData.length === 1) {
+      // Single data point: fill the entire chart width at that value
+      const y  = this.getY(metric, 0).toFixed(1);
+      const x1 = this.PAD_LEFT;
+      const x2 = this.PAD_LEFT + this.innerW;
+      return `M ${x1},${bottom} L ${x1},${y} L ${x2},${y} L ${x2},${bottom} Z`;
+    }
+    const first  = this.getLineX(0).toFixed(1);
+    const last   = this.getLineX(this.visData.length - 1).toFixed(1);
+    const line   = this.visData.map((_, i) =>
       `${this.getLineX(i).toFixed(1)},${this.getY(metric, i).toFixed(1)}`
     ).join(' L ');
     return `M ${first},${bottom} L ${line} L ${last},${bottom} Z`;
   }
 
-  // ── Grid ──
+  // ── Grid ──────────────────────────────────────────────────────────────────
   gridY(n: number): number {
     return this.PAD_TOP + (n / 4) * this.innerH;
   }
@@ -209,105 +302,184 @@ export class InsightsSvgChartComponent implements OnChanges {
     return fmt ? fmt(value) : defaultFmt(value);
   }
 
-  // ── X-axis labels ──
+  // ── X-axis labels ─────────────────────────────────────────────────────────
+
+  /** Effective day-count driving label density (uses zoomed length when zoomed). */
+  private get effectiveDays(): number {
+    return this.isZoomed
+      ? this.visData.length
+      : (this.totalDays > 0 ? this.totalDays : this.visData.length);
+  }
+
   get xLabelStep(): number {
-    const days = this.totalDays > 0 ? this.totalDays : this.data.length;
+    const days = this.effectiveDays;
     if (days <= 7)  return 1;
     if (days <= 14) return 2;
     if (days <= 30) return 7;
     if (days <= 90) return 14;
-    return 30; // fallback; year range uses month-grouping in showXLabel()
+    return 30;
   }
 
   showXLabel(i: number): boolean {
-    const days = this.totalDays > 0 ? this.totalDays : this.data.length;
+    const n = this.visData.length;
+    if (n === 0) return false;
+    // First and last are always shown as fixed range labels (xRangeStartLabel /
+    // xRangeStopLabel), so skip them here to avoid duplicates.
+    if (i === 0 || i === n - 1) return false;
+
+    const days = this.effectiveDays;
     if (days > 90) {
-      // Year+ range: show only the first data point of each calendar month
-      const date = this.data[i]?.['date'] as string | undefined;
-      if (!date) return i % 30 === 0;
+      // Year+ range: show first data-point of each calendar month
+      const date = this.visData[i]?.['date'] as string | undefined;
+      if (!date) return false;
       const monthKey = date.substring(0, 7); // "YYYY-MM"
       for (let j = 0; j < i; j++) {
-        const prevDate = this.data[j]?.['date'] as string | undefined;
-        if (prevDate && prevDate.substring(0, 7) === monthKey) return false;
+        const prev = this.visData[j]?.['date'] as string | undefined;
+        if (prev && prev.substring(0, 7) === monthKey) return false;
       }
-      return true;
+      // Skip if too close to the forced last label
+      return i <= n - 4;
     }
-    return i % this.xLabelStep === 0;
+
+    const step = this.xLabelStep;
+    // Skip regular step labels that would overlap the forced last label
+    if (i > n - 1 - Math.floor(step / 2)) return false;
+    return i % step === 0;
   }
 
   /**
-   * Returns the text to display on the X-axis for data point i.
-   * Year range → just the month abbreviation ("Jan", "Feb", …).
-   * All other ranges → the full label already set on the data point ("Jan 15").
+   * Label text for X-axis tick i.
+   * Year view → abbreviated month ("Jan"); otherwise full "Jan 15" label.
    */
   getXLabelText(i: number): string {
-    const days = this.totalDays > 0 ? this.totalDays : this.data.length;
+    const days = this.effectiveDays;
     if (days > 90) {
-      const date = this.data[i]?.['date'] as string | undefined;
+      const date = this.visData[i]?.['date'] as string | undefined;
       if (date) {
         const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         const m = parseInt(date.split('-')[1], 10);
-        return MONTHS[m - 1] ?? (this.data[i].label as string);
+        return MONTHS[m - 1] ?? (this.visData[i].label as string);
       }
     }
-    return this.data[i].label as string;
+    return this.visData[i].label as string;
   }
 
-  // ── Dot radius helpers ──
-  /**
-   * Returns the radius of a data-point dot.
-   * Scales down for dense datasets to avoid visual overlap.
-   */
+  // ── Dot radius ────────────────────────────────────────────────────────────
   getDotRadius(i: number): number {
     if (this.hoveredIndex === i) return 5;
-    const n = this.data.length;
-    if (n <= 30)  return 3.5;
-    if (n <= 60)  return 2.5;
+    const n = this.visData.length;
+    if (n <= 30) return 3.5;
+    if (n <= 60) return 2.5;
     return 2;
   }
 
-  // ── Crosshair X ──
+  // ── Crosshair X ───────────────────────────────────────────────────────────
   crosshairX(i: number): number {
     return this.chartType === 'bar' ? this.getBarMidX(i) : this.getLineX(i);
   }
 
-  // ── Hover zones ──
+  // ── Hover zones ───────────────────────────────────────────────────────────
   hoverZoneX(i: number): number {
     if (this.chartType === 'bar') return this.PAD_LEFT + i * this.slotW;
-    const step = this.innerW / Math.max(this.data.length - 1, 1);
+    const step = this.innerW / Math.max(this.visData.length - 1, 1);
     return this.PAD_LEFT + i * step - step / 2;
   }
 
   hoverZoneW(i: number): number {
     if (this.chartType === 'bar') return this.slotW;
-    return this.innerW / Math.max(this.data.length - 1, 1);
+    return this.innerW / Math.max(this.visData.length - 1, 1);
   }
 
-  // ── Mouse events ──
-  onSvgMouseMove(event: MouseEvent): void {
-    if (!this.data.length) return;
+  // ── Drag/zoom helpers ─────────────────────────────────────────────────────
+
+  /** Convert a MouseEvent to SVG-space X coordinate. */
+  private toSvgX(event: MouseEvent): number {
     const svg = event.currentTarget as SVGSVGElement;
     const rect = svg.getBoundingClientRect();
+    return (event.clientX - rect.left) / (rect.width / this.SVG_W);
+  }
+
+  /** Convert SVG-space X to the nearest visData index. */
+  private svgXToVisIdx(svgMouseX: number): number {
+    const chartX = svgMouseX - this.PAD_LEFT;
+    const n = this.visData.length;
+    if (this.chartType === 'bar') {
+      const slot = this.innerW / Math.max(n, 1);
+      return Math.max(0, Math.min(n - 1, Math.floor(chartX / slot)));
+    }
+    const step = this.innerW / Math.max(n - 1, 1);
+    return Math.max(0, Math.min(n - 1, Math.round(chartX / step)));
+  }
+
+  // ── Mouse events ──────────────────────────────────────────────────────────
+
+  onSvgMouseDown(event: MouseEvent): void {
+    if (!this.data.length) return;
+    event.preventDefault();
+    const mx = this.toSvgX(event);
+    this.isDragging = true;
+    this.dragPixelStart   = mx;
+    this.dragPixelCurrent = mx;
+    this.dragDataStart    = this.svgXToVisIdx(mx);
+    this.hoveredIndex     = null;
+  }
+
+  onSvgMouseMove(event: MouseEvent): void {
+    if (!this.data.length) return;
+    const svg   = event.currentTarget as SVGSVGElement;
+    const rect  = svg.getBoundingClientRect();
     const scaleX = rect.width / this.SVG_W;
     const mouseX = (event.clientX - rect.left) / scaleX;
     this.tooltipSvgX = mouseX;
 
-    let idx: number;
+    if (this.isDragging) {
+      this.dragPixelCurrent = mouseX;
+      this.hoveredIndex     = null;
+      return;
+    }
+
+    // Normal hover
     const chartX = mouseX - this.PAD_LEFT;
+    let idx: number;
     if (this.chartType === 'bar') {
       idx = Math.floor(chartX / this.slotW);
     } else {
-      const step = this.innerW / Math.max(this.data.length - 1, 1);
+      const step = this.innerW / Math.max(this.visData.length - 1, 1);
       idx = Math.round(chartX / step);
     }
-    this.hoveredIndex = (idx >= 0 && idx < this.data.length) ? idx : null;
+    this.hoveredIndex = (idx >= 0 && idx < this.visData.length) ? idx : null;
   }
 
-  onSvgMouseLeave(): void {
+  onSvgMouseUp(event: MouseEvent): void {
+    if (!this.isDragging) return;
+    const mx       = this.toSvgX(event);
+    const endIdx   = this.svgXToVisIdx(mx);
+    const startIdx = this.dragDataStart;
+
+    this.isDragging    = false;
+    this.dragDataStart = -1;
+
+    const lo = Math.min(startIdx, endIdx);
+    const hi = Math.max(startIdx, endIdx);
+
+    if (hi - lo >= 1) {
+      // Convert visData indices to original data indices
+      const offset = this.zoomWindow?.start ?? 0;
+      this.zoomWindow = { start: offset + lo, end: offset + hi };
+    }
     this.hoveredIndex = null;
   }
 
-  // ── Tooltip positioning ──
+  onSvgMouseLeave(): void {
+    if (this.isDragging) {
+      // Cancel drag if pointer leaves the chart
+      this.isDragging    = false;
+      this.dragDataStart = -1;
+    }
+    this.hoveredIndex = null;
+  }
+
+  // ── Tooltip positioning ───────────────────────────────────────────────────
   get tooltipLeftPct(): number {
     return (this.tooltipSvgX / this.SVG_W) * 100;
   }
@@ -317,7 +489,7 @@ export class InsightsSvgChartComponent implements OnChanges {
   }
 
   formatTooltipValue(metric: string, i: number): string {
-    const value = (this.data[i]?.[metric] as number) ?? 0;
+    const value = (this.visData[i]?.[metric] as number) ?? 0;
     const fmt = METRIC_FORMATS[metric];
     return fmt ? fmt(value) : defaultFmt(value);
   }

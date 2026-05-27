@@ -83,6 +83,8 @@ export class AdflowDateRangePickerComponent implements OnChanges {
   customExpanded = false;
   focusedPresetIndex = 0;
   liveMessage = '';
+  /** True when the popover would overflow left — opens rightward instead. */
+  popoverFlipped = false;
 
   draftCompareToPrevious = false;
   draftCustomStart: Date | null = null;
@@ -247,7 +249,24 @@ export class AdflowDateRangePickerComponent implements OnChanges {
     this.appliedValue = this.normalizeSelection(this.value);
     this.resetDraftFromApplied();
     this.isOpen = true;
-    setTimeout(() => this.focusPresetButton(this.initialPresetIndex()), 0);
+    setTimeout(() => {
+      this.adjustPopoverSide();
+      this.focusPresetButton(this.initialPresetIndex());
+    }, 0);
+  }
+
+  /**
+   * Flips the popover to open rightward when it would overflow the left edge
+   * of the viewport (e.g. when the trigger is near the left on smaller screens).
+   */
+  private adjustPopoverSide(): void {
+    if (typeof window === 'undefined') return;
+    const trigger = this.triggerButton?.nativeElement;
+    if (!trigger) { this.popoverFlipped = false; return; }
+    const triggerRect  = trigger.getBoundingClientRect();
+    const popoverMinW  = 500; // matches min-width in SCSS
+    // With right:0, popover left edge = triggerRect.right - popoverMinW
+    this.popoverFlipped = (triggerRect.right - popoverMinW) < 16;
   }
 
   private closePopover(reason: 'escape' | 'outside' | 'programmatic'): void {

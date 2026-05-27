@@ -34,11 +34,20 @@ export interface InsightSyncRequest {
   dateStop?: string;
   objectType?: string;
   fetchMode?: string;
+  timeIncrement?: number;
   timeIncrementAllDays?: boolean;
+  fields?: string[];
   limit?: number;
   actionBreakdowns?: string;
-  breakdowns?: any;
   actionReportTime?: string;
+  /**
+   * Demographic / placement breakdown dimensions to sync alongside the main
+   * time-series data.  Must be a plain object (JSON object / Java LinkedHashMap)
+   * — NOT an array — so Jackson can deserialize it on the backend.
+   * Each key is the Meta API breakdown dimension name; the value mirrors the key.
+   * e.g. { age: 'age', gender: 'gender', country: 'country', ... }
+   */
+  breakdowns?: Record<string, string>;
 }
 
 export interface MetricBlock {

@@ -652,12 +652,14 @@ export class InsightsComponent implements OnInit, OnDestroy {
   private loadLeftBreakdown(): void {
     if (!this.actId || !this.dateStart || !this.dateStop) return;
     this.leftBreakdownLoading = true;
+    // getActId() strips the "act_" prefix; snapshots are stored with the prefix → add it back
+    const adAccountId = this.formatAccountId(this.actId);
     const campaignIds = this.selectedCampaignIds.size > 0
       ? Array.from(this.selectedCampaignIds)
       : undefined;
     this.insightsService.getBreakdown(
       this.activePlatform,
-      this.actId,
+      adAccountId,
       this.leftDimension,
       this.dateStart,
       this.dateStop,
@@ -672,12 +674,14 @@ export class InsightsComponent implements OnInit, OnDestroy {
   private loadRightBreakdown(): void {
     if (!this.actId || !this.dateStart || !this.dateStop) return;
     this.rightBreakdownLoading = true;
+    // getActId() strips the "act_" prefix; snapshots are stored with the prefix → add it back
+    const adAccountId = this.formatAccountId(this.actId);
     const campaignIds = this.selectedCampaignIds.size > 0
       ? Array.from(this.selectedCampaignIds)
       : undefined;
     this.insightsService.getBreakdown(
       this.activePlatform,
-      this.actId,
+      adAccountId,
       this.rightDimension,
       this.dateStart,
       this.dateStop,
@@ -1018,6 +1022,17 @@ export class InsightsComponent implements OnInit, OnDestroy {
     this.fetchTabData(this.activeTabIndex);
   }
 
+  /**
+   * No breakdowns in the main sync request.
+   * The backend handles demographic/placement breakdown fetching automatically,
+   * making separate API calls per valid dimension group (age+gender, country,
+   * impression_device+publisher_platform) to avoid Meta's invalid-combination error.
+   */
+  private static readonly SYNC_BREAKDOWNS: Record<string, string> = {};
+
+  /** Breakdown dimensions always included in every GET fetch (read from DB). */
+  private static readonly FETCH_BREAKDOWNS: string[] = ['age', 'gender', 'country'];
+
   /** POST sync from Meta API; only called via the Sync button */
   syncAllData(): void {
     const campaignSync$ = this.syncObjectInsightsByAccount(
@@ -1036,6 +1051,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
         fields: Array.from(this.selectedCampaignFields),
         actionBreakdowns: 'action_type',
         actionReportTime: 'impression',
+        breakdowns: InsightsComponent.SYNC_BREAKDOWNS,
       }),
       (body) => this.insightsService.syncCampaignsBatch(body),
     );
@@ -1055,6 +1071,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
         fields: Array.from(this.selectedAdSetFields),
         actionBreakdowns: 'action_type',
         actionReportTime: 'impression',
+        breakdowns: InsightsComponent.SYNC_BREAKDOWNS,
       }),
       (body) => this.insightsService.syncAdSetsBatch(body),
     );
@@ -1074,6 +1091,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
         fields: Array.from(this.selectedAdFields),
         actionBreakdowns: 'action_type',
         actionReportTime: 'impression',
+        breakdowns: InsightsComponent.SYNC_BREAKDOWNS,
       }),
       (body) => this.insightsService.syncAdsBatch(body),
     );
@@ -1144,6 +1162,8 @@ export class InsightsComponent implements OnInit, OnDestroy {
           accountId,
           this.dateStart,
           this.dateStop,
+          undefined,
+          InsightsComponent.FETCH_BREAKDOWNS,
         ),
     )
       .pipe(finalize(batchDone))
@@ -1178,6 +1198,8 @@ export class InsightsComponent implements OnInit, OnDestroy {
           accountId,
           this.dateStart,
           this.dateStop,
+          undefined,
+          InsightsComponent.FETCH_BREAKDOWNS,
         ),
     )
       .pipe(finalize(batchDone))
@@ -1212,6 +1234,8 @@ export class InsightsComponent implements OnInit, OnDestroy {
           accountId,
           this.dateStart,
           this.dateStop,
+          undefined,
+          InsightsComponent.FETCH_BREAKDOWNS,
         ),
     )
       .pipe(finalize(batchDone))
@@ -1285,6 +1309,8 @@ export class InsightsComponent implements OnInit, OnDestroy {
             accountId,
             this.dateStart,
             this.dateStop,
+            undefined,
+            InsightsComponent.FETCH_BREAKDOWNS,
           ),
       );
     } else if (tabIndex === 1) {
@@ -1306,6 +1332,8 @@ export class InsightsComponent implements OnInit, OnDestroy {
             accountId,
             this.dateStart,
             this.dateStop,
+            undefined,
+            InsightsComponent.FETCH_BREAKDOWNS,
           ),
       );
     } else {
@@ -1327,6 +1355,8 @@ export class InsightsComponent implements OnInit, OnDestroy {
             accountId,
             this.dateStart,
             this.dateStop,
+            undefined,
+            InsightsComponent.FETCH_BREAKDOWNS,
           ),
       );
     }

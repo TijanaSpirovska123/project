@@ -18,6 +18,7 @@ import com.example.marketing.user.entity.UserEntity;
 import com.example.marketing.user.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class InsightsService {
@@ -41,6 +43,37 @@ public class InsightsService {
     // Sync - Fetch from platform API and save
     // -----------------------------------------------------------------------
 
+    /**
+     * Minimal fields for breakdown-dimension calls.
+     * Must NOT include action-array fields (actions, action_values, etc.) because those
+     * add an implicit "action_type" dimension, which Meta rejects when combined with
+     * demographic or placement breakdowns.
+     */
+    private static final List<String> BREAKDOWN_FETCH_FIELDS = List.of(
+            "impressions", "reach", "clicks", "spend", "date_start", "date_stop"
+    );
+
+    /**
+     * Valid Meta API breakdown-dimension groups — one API call per entry.
+     * Meta does not allow mixing demographics, geography, and placement in one call.
+     */
+    private static final Map<String, List<String>> BREAKDOWN_GROUPS;
+    static {
+        BREAKDOWN_GROUPS = new LinkedHashMap<>();
+        BREAKDOWN_GROUPS.put("age_gender", List.of("age", "gender"));
+        BREAKDOWN_GROUPS.put("country",    List.of("country"));
+        BREAKDOWN_GROUPS.put("placement",  List.of("impression_device", "publisher_platform"));
+    }
+
+    /** Maps each breakdown dimension to the group key used in breakdownsJson. */
+    private static final Map<String, String> DIMENSION_TO_GROUP = Map.of(
+            "age",                "age_gender",
+            "gender",             "age_gender",
+            "country",            "country",
+            "impression_device",  "placement",
+            "publisher_platform", "placement"
+    );
+
     @Transactional
     public List<InsightSnapshotDto> sync(Long userId, InsightSyncRequestDto req) {
         validateSyncRequest(req);
@@ -52,14 +85,145 @@ public class InsightsService {
         List<String> fields = resolveFields(req, strategy, mode);
         int timeInc = Optional.ofNullable(req.getTimeIncrement()).orElse(1);
 
-        // Let strategy build query params
+        // Main sync — no breakdowns param (breakdowns fetched separately below
+        // to avoid Meta's invalid-combination error)
+        req.setBreakdowns(null);
         Map<String, String> queryParams = strategy.buildQueryParams(req, fields, timeInc);
 
-        return switch (mode) {
+        List<InsightSnapshotDto> results = switch (mode) {
             case BATCH_IDS -> syncBatch(user, req, queryParams);
-            case ACCOUNT -> syncAccount(user, req, queryParams, strategy);
-            default -> syncPerObject(user, req, queryParams, strategy);
+            case ACCOUNT   -> syncAccount(user, req, queryParams, strategy);
+            default        -> syncPerObject(user, req, queryParams, strategy);
         };
+
+        // Post-sync: fetch demographic/placement breakdown data with separate calls
+        // per valid dimension group and store in each snapshot's breakdownsJson.
+        if (mode != FetchMode.ACCOUNT) {
+            try {
+                fetchAndStoreBreakdowns(user, req, strategy);
+            } catch (Exception e) {
+                log.warn("Breakdown post-sync failed (non-fatal): {}", e.getMessage());
+            }
+        }
+
+        return results;
+    }
+
+    // -----------------------------------------------------------------------
+    // Breakdown post-sync helpers
+    // -----------------------------------------------------------------------
+
+    private void fetchAndStoreBreakdowns(UserEntity user, InsightSyncRequestDto req,
+            InsightsFetchStrategy strategy) {
+
+        List<String> objectIds = req.getObjectExternalIds();
+        if (objectIds == null || objectIds.isEmpty()) return;
+
+        List<String> validIds = objectIds.stream()
+                .filter(id -> id != null && !id.isBlank())
+                .collect(Collectors.toList());
+        if (validIds.isEmpty()) return;
+
+        int storedTimeInc = Optional.ofNullable(req.getTimeIncrement()).orElse(1);
+
+        for (var groupEntry : BREAKDOWN_GROUPS.entrySet()) {
+            String groupKey      = groupEntry.getKey();
+            String breakdownsVal = String.join(",", groupEntry.getValue());
+
+            InsightSyncRequestDto bReq   = buildBreakdownRequest(req, breakdownsVal);
+            Map<String, String>   bParams = strategy.buildQueryParams(bReq, BREAKDOWN_FETCH_FIELDS, 0);
+
+            try {
+                // Reuse fetchForObjects — it batches up to 50 IDs per call automatically
+                Map<String, Map<String, Object>> batchResult =
+                        strategy.fetchForObjects(user, validIds, bParams);
+
+                batchResult.forEach((objectId, body) -> {
+                    @SuppressWarnings("unchecked")
+                    List<Object> rows = (List<Object>) body.getOrDefault("data", List.of());
+                    mergeBreakdownIntoSnapshot(user, req, objectId, storedTimeInc, groupKey, rows);
+                });
+
+            } catch (Exception e) {
+                log.warn("Breakdown group '{}' fetch failed: {}", groupKey, e.getMessage());
+            }
+        }
+    }
+
+    private InsightSyncRequestDto buildBreakdownRequest(InsightSyncRequestDto original,
+            String breakdownsValue) {
+        InsightSyncRequestDto bReq = new InsightSyncRequestDto();
+        bReq.setProvider(original.getProvider());
+        bReq.setAdAccountId(original.getAdAccountId());
+        bReq.setObjectType(original.getObjectType());
+        bReq.setDateStart(original.getDateStart());
+        bReq.setDateStop(original.getDateStop());
+        bReq.setDatePreset(original.getDatePreset());
+        // No time_increment — breakdown calls return dimension totals for the whole range
+        bReq.setBreakdowns(new LinkedHashMap<>(Map.of("breakdowns", breakdownsValue)));
+        bReq.setLimit(500); // enough to cover all dimension values in one page
+        return bReq;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void mergeBreakdownIntoSnapshot(UserEntity user, InsightSyncRequestDto req,
+            String objectId, int storedTimeInc, String groupKey, List<Object> newRows) {
+
+        snapshotRepository
+                .findByUserAndProviderAndAdAccountIdAndObjectTypeAndObjectExternalIdAndDateStartAndDateStopAndTimeIncrement(
+                        user, req.getProvider(), req.getAdAccountId(), req.getObjectType(),
+                        objectId, req.getDateStart(), req.getDateStop(), storedTimeInc)
+                .ifPresent(snapshot -> {
+                    Map<String, Object> breakdownMap = new LinkedHashMap<>();
+
+                    // Preserve already-stored breakdown groups (if in the new keyed format)
+                    if (snapshot.getBreakdownsJson() != null) {
+                        try {
+                            Map<String, Object> existing =
+                                    objectMapper.readValue(snapshot.getBreakdownsJson(), Map.class);
+                            if (existing.containsKey("age_gender")
+                                    || existing.containsKey("country")
+                                    || existing.containsKey("placement")) {
+                                breakdownMap.putAll(existing);
+                            }
+                        } catch (Exception ignored) {}
+                    }
+
+                    breakdownMap.put(groupKey, newRows);
+                    snapshot.setBreakdownsJson(serializeToJson(breakdownMap));
+                    snapshotRepository.save(snapshot);
+                });
+    }
+
+    /**
+     * Resolves breakdown rows for a given dimension from a snapshot.
+     * Prefers the structured breakdownsJson (new format); falls back to rawJson data
+     * array (legacy — only works if the snapshot was synced with that breakdown dimension).
+     */
+    @SuppressWarnings("unchecked")
+    private List<Object> resolveBreakdownRows(InsightSnapshotEntity snap, String dimension) {
+        // 1. Try new structured breakdownsJson
+        if (snap.getBreakdownsJson() != null) {
+            try {
+                Map<String, Object> bj = objectMapper.readValue(snap.getBreakdownsJson(), Map.class);
+                String groupKey = DIMENSION_TO_GROUP.get(dimension);
+                if (groupKey != null && bj.containsKey(groupKey)) {
+                    Object rows = bj.get(groupKey);
+                    if (rows instanceof List) return (List<Object>) rows;
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // 2. Fallback: rawJson data array (legacy)
+        if (snap.getRawJson() != null) {
+            try {
+                Map<String, Object> raw = objectMapper.readValue(snap.getRawJson(), Map.class);
+                List<Object> dataList = (List<Object>) raw.get("data");
+                return dataList != null ? dataList : List.of();
+            } catch (Exception ignored) {}
+        }
+
+        return List.of();
     }
 
     private List<InsightSnapshotDto> syncBatch(UserEntity user, InsightSyncRequestDto req,
@@ -364,31 +528,22 @@ public class InsightsService {
         Map<String, double[]> aggMap = new LinkedHashMap<>();
 
         for (InsightSnapshotEntity snap : snapshots) {
-            if (snap.getRawJson() == null) continue;
-            try {
+            List<Object> rows = resolveBreakdownRows(snap, dimension);
+            for (Object item : rows) {
+                if (!(item instanceof Map)) continue;
                 @SuppressWarnings("unchecked")
-                Map<String, Object> raw = objectMapper.readValue(snap.getRawJson(), Map.class);
-                @SuppressWarnings("unchecked")
-                List<Object> dataList = (List<Object>) raw.get("data");
-                if (dataList == null) continue;
+                Map<String, Object> row = (Map<String, Object>) item;
 
-                for (Object item : dataList) {
-                    if (!(item instanceof Map)) continue;
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> row = (Map<String, Object>) item;
+                Object dimValue = row.get(dimension);
+                if (dimValue == null) continue;
 
-                    Object dimValue = row.get(dimension);
-                    if (dimValue == null) continue;
-
-                    String dimStr = String.valueOf(dimValue);
-                    double[] agg = aggMap.computeIfAbsent(dimStr, k -> new double[5]);
-                    agg[0] += toDouble(row.get("spend"));
-                    agg[1] += toDouble(row.get("impressions"));
-                    agg[2] += toDouble(row.get("clicks"));
-                    agg[3] += toDouble(row.get("reach"));
-                    agg[4] += extractRoasRevenue(row);
-                }
-            } catch (Exception ignored) {
+                String dimStr = String.valueOf(dimValue);
+                double[] agg = aggMap.computeIfAbsent(dimStr, k -> new double[5]);
+                agg[0] += toDouble(row.get("spend"));
+                agg[1] += toDouble(row.get("impressions"));
+                agg[2] += toDouble(row.get("clicks"));
+                agg[3] += toDouble(row.get("reach"));
+                agg[4] += extractRoasRevenue(row);
             }
         }
 

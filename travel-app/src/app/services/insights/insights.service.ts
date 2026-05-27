@@ -23,6 +23,7 @@ export class InsightsService extends CoreService {
     dateStart: string,
     dateStop: string,
     ids?: string[],
+    breakdowns?: string[],
   ): Observable<InsightResponse> {
     let params = new HttpParams()
       .set('provider', provider)
@@ -32,9 +33,10 @@ export class InsightsService extends CoreService {
     if (ids && ids.length === 1) {
       params = params.set('campaignId', ids[0]);
     } else if (ids && ids.length > 1) {
-      ids.forEach((id) => {
-        params = params.append('campaignId', id);
-      });
+      ids.forEach((id) => { params = params.append('campaignId', id); });
+    }
+    if (breakdowns && breakdowns.length > 0) {
+      breakdowns.forEach((b) => { params = params.append('breakdowns', b); });
     }
     return this.http.get<InsightResponse>(`${this.URL}/campaigns`, { params });
   }
@@ -45,6 +47,7 @@ export class InsightsService extends CoreService {
     dateStart: string,
     dateStop: string,
     ids?: string[],
+    breakdowns?: string[],
   ): Observable<InsightResponse> {
     let params = new HttpParams()
       .set('provider', provider)
@@ -54,9 +57,10 @@ export class InsightsService extends CoreService {
     if (ids && ids.length === 1) {
       params = params.set('adsetId', ids[0]);
     } else if (ids && ids.length > 1) {
-      ids.forEach((id) => {
-        params = params.append('adsetId', id);
-      });
+      ids.forEach((id) => { params = params.append('adsetId', id); });
+    }
+    if (breakdowns && breakdowns.length > 0) {
+      breakdowns.forEach((b) => { params = params.append('breakdowns', b); });
     }
     return this.http.get<InsightResponse>(`${this.URL}/adsets`, { params });
   }
@@ -67,6 +71,7 @@ export class InsightsService extends CoreService {
     dateStart: string,
     dateStop: string,
     ids?: string[],
+    breakdowns?: string[],
   ): Observable<InsightResponse> {
     let params = new HttpParams()
       .set('provider', provider)
@@ -76,9 +81,10 @@ export class InsightsService extends CoreService {
     if (ids && ids.length === 1) {
       params = params.set('adId', ids[0]);
     } else if (ids && ids.length > 1) {
-      ids.forEach((id) => {
-        params = params.append('adId', id);
-      });
+      ids.forEach((id) => { params = params.append('adId', id); });
+    }
+    if (breakdowns && breakdowns.length > 0) {
+      breakdowns.forEach((b) => { params = params.append('breakdowns', b); });
     }
     return this.http.get<InsightResponse>(`${this.URL}/ads`, { params });
   }
