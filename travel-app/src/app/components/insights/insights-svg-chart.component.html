@@ -86,6 +86,23 @@
       }
     }
 
+    <!-- Dots at each data point (line mode only) -->
+    @if (chartType === 'line' && data.length) {
+      @for (metric of activeMetrics; track metric) {
+        @for (point of data; track i; let i = $index) {
+          <circle
+            [attr.cx]="getLineX(i)"
+            [attr.cy]="getY(metric, i)"
+            [attr.r]="getDotRadius(i)"
+            [attr.fill]="hoveredIndex === i ? '#ffffff' : getColor(metric)"
+            [attr.stroke]="getColor(metric)"
+            [attr.stroke-width]="hoveredIndex === i ? 2.5 : 1"
+            class="data-dot"
+          />
+        }
+      }
+    }
+
     <!-- Crosshair vertical line -->
     @if (hoveredIndex !== null) {
       <line
@@ -120,7 +137,7 @@
           [attr.y]="SVG_H - 8"
           text-anchor="middle"
           class="axis-label"
-        >{{ point.label }}</text>
+        >{{ getXLabelText(i) }}</text>
       }
     }
   </svg>

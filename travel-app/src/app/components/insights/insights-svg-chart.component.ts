@@ -80,6 +80,8 @@ export class InsightsSvgChartComponent implements OnChanges {
   @Input() previousData: ChartDataPoint[] = [];
   @Input() activeMetrics: string[] = [];
   @Input() chartType: 'line' | 'bar' = 'line';
+  /** Total number of days in the selected range — drives X-axis density. */
+  @Input() totalDays = 0;
 
   readonly SVG_W = 700;
   readonly SVG_H = 300;
@@ -209,15 +211,59 @@ export class InsightsSvgChartComponent implements OnChanges {
 
   // ── X-axis labels ──
   get xLabelStep(): number {
-    const n = this.data.length;
-    if (n <= 7)  return 1;
-    if (n <= 30) return 7;
-    if (n <= 90) return 14;
-    return 30;
+    const days = this.totalDays > 0 ? this.totalDays : this.data.length;
+    if (days <= 7)  return 1;
+    if (days <= 14) return 2;
+    if (days <= 30) return 7;
+    if (days <= 90) return 14;
+    return 30; // fallback; year range uses month-grouping in showXLabel()
   }
 
   showXLabel(i: number): boolean {
+    const days = this.totalDays > 0 ? this.totalDays : this.data.length;
+    if (days > 90) {
+      // Year+ range: show only the first data point of each calendar month
+      const date = this.data[i]?.['date'] as string | undefined;
+      if (!date) return i % 30 === 0;
+      const monthKey = date.substring(0, 7); // "YYYY-MM"
+      for (let j = 0; j < i; j++) {
+        const prevDate = this.data[j]?.['date'] as string | undefined;
+        if (prevDate && prevDate.substring(0, 7) === monthKey) return false;
+      }
+      return true;
+    }
     return i % this.xLabelStep === 0;
+  }
+
+  /**
+   * Returns the text to display on the X-axis for data point i.
+   * Year range → just the month abbreviation ("Jan", "Feb", …).
+   * All other ranges → the full label already set on the data point ("Jan 15").
+   */
+  getXLabelText(i: number): string {
+    const days = this.totalDays > 0 ? this.totalDays : this.data.length;
+    if (days > 90) {
+      const date = this.data[i]?.['date'] as string | undefined;
+      if (date) {
+        const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const m = parseInt(date.split('-')[1], 10);
+        return MONTHS[m - 1] ?? (this.data[i].label as string);
+      }
+    }
+    return this.data[i].label as string;
+  }
+
+  // ── Dot radius helpers ──
+  /**
+   * Returns the radius of a data-point dot.
+   * Scales down for dense datasets to avoid visual overlap.
+   */
+  getDotRadius(i: number): number {
+    if (this.hoveredIndex === i) return 5;
+    const n = this.data.length;
+    if (n <= 30)  return 3.5;
+    if (n <= 60)  return 2.5;
+    return 2;
   }
 
   // ── Crosshair X ──

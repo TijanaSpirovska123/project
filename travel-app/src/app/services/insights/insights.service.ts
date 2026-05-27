@@ -123,13 +123,17 @@ export class InsightsService extends CoreService {
     dimension: string,
     dateStart: string,
     dateStop: string,
+    campaignIds?: string[],
   ): Observable<{ data: InsightsBreakdownRow[]; success: boolean }> {
-    const params = new HttpParams()
+    let params = new HttpParams()
       .set('provider', provider)
       .set('adAccountId', adAccountId)
       .set('dimension', dimension)
       .set('dateStart', dateStart)
       .set('dateStop', dateStop);
+    if (campaignIds && campaignIds.length > 0) {
+      campaignIds.forEach(id => { params = params.append('campaignIds', id); });
+    }
     return this.http.get<{ data: InsightsBreakdownRow[]; success: boolean }>(
       `${this.URL}/breakdown`,
       { params },

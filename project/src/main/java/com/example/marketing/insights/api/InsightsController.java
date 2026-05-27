@@ -272,9 +272,10 @@ public class InsightsController extends BaseController {
             @RequestParam String adAccountId,
             @RequestParam String dimension,
             @RequestParam LocalDate dateStart,
-            @RequestParam LocalDate dateStop) {
+            @RequestParam LocalDate dateStop,
+            @RequestParam(required = false) List<String> campaignIds) {
         Long userId = extractUserId(auth);
-        return ok(service.breakdown(userId, provider, adAccountId, dimension, dateStart, dateStop));
+        return ok(service.breakdown(userId, provider, adAccountId, dimension, dateStart, dateStop, campaignIds));
     }
 
     // -------------------------------------------------------------------------

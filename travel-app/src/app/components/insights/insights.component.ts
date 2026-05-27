@@ -388,15 +388,17 @@ export class InsightsComponent implements OnInit, OnDestroy {
   }
 
   get aggregateCountLabel(): string {
-    const snapshots = this.getCurrentSnapshots();
+    const snapshots = this.getKpiSnapshots();
     const n = new Set(snapshots.map(s => s.objectExternalId)).size;
-    const type = this.activeTabIndex === 0 ? 'campaigns' : this.activeTabIndex === 1 ? 'ad sets' : 'ads';
     const range = this.activePreset ? `Last ${this.activePreset} days` : 'custom range';
-    return `${n} ${type}, ${range}`;
+    if (this.selectedCampaignIds.size === 0) {
+      return `All campaigns (${n}), ${range}`;
+    }
+    return `${n} campaign${n === 1 ? '' : 's'} selected, ${range}`;
   }
 
   getGraphSnapshots(): InsightSnapshot[] {
-    if (!this.selectedTreeRow) return this.getCurrentSnapshots();
+    if (!this.selectedTreeRow) return this.getKpiSnapshots();
     const { objectType, objectExternalId } = this.selectedTreeRow;
     const pool = objectType === 'CAMPAIGN' ? this.campaignInsights
                : objectType === 'ADSET' ? this.adSetInsights
@@ -552,6 +554,13 @@ export class InsightsComponent implements OnInit, OnDestroy {
 
   // ---------- Daily data detection ----------
 
+  /** Number of days in the currently-selected date range — fed to the chart for X-axis density. */
+  get chartTotalDays(): number {
+    if (!this.dateStart || !this.dateStop) return this.activePreset ?? 30;
+    const ms = new Date(this.dateStop).getTime() - new Date(this.dateStart).getTime();
+    return Math.max(Math.round(ms / 86400000), 1);
+  }
+
   get hasDailyData(): boolean {
     const snapshots = this.getGraphSnapshots();
     if (!snapshots.length) return false;
@@ -565,12 +574,14 @@ export class InsightsComponent implements OnInit, OnDestroy {
 
   get previousChartData(): ChartDataPoint[] {
     if (!this.dateSelection.compareToPrevious) return [];
-    const tabType = this.activeTabIndex === 0 ? 'campaign' : this.activeTabIndex === 1 ? 'adset' : 'ad';
     const durMs = new Date(this.dateStop).getTime() - new Date(this.dateStart).getTime();
     const prevStop = new Date(new Date(this.dateStart).getTime() - 86400000);
     const prevStart = new Date(prevStop.getTime() - durMs);
-    const prevKey = `${tabType}__${this.formatDate(prevStart)}__${this.formatDate(prevStop)}`;
-    const prevSnaps = InsightsComponent['insightsCache'].get(prevKey) ?? [];
+    const prevKey = `campaign__${this.formatDate(prevStart)}__${this.formatDate(prevStop)}`;
+    const allPrevSnaps = InsightsComponent['insightsCache'].get(prevKey) ?? [];
+    const prevSnaps = this.selectedCampaignIds.size > 0
+      ? allPrevSnaps.filter(s => this.selectedCampaignIds.has(s.objectExternalId ?? ''))
+      : allPrevSnaps;
     if (!prevSnaps.length) return [];
 
     const dateMap = new Map<string, any[]>();
@@ -641,12 +652,16 @@ export class InsightsComponent implements OnInit, OnDestroy {
   private loadLeftBreakdown(): void {
     if (!this.actId || !this.dateStart || !this.dateStop) return;
     this.leftBreakdownLoading = true;
+    const campaignIds = this.selectedCampaignIds.size > 0
+      ? Array.from(this.selectedCampaignIds)
+      : undefined;
     this.insightsService.getBreakdown(
       this.activePlatform,
       this.actId,
       this.leftDimension,
       this.dateStart,
       this.dateStop,
+      campaignIds,
     ).pipe(finalize(() => { this.leftBreakdownLoading = false; this.cdr.detectChanges(); }))
     .subscribe({
       next: (res) => { this.leftBreakdownRows = res?.data ?? []; },
@@ -657,12 +672,16 @@ export class InsightsComponent implements OnInit, OnDestroy {
   private loadRightBreakdown(): void {
     if (!this.actId || !this.dateStart || !this.dateStop) return;
     this.rightBreakdownLoading = true;
+    const campaignIds = this.selectedCampaignIds.size > 0
+      ? Array.from(this.selectedCampaignIds)
+      : undefined;
     this.insightsService.getBreakdown(
       this.activePlatform,
       this.actId,
       this.rightDimension,
       this.dateStart,
       this.dateStop,
+      campaignIds,
     ).pipe(finalize(() => { this.rightBreakdownLoading = false; this.cdr.detectChanges(); }))
     .subscribe({
       next: (res) => { this.rightBreakdownRows = res?.data ?? []; },
@@ -856,12 +875,13 @@ export class InsightsComponent implements OnInit, OnDestroy {
   // ---------- Cache Helpers ----------
 
   private cacheKey(type: 'campaign' | 'adset' | 'ad'): string {
-    const ids =
-      type === 'campaign'
-        ? Array.from(this.selectedCampaignIds).sort().join(',')
-        : type === 'adset'
-          ? Array.from(this.selectedAdSetIds).sort().join(',')
-          : Array.from(this.selectedAdIds).sort().join(',');
+    // Campaign data is always cached account-wide; selection is applied in-memory.
+    if (type === 'campaign') {
+      return `campaign__${this.dateStart}__${this.dateStop}`;
+    }
+    const ids = type === 'adset'
+      ? Array.from(this.selectedAdSetIds).sort().join(',')
+      : Array.from(this.selectedAdIds).sort().join(',');
     return `${type}__${this.dateStart}__${this.dateStop}__${ids}`;
   }
 
@@ -1107,16 +1127,17 @@ export class InsightsComponent implements OnInit, OnDestroy {
   }
 
   fetchCampaignInsights(): void {
+    // Always fetch all campaigns; selection is applied in-memory via getKpiSnapshots().
     const accountIds = this.getAccountIdsForQuery(
       this.availableCampaigns,
-      this.selectedCampaignIds,
+      new Set<string>(),
     );
     if (accountIds.length === 0) return;
     this.isLoading = true;
     const batchDone = this.makeBatchDone(1);
     this.queryInsightsByAccount(
       accountIds,
-      this.selectedCampaignIds,
+      new Set<string>(),
       (accountId) =>
         this.insightsService.queryCampaigns(
           Provider.META,
@@ -1245,9 +1266,10 @@ export class InsightsComponent implements OnInit, OnDestroy {
 
     let request$: Observable<InsightSnapshot[]>;
     if (tabIndex === 0) {
+      // Always fetch all campaigns; selection filter applied in-memory via getKpiSnapshots().
       const accountIds = this.getAccountIdsForQuery(
         this.availableCampaigns,
-        this.selectedCampaignIds,
+        new Set<string>(),
       );
       if (accountIds.length === 0) {
         onDone([]);
@@ -1256,7 +1278,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
       }
       request$ = this.queryInsightsByAccount(
         accountIds,
-        this.selectedCampaignIds,
+        new Set<string>(),
         (accountId) =>
           this.insightsService.queryCampaigns(
             Provider.META,
@@ -1489,6 +1511,14 @@ export class InsightsComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Campaign-level snapshots scoped to the current campaign selection.
+   *  No campaigns selected → whole account. One or more selected → those only.
+   *  KPI cards, graph, and breakdowns always use this as their data source. */
+  getKpiSnapshots(): InsightSnapshot[] {
+    if (this.selectedCampaignIds.size === 0) return this.campaignInsights;
+    return this.campaignInsights.filter(s => this.selectedCampaignIds.has(s.objectExternalId ?? ''));
+  }
+
   private get drillFilteredAdSetExternalIds(): Set<string> | null {
     if (this.selectedCampaignIds.size === 0) return null;
     const campaignDbIds = new Set(
@@ -1551,19 +1581,16 @@ export class InsightsComponent implements OnInit, OnDestroy {
   // ---------- Metric Blocks ----------
 
   updateBlockValues(): void {
-    const snapshots = this.getCurrentSnapshots();
-    const tabType =
-      this.activeTabIndex === 0
-        ? 'campaign'
-        : this.activeTabIndex === 1
-          ? 'adset'
-          : 'ad';
+    const snapshots = this.getKpiSnapshots();
     const durMs =
       new Date(this.dateStop).getTime() - new Date(this.dateStart).getTime();
     const prevStop = new Date(new Date(this.dateStart).getTime() - 86400000);
     const prevStart = new Date(prevStop.getTime() - durMs);
-    const prevKey = `${tabType}__${this.formatDate(prevStart)}__${this.formatDate(prevStop)}`;
-    const prevSnaps = InsightsComponent['insightsCache'].get(prevKey) ?? null;
+    const prevKey = `campaign__${this.formatDate(prevStart)}__${this.formatDate(prevStop)}`;
+    const allPrevSnaps = InsightsComponent['insightsCache'].get(prevKey) ?? null;
+    const prevSnaps = allPrevSnaps && this.selectedCampaignIds.size > 0
+      ? allPrevSnaps.filter(s => this.selectedCampaignIds.has(s.objectExternalId ?? ''))
+      : allPrevSnaps;
 
     // TODO: replace with server-side filtering when breakdown endpoint supports it
     const segMult = this.activeSegment ? (this.activeSegment.share / 100) : 1;
@@ -1703,7 +1730,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
       : 'add_circle';
     block.value = this.aggregateMetric(
       block.metricKey,
-      this.getCurrentSnapshots(),
+      this.getKpiSnapshots(),
     );
     this.closeMetricModal();
     this.saveLastView();
@@ -1782,9 +1809,24 @@ export class InsightsComponent implements OnInit, OnDestroy {
   }
 
   clearAll(): void {
-    this.clearCampaigns();
-    this.clearAdSets();
-    this.clearAds();
+    // Campaign: selection-only clear (data stays in cache)
+    this.selectedCampaignIds.clear();
+    // AdSets: clear selection + cached data (same logic as clearAdSets)
+    const adSetKey = this.cacheKey('adset');
+    this.selectedAdSetIds.clear();
+    this.adSetInsights = [];
+    InsightsComponent.insightsCache.delete(adSetKey);
+    this.tabDataLoaded[1] = false;
+    // Ads: clear selection + cached data (same logic as clearAds)
+    const adKey = this.cacheKey('ad');
+    this.selectedAdIds.clear();
+    this.adInsights = [];
+    InsightsComponent.insightsCache.delete(adKey);
+    this.tabDataLoaded[2] = false;
+    // Single unified refresh
+    this.refreshCurrentView();
+    this.loadBreakdownData();
+    this.saveLastView();
   }
 
   // ---------- Date Range ----------
@@ -1946,6 +1988,9 @@ export class InsightsComponent implements OnInit, OnDestroy {
     if (!id) return;
     if (this.selectedCampaignIds.has(id)) this.selectedCampaignIds.delete(id);
     else this.selectedCampaignIds.add(id);
+    this.refreshCurrentView();
+    this.loadBreakdownData();
+    this.saveLastView();
   }
 
   toggleAdSet(a: AdSetResponse): void {
@@ -1998,15 +2043,15 @@ export class InsightsComponent implements OnInit, OnDestroy {
     this.availableAds.forEach((a) => {
       if (a.externalId) this.selectedAdIds.add(a.externalId);
     });
+    this.refreshCurrentView();
+    this.loadBreakdownData();
   }
 
   clearCampaigns(): void {
-    const key = this.cacheKey('campaign');
     this.selectedCampaignIds.clear();
-    this.campaignInsights = [];
-    InsightsComponent.insightsCache.delete(key);
-    this.tabDataLoaded[0] = false;
     this.refreshCurrentView();
+    this.loadBreakdownData();
+    this.saveLastView();
   }
 
   selectAllAdSets(): void {
@@ -2088,6 +2133,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
     if (c.externalId) this.selectedCampaignIds.add(c.externalId);
     this.selectedAdSetIds.clear();
     this.selectedAdIds.clear();
+    this.loadBreakdownData();
     this.onTabChange(1);
   }
 
@@ -2102,6 +2148,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
     this.selectedCampaignIds.clear();
     this.selectedAdSetIds.clear();
     this.selectedAdIds.clear();
+    this.loadBreakdownData();
     this.onTabChange(0);
   }
 

@@ -339,14 +339,25 @@ public class InsightsService {
 
     @Transactional(readOnly = true)
     public List<InsightsBreakdownRowDto> breakdown(Long userId, Provider provider, String adAccountId,
-            String dimension, LocalDate dateStart, LocalDate dateStop) {
+            String dimension, LocalDate dateStart, LocalDate dateStop, List<String> campaignIds) {
         UserEntity user = getUserOrThrow(userId);
 
         List<InsightSnapshotEntity> snapshots = new ArrayList<>();
-        for (InsightObjectType type : List.of(InsightObjectType.CAMPAIGN, InsightObjectType.ADSET, InsightObjectType.AD)) {
-            snapshots.addAll(snapshotRepository
-                    .findByUserAndProviderAndAdAccountIdAndObjectTypeAndDateRange(
-                            user, provider, adAccountId, type, dateStart, dateStop));
+        if (campaignIds != null && !campaignIds.isEmpty()) {
+            // Scope to selected campaigns only
+            for (String campaignId : campaignIds) {
+                snapshots.addAll(snapshotRepository
+                        .findByUserAndProviderAndAdAccountIdAndObjectTypeAndObjectExternalIdAndDateRange(
+                                user, provider, adAccountId, InsightObjectType.CAMPAIGN,
+                                campaignId, dateStart, dateStop));
+            }
+        } else {
+            // Account-wide: aggregate across all object types
+            for (InsightObjectType type : List.of(InsightObjectType.CAMPAIGN, InsightObjectType.ADSET, InsightObjectType.AD)) {
+                snapshots.addAll(snapshotRepository
+                        .findByUserAndProviderAndAdAccountIdAndObjectTypeAndDateRange(
+                                user, provider, adAccountId, type, dateStart, dateStop));
+            }
         }
 
         // dimensionValue -> [spend, impressions, clicks, reach, revenueForRoas]
