@@ -25,8 +25,11 @@ export class InsightsBreakdownPanelsComponent implements OnChanges {
   @Input() leftLoading = false;
   @Input() rightLoading = false;
   @Input() activeSegment: SegmentFilter | null = null;
+  @Input() activeSegments: Partial<Record<string, SegmentFilter>> = {};
 
   @Output() segmentChange = new EventEmitter<SegmentFilter | null>();
+  @Output() leftSegmentChange = new EventEmitter<SegmentFilter | null>();
+  @Output() rightSegmentChange = new EventEmitter<SegmentFilter | null>();
   @Output() leftDimensionChange = new EventEmitter<string>();
   @Output() rightDimensionChange = new EventEmitter<string>();
 
@@ -36,10 +39,12 @@ export class InsightsBreakdownPanelsComponent implements OnChanges {
 
   onLeftSegment(seg: SegmentFilter | null): void {
     this.segmentChange.emit(seg);
+    this.leftSegmentChange.emit(seg);
   }
 
   onRightSegment(seg: SegmentFilter | null): void {
     this.segmentChange.emit(seg);
+    this.rightSegmentChange.emit(seg);
   }
 
   onLeftDimension(dim: string): void {

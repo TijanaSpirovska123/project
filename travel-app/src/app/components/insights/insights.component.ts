@@ -210,10 +210,21 @@ export class InsightsComponent implements OnInit, OnDestroy {
   leftDimension = 'age';
   rightDimension = 'gender';
   activeSegment: SegmentFilter | null = null;
+  dimensionFilters: Record<string, SegmentFilter> = {};
   leftBreakdownRows: InsightsBreakdownRow[] = [];
   rightBreakdownRows: InsightsBreakdownRow[] = [];
   leftBreakdownLoading = false;
   rightBreakdownLoading = false;
+
+  get combinedSegMult(): number {
+    const entries = Object.values(this.dimensionFilters);
+    if (!entries.length) return 1;
+    return entries.reduce((acc, f) => acc * (f.share / 100), 1);
+  }
+
+  get dimensionFilterEntries(): SegmentFilter[] {
+    return Object.values(this.dimensionFilters);
+  }
 
   // Viewport width for side-by-side availability check
   private viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
@@ -506,6 +517,10 @@ export class InsightsComponent implements OnInit, OnDestroy {
     const snapshots = this.getGraphSnapshots();
     if (!snapshots.length) return [];
 
+    // Compute values for active chart metrics + all 6 KPI block metrics (tooltip needs them all).
+    const kpiKeys = this.metricBlocks.filter(b => b.metricKey).map(b => b.metricKey as string);
+    const allKeys = [...new Set([...this.activeMetrics, ...kpiKeys])];
+
     const dateMap = new Map<string, any[]>();
     for (const snap of snapshots) {
       for (const entry of snap.rawData?.data ?? []) {
@@ -520,17 +535,18 @@ export class InsightsComponent implements OnInit, OnDestroy {
     return dates.map(d => {
       const entries = dateMap.get(d) ?? [];
       const point: ChartDataPoint = { label: InsightsComponent.formatChartDateLabel(d), date: d };
-      for (const key of this.activeMetrics) {
+      for (const key of allKeys) {
         if (InsightsComponent.RATE_METRICS.has(key)) {
           const vals = entries
             .map((e: any) => this.extractMetricValue(e, key))
             .filter(r => r.found);
           point[key] = vals.length ? vals.reduce((s, r) => s + r.value, 0) / vals.length : 0;
         } else {
-          point[key] = entries.reduce((sum: number, e: any) => {
+          const total = entries.reduce((sum: number, e: any) => {
             const { value } = this.extractMetricValue(e, key);
             return sum + value;
           }, 0);
+          point[key] = total;
         }
       }
       return point;
@@ -616,17 +632,54 @@ export class InsightsComponent implements OnInit, OnDestroy {
   get chartSubtitle(): string {
     if (!this.dateStart || !this.dateStop) return '';
     const range = `${this.dateStart.slice(5)} – ${this.dateStop.slice(5)}`;
-    const segPart = this.activeSegment ? ` · ${this.activeSegment.segmentLabel}` : '';
-    if (!this.dateSelection.compareToPrevious) return range + segPart;
+    const filterPart = this.dimensionFilterEntries.length
+      ? ' · ' + this.dimensionFilterEntries.map(f => f.segmentLabel).join(' · ')
+      : '';
+    if (!this.dateSelection.compareToPrevious) return range + filterPart;
     const durMs = new Date(this.dateStop).getTime() - new Date(this.dateStart).getTime();
     const days = Math.round(durMs / 86400000);
-    return `${range} vs previous ${days} days${segPart}`;
+    return `${range} vs previous ${days} days${filterPart}`;
   }
 
   // ---------- Breakdown panel handlers ----------
 
   onSegmentChange(seg: SegmentFilter | null): void {
     this.activeSegment = seg;
+    this.updateBlockValues();
+    this.cdr.detectChanges();
+  }
+
+  onLeftSegmentChange(seg: SegmentFilter | null): void {
+    if (seg) {
+      this.dimensionFilters = { ...this.dimensionFilters, [this.leftDimension]: seg };
+    } else {
+      const next = { ...this.dimensionFilters };
+      delete next[this.leftDimension];
+      this.dimensionFilters = next;
+    }
+    this.activeSegment = this.dimensionFilterEntries[0] ?? null;
+    this.updateBlockValues();
+    this.cdr.detectChanges();
+  }
+
+  onRightSegmentChange(seg: SegmentFilter | null): void {
+    if (seg) {
+      this.dimensionFilters = { ...this.dimensionFilters, [this.rightDimension]: seg };
+    } else {
+      const next = { ...this.dimensionFilters };
+      delete next[this.rightDimension];
+      this.dimensionFilters = next;
+    }
+    this.activeSegment = this.dimensionFilterEntries[0] ?? null;
+    this.updateBlockValues();
+    this.cdr.detectChanges();
+  }
+
+  removeDimensionFilter(dimensionKey: string): void {
+    const next = { ...this.dimensionFilters };
+    delete next[dimensionKey];
+    this.dimensionFilters = next;
+    this.activeSegment = this.dimensionFilterEntries[0] ?? null;
     this.updateBlockValues();
     this.cdr.detectChanges();
   }
@@ -645,14 +698,63 @@ export class InsightsComponent implements OnInit, OnDestroy {
 
   clearSegmentFilter(): void {
     this.activeSegment = null;
+    this.dimensionFilters = {};
     this.updateBlockValues();
     this.cdr.detectChanges();
+  }
+
+  /**
+   * Compute InsightsBreakdownRow[] client-side from the already-loaded time-series snapshots.
+   * Works because FETCH_BREAKDOWNS includes age/gender/country, so each rawData entry has those
+   * fields alongside date_start/spend/impressions/clicks/reach.
+   */
+  private computeBreakdownFromInsights(dimension: string): InsightsBreakdownRow[] {
+    const snapshots = this.getKpiSnapshots();
+    const groups = new Map<string, { spend: number; impressions: number; clicks: number; reach: number }>();
+
+    for (const snap of snapshots) {
+      for (const entry of snap.rawData?.data ?? []) {
+        const val = entry[dimension] as string | undefined;
+        if (!val) continue;
+        const g = groups.get(val) ?? { spend: 0, impressions: 0, clicks: 0, reach: 0 };
+        g.spend       += parseFloat(String(entry['spend']       ?? 0)) || 0;
+        g.impressions += parseFloat(String(entry['impressions'] ?? 0)) || 0;
+        g.clicks      += parseFloat(String(entry['clicks']      ?? 0)) || 0;
+        g.reach       += parseFloat(String(entry['reach']       ?? 0)) || 0;
+        groups.set(val, g);
+      }
+    }
+
+    if (!groups.size) return [];
+
+    const totalSpend = Array.from(groups.values()).reduce((s, g) => s + g.spend, 0);
+    return Array.from(groups.entries())
+      .sort((a, b) => b[1].spend - a[1].spend)
+      .map(([val, g]) => ({
+        dimension,
+        dimensionValue: val,
+        spend:       g.spend,
+        impressions: g.impressions,
+        clicks:      g.clicks,
+        reach:       g.reach,
+        ctr:         g.impressions > 0 ? (g.clicks / g.impressions) * 100 : 0,
+        roas:        0,
+        share:       totalSpend > 0 ? (g.spend / totalSpend) * 100 : 0,
+      }));
   }
 
   private loadLeftBreakdown(): void {
     if (!this.actId || !this.dateStart || !this.dateStop) return;
     this.leftBreakdownLoading = true;
-    // getActId() strips the "act_" prefix; snapshots are stored with the prefix → add it back
+    // Try client-side first (instant, uses already-loaded FETCH_BREAKDOWNS data)
+    const clientRows = this.computeBreakdownFromInsights(this.leftDimension);
+    if (clientRows.length) {
+      this.leftBreakdownRows = clientRows;
+      this.leftBreakdownLoading = false;
+      this.cdr.detectChanges();
+      return;
+    }
+    // Fall back to API (backend may have separately stored breakdown data)
     const adAccountId = this.formatAccountId(this.actId);
     const campaignIds = this.selectedCampaignIds.size > 0
       ? Array.from(this.selectedCampaignIds)
@@ -674,7 +776,13 @@ export class InsightsComponent implements OnInit, OnDestroy {
   private loadRightBreakdown(): void {
     if (!this.actId || !this.dateStart || !this.dateStop) return;
     this.rightBreakdownLoading = true;
-    // getActId() strips the "act_" prefix; snapshots are stored with the prefix → add it back
+    const clientRows = this.computeBreakdownFromInsights(this.rightDimension);
+    if (clientRows.length) {
+      this.rightBreakdownRows = clientRows;
+      this.rightBreakdownLoading = false;
+      this.cdr.detectChanges();
+      return;
+    }
     const adAccountId = this.formatAccountId(this.actId);
     const campaignIds = this.selectedCampaignIds.size > 0
       ? Array.from(this.selectedCampaignIds)
@@ -702,12 +810,34 @@ export class InsightsComponent implements OnInit, OnDestroy {
 
   toggleActiveMetric(key: string): void {
     if (this.activeMetrics.includes(key)) {
-      if (this.activeMetrics.length > 1) {
-        this.activeMetrics = this.activeMetrics.filter(m => m !== key);
-      }
+      this.activeMetrics = this.activeMetrics.filter(m => m !== key);
     } else {
       this.activeMetrics = [...this.activeMetrics, key];
     }
+  }
+
+  /** KPI card click: toggle the metric line when card has a metric; open modal for empty cards. */
+  onKpiCardClick(block: MetricBlock): void {
+    if (!block.metricKey) {
+      this.openMetricModal(block.index);
+    } else {
+      this.toggleActiveMetric(block.metricKey);
+    }
+  }
+
+  /** All 6 configured KPI block metrics passed to the SVG chart for tooltip rendering. */
+  get kpiMetricBlocksForChart(): {key: string; label: string}[] {
+    return this.metricBlocks
+      .filter(b => b.metricKey)
+      .map(b => ({ key: b.metricKey as string, label: b.label }));
+  }
+
+  /** Dynamic chart title reflecting currently active metrics. */
+  get chartTitle(): string {
+    const labels = this.activeMetrics
+      .map(m => this.metricBlocks.find(b => b.metricKey === m)?.label ?? this.formatMetricLabel(m));
+    if (!labels.length) return 'No metric selected — click a KPI card to add a line';
+    return labels.join(' · ') + ' over time';
   }
 
   getMetricColor(key: string): string {
@@ -1549,6 +1679,29 @@ export class InsightsComponent implements OnInit, OnDestroy {
     return this.campaignInsights.filter(s => this.selectedCampaignIds.has(s.objectExternalId ?? ''));
   }
 
+  /** Filter raw data entries to only those matching every active dimension filter. */
+  private filterEntriesByDimensions(entries: any[]): any[] {
+    const filters = this.dimensionFilterEntries;
+    if (!filters.length) return entries;
+    return entries.filter(entry =>
+      filters.every(f => {
+        const val = f.segmentKey.slice(f.dimensionKey.length + 1);
+        return entry[f.dimensionKey] === val;
+      })
+    );
+  }
+
+  /** Return snapshots with rawData entries pre-filtered by the active dimension filters. */
+  private getFilteredSnapshots(snapshots: InsightSnapshot[]): InsightSnapshot[] {
+    if (!this.dimensionFilterEntries.length) return snapshots;
+    return snapshots.map(snap => ({
+      ...snap,
+      rawData: snap.rawData
+        ? { ...snap.rawData, data: this.filterEntriesByDimensions(snap.rawData.data ?? []) }
+        : snap.rawData,
+    }));
+  }
+
   private get drillFilteredAdSetExternalIds(): Set<string> | null {
     if (this.selectedCampaignIds.size === 0) return null;
     const campaignDbIds = new Set(
@@ -1611,23 +1764,30 @@ export class InsightsComponent implements OnInit, OnDestroy {
   // ---------- Metric Blocks ----------
 
   updateBlockValues(): void {
-    const snapshots = this.getKpiSnapshots();
+    const rawSnapshots = this.getKpiSnapshots();
+    const filterActive = this.dimensionFilterEntries.length > 0;
+    const filteredSnapshots = filterActive ? this.getFilteredSnapshots(rawSnapshots) : rawSnapshots;
+    // Fall back to percentage multiplier when entries lack breakdown fields (nothing matched).
+    const hasRealData = !filterActive || filteredSnapshots.some(s => (s.rawData?.data ?? []).length > 0);
+    const snapshots = hasRealData ? filteredSnapshots : rawSnapshots;
+    const segMult = hasRealData ? 1 : this.combinedSegMult;
+
     const durMs =
       new Date(this.dateStop).getTime() - new Date(this.dateStart).getTime();
     const prevStop = new Date(new Date(this.dateStart).getTime() - 86400000);
     const prevStart = new Date(prevStop.getTime() - durMs);
     const prevKey = `campaign__${this.formatDate(prevStart)}__${this.formatDate(prevStop)}`;
     const allPrevSnaps = InsightsComponent['insightsCache'].get(prevKey) ?? null;
-    const prevSnaps = allPrevSnaps && this.selectedCampaignIds.size > 0
+    const rawPrevSnaps = allPrevSnaps && this.selectedCampaignIds.size > 0
       ? allPrevSnaps.filter(s => this.selectedCampaignIds.has(s.objectExternalId ?? ''))
       : allPrevSnaps;
-
-    // TODO: replace with server-side filtering when breakdown endpoint supports it
-    const segMult = this.activeSegment ? (this.activeSegment.share / 100) : 1;
+    const prevSnaps = rawPrevSnaps
+      ? (hasRealData ? this.getFilteredSnapshots(rawPrevSnaps) : rawPrevSnaps)
+      : null;
 
     this.metricBlocks = this.metricBlocks.map((block) => {
       let value = this.aggregateMetric(block.metricKey, snapshots);
-      if (this.activeSegment && block.metricKey && value !== '—') {
+      if (!hasRealData && filterActive && block.metricKey && value !== '—') {
         const raw = this.aggregateMetricRaw(block.metricKey, snapshots);
         value = this.formatValue(raw * segMult, this.getMetricFormat(block.metricKey));
       }
@@ -2218,6 +2378,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
         leftDimension: this.leftDimension,
         rightDimension: this.rightDimension,
         activeSegment: this.activeSegment,
+        dimensionFilters: this.dimensionFilters,
       };
       localStorage.setItem(InsightsComponent.LAST_VIEW_KEY, JSON.stringify(view));
     } catch { /* quota exceeded or SSR */ }
@@ -2265,6 +2426,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
       if (view.leftDimension) this.leftDimension = view.leftDimension;
       if (view.rightDimension) this.rightDimension = view.rightDimension;
       if (view.activeSegment !== undefined) this.activeSegment = view.activeSegment;
+      if (view.dimensionFilters !== undefined) this.dimensionFilters = view.dimensionFilters;
       this.dateRangeSelected = true;
       return true;
     } catch { return false; }

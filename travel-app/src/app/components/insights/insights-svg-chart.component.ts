@@ -86,6 +86,8 @@ export class InsightsSvgChartComponent implements OnChanges {
   @Input() dateStart = '';
   /** ISO date string for the end of the selected range (e.g. "2025-05-27"). */
   @Input() dateStop = '';
+  /** All 6 KPI block metrics to display in the hover tooltip (key + label). */
+  @Input() kpiMetricBlocks: {key: string; label: string}[] = [];
 
   readonly SVG_W = 700;
   readonly SVG_H = 300;
@@ -135,11 +137,15 @@ export class InsightsSvgChartComponent implements OnChanges {
   /** Drag selection rect width in SVG coords. */
   get dragRectW(): number { return Math.abs(this.dragPixelCurrent - this.dragPixelStart); }
 
-  // ── Primary-metric max (reactive getter, uses visData) ────────────────────
+  // ── Per-metric max — each metric scales to its own range ─────────────────
+  private getMetricMax(metric: string): number {
+    if (!metric || !this.visData.length) return 1;
+    return Math.max(...this.visData.map(d => (d[metric] as number) ?? 0), 1);
+  }
+
+  // Grid labels show the first active metric's scale
   private get primaryMax(): number {
-    const primary = this.activeMetrics[0];
-    if (!primary || !this.visData.length) return 1;
-    return Math.max(...this.visData.map(d => (d[primary] as number) ?? 0), 1);
+    return this.getMetricMax(this.activeMetrics[0] ?? '');
   }
 
   ngOnChanges(_changes: SimpleChanges): void {
@@ -174,16 +180,16 @@ export class InsightsSvgChartComponent implements OnChanges {
     return this.getBarX(i) + this.barW / 2;
   }
 
-  // ── Y positioning (primary metric scale) ──────────────────────────────────
+  // ── Y positioning (per-metric scale — each line uses its own max) ─────────
   getY(metric: string, i: number): number {
     const value = (this.visData[i]?.[metric] as number) ?? 0;
-    const ratio = value / this.primaryMax;
+    const ratio = value / this.getMetricMax(metric);
     return this.PAD_TOP + this.innerH - ratio * this.innerH;
   }
 
   getBarHeight(metric: string, i: number): number {
     const value = (this.visData[i]?.[metric] as number) ?? 0;
-    return (value / this.primaryMax) * this.innerH;
+    return (value / this.getMetricMax(metric)) * this.innerH;
   }
 
   getBarY(metric: string, i: number): number {
@@ -260,7 +266,7 @@ export class InsightsSvgChartComponent implements OnChanges {
 
   getPrevY(metric: string, i: number): number {
     const value = (this.previousData[i]?.[metric] as number) ?? 0;
-    const ratio = value / this.primaryMax;
+    const ratio = value / this.getMetricMax(metric);
     return this.PAD_TOP + this.innerH - ratio * this.innerH;
   }
 
@@ -488,9 +494,27 @@ export class InsightsSvgChartComponent implements OnChanges {
     return this.tooltipSvgX > this.SVG_W * 0.6;
   }
 
+  /** Metrics shown in the hover tooltip — all 6 KPI blocks when provided, else active metrics. */
+  get tooltipMetrics(): {key: string; label: string}[] {
+    if (this.kpiMetricBlocks.length) return this.kpiMetricBlocks;
+    return this.activeMetrics.map(m => ({ key: m, label: this.getLabel(m) }));
+  }
+
   formatTooltipValue(metric: string, i: number): string {
     const value = (this.visData[i]?.[metric] as number) ?? 0;
     const fmt = METRIC_FORMATS[metric];
     return fmt ? fmt(value) : defaultFmt(value);
+  }
+
+  formatTooltipDate(i: number | null): string {
+    if (i === null) return '';
+    const iso = this.visData[i]?.['date'] as string | undefined;
+    if (!iso) return (this.visData[i]?.label as string) ?? '';
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const parts = iso.split('-');
+    if (parts.length < 3) return (this.visData[i]?.label as string) ?? '';
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    return `${MONTHS[m - 1] ?? ''} ${d}, ${parts[0]}`;
   }
 }

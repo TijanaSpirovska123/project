@@ -211,12 +211,12 @@
       [class.tooltip-flip]="tooltipOnLeft"
       [style.left]="tooltipLeftPct + '%'"
     >
-      <div class="tooltip-date">{{ visData[hoveredIndex].label }}</div>
-      @for (metric of activeMetrics; track metric) {
+      <div class="tooltip-date">{{ formatTooltipDate(hoveredIndex) }}</div>
+      @for (kpi of tooltipMetrics; track kpi.key) {
         <div class="tooltip-row">
-          <span class="tooltip-dot" [style.background]="getColor(metric)"></span>
-          <span class="tooltip-metric">{{ getLabel(metric) }}</span>
-          <span class="tooltip-value">{{ formatTooltipValue(metric, hoveredIndex) }}</span>
+          <span class="tooltip-dot" [style.background]="getColor(kpi.key)"></span>
+          <span class="tooltip-metric">{{ kpi.label }}</span>
+          <span class="tooltip-value">{{ formatTooltipValue(kpi.key, hoveredIndex) }}</span>
         </div>
       }
     </div>

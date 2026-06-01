@@ -311,8 +311,31 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
     right: 8px;
     opacity: 0;
     transition: opacity 0.2s ease;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
     mat-icon { font-size: 14px; width: 14px; height: 14px; color: $text-muted; }
+  }
+
+  // Active indicator: colored dot in top-right corner (left of the edit button at top: 8px right: 8px)
+  .kpi-active-dot {
+    position: absolute;
+    top: 8px;
+    right: 30px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px $bg-card;
+  }
+
+  &.metric-active {
+    border-color: $primary;
+    box-shadow: 0 0 0 2px rgba(28, 166, 152, 0.18), $shadow-sm;
   }
 }
 
@@ -2772,6 +2795,32 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
   }
 }
 
+// ─── Dimension filter chip (header) ──────────────────────────────────────────
+.dim-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(28, 166, 152, 0.12);
+  border: 1px solid rgba(28, 166, 152, 0.4);
+  border-radius: 999px;
+  padding: 4px 12px 4px 8px;
+  font-size: 11px;
+  color: #1ca698;
+  font-family: 'Inter', system-ui, sans-serif;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+
+  &:hover { background: rgba(28, 166, 152, 0.20); }
+
+  .chip-x {
+    font-size: 14px;
+    line-height: 1;
+    font-weight: 400;
+    color: #1ca698;
+  }
+}
+
 // ─── Dark mode — Graph section, Filter Panel + Chart Pills ────────────────────
 :host-context([data-theme="dark"]),
 :host-context(body.dark-mode) {
@@ -2892,6 +2941,23 @@ $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
     border-color: rgba(72, 224, 214, 0.3);
     color: #48e0d6;
     .chip-x { color: #48e0d6; }
+  }
+
+  .dim-filter-chip {
+    background: rgba(72, 224, 214, 0.08);
+    border-color: rgba(72, 224, 214, 0.3);
+    color: #48e0d6;
+    &:hover { background: rgba(72, 224, 214, 0.15); }
+    .chip-x { color: #48e0d6; }
+  }
+
+  .metric-block.metric-active {
+    border-color: #48e0d6;
+    box-shadow: 0 0 0 2px rgba(72, 224, 214, 0.18), 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  .kpi-active-dot {
+    box-shadow: 0 0 0 2px #1b2323;
   }
 }
 

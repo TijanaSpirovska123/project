@@ -108,6 +108,13 @@
             </div>
           }
         </div>
+        <!-- Dimension filter chips -->
+        @for (f of dimensionFilterEntries; track f.dimensionKey) {
+          <button class="dim-filter-chip" (click)="removeDimensionFilter(f.dimensionKey)">
+            <span class="chip-x">×</span>
+            <span>{{ f.segmentLabel }}</span>
+          </button>
+        }
         <adflow-date-range-picker
           [value]="dateSelection"
           (valueChange)="onDateSelectionChange($event)"
@@ -135,16 +142,6 @@
       </button>
     </div>
 
-    <!-- Active segment filter chip -->
-    @if (activeSegment) {
-      <div class="segment-chip-row">
-        <button class="segment-chip" (click)="clearSegmentFilter()">
-          <span class="chip-x">×</span>
-          <span>Filtered: {{ activeSegment.segmentLabel }}</span>
-        </button>
-      </div>
-    }
-
     <!-- KPI Metric Blocks: 6 cards -->
     <div class="metric-blocks-grid">
       @if (isLoading) {
@@ -161,8 +158,9 @@
         <div
           class="metric-block"
           *ngFor="let block of metricBlocks"
-          (click)="openMetricModal(block.index)"
+          (click)="onKpiCardClick(block)"
           [class.empty]="!block.metricKey"
+          [class.metric-active]="block.metricKey && activeMetrics.includes(block.metricKey)"
         >
           <div class="block-icon-wrap">
             <mat-icon>{{ block.icon }}</mat-icon>
@@ -187,9 +185,16 @@
               {{ block.trend! | number: "1.1-1" }}%
             </div>
           </div>
-          <div class="block-edit-hint">
+          <!-- Edit button (separate click — opens metric picker without toggling chart line) -->
+          <button class="block-edit-hint" *ngIf="block.metricKey"
+                  (click)="openMetricModal(block.index); $event.stopPropagation()">
             <mat-icon>edit</mat-icon>
-          </div>
+          </button>
+          <!-- Active indicator dot: visible when this metric's line is shown on the chart -->
+          <span class="kpi-active-dot"
+                *ngIf="block.metricKey && activeMetrics.includes(block.metricKey)"
+                [style.background]="getMetricColor(block.metricKey)">
+          </span>
         </div>
       }
     </div>
@@ -669,7 +674,7 @@
       <!-- Header: title left, Line/Bar toggle right -->
       <div class="graph-header">
         <div class="graph-title-group">
-          <span class="graph-title">Performance Over Time</span>
+          <span class="graph-title">{{ chartTitle }}</span>
           @if (chartSubtitle) {
             <span class="graph-subtitle">{{ chartSubtitle }}</span>
           }
@@ -735,6 +740,7 @@
             [totalDays]="chartTotalDays"
             [dateStart]="dateStart"
             [dateStop]="dateStop"
+            [kpiMetricBlocks]="kpiMetricBlocksForChart"
           ></app-insights-svg-chart>
         }
       </div>
@@ -749,7 +755,9 @@
       [leftLoading]="leftBreakdownLoading"
       [rightLoading]="rightBreakdownLoading"
       [activeSegment]="activeSegment"
-      (segmentChange)="onSegmentChange($event)"
+      [activeSegments]="dimensionFilters"
+      (leftSegmentChange)="onLeftSegmentChange($event)"
+      (rightSegmentChange)="onRightSegmentChange($event)"
       (leftDimensionChange)="onLeftDimensionChange($event)"
       (rightDimensionChange)="onRightDimensionChange($event)"
     ></app-insights-breakdown-panels>
