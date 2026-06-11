@@ -42,13 +42,18 @@ public interface InsightsSnapshotMapper extends BaseMapper<InsightSnapshotDto, I
         try {
             JsonNode root = OBJECT_MAPPER.readTree(entity.getRawJson());
 
-            // Keep full raw payload on DTO
-            dto.setRawData(root);
+            // Merge breakdownsJson into rawData.breakdowns so the frontend can do
+            // client-side dimension filtering without a separate API call.
+            if (entity.getBreakdownsJson() != null && !entity.getBreakdownsJson().isBlank() && root.isObject()) {
+                try {
+                    JsonNode breakdownsNode = OBJECT_MAPPER.readTree(entity.getBreakdownsJson());
+                    ((com.fasterxml.jackson.databind.node.ObjectNode) root).set("breakdowns", breakdownsNode);
+                } catch (Exception ignored) {}
+            }
 
-            // Extract metrics from raw JSON
+            dto.setRawData(root);
             dto.setMetrics(extractMetrics(root));
         } catch (Exception e) {
-            // Fallback: keep raw string if JSON parsing fails
             dto.setRawData(entity.getRawJson());
             dto.setMetrics(Collections.emptyList());
         }

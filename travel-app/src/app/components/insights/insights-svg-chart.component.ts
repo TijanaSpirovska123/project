@@ -4,6 +4,7 @@ import {
   OnChanges,
   SimpleChanges,
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
 } from '@angular/core';
 
 export interface ChartDataPoint {
@@ -76,6 +77,7 @@ function defaultFmt(v: number): string {
   changeDetection: ChangeDetectionStrategy.Default,
 })
 export class InsightsSvgChartComponent implements OnChanges {
+  constructor(private cdr: ChangeDetectorRef) {}
   @Input() data: ChartDataPoint[] = [];
   @Input() previousData: ChartDataPoint[] = [];
   @Input() activeMetrics: string[] = [];
@@ -101,6 +103,7 @@ export class InsightsSvgChartComponent implements OnChanges {
 
   hoveredIndex: number | null = null;
   tooltipSvgX = 0;
+  tooltipSvgY = 0;
 
   readonly metricColors = METRIC_COLORS;
   readonly gridLines = [0, 1, 2, 3, 4];
@@ -430,17 +433,27 @@ export class InsightsSvgChartComponent implements OnChanges {
     this.hoveredIndex     = null;
   }
 
+  onHoverZoneEnter(i: number): void {
+    if (this.isDragging) return;
+    this.hoveredIndex = i;
+    this.cdr.detectChanges();
+  }
+
   onSvgMouseMove(event: MouseEvent): void {
     if (!this.data.length) return;
     const svg   = event.currentTarget as SVGSVGElement;
     const rect  = svg.getBoundingClientRect();
-    const scaleX = rect.width / this.SVG_W;
+    const scaleX = rect.width  / this.SVG_W;
+    const scaleY = rect.height / this.SVG_H;
     const mouseX = (event.clientX - rect.left) / scaleX;
+    const mouseY = (event.clientY - rect.top)  / scaleY;
     this.tooltipSvgX = mouseX;
+    this.tooltipSvgY = mouseY;
 
     if (this.isDragging) {
       this.dragPixelCurrent = mouseX;
       this.hoveredIndex     = null;
+      this.cdr.detectChanges();
       return;
     }
 
@@ -454,6 +467,7 @@ export class InsightsSvgChartComponent implements OnChanges {
       idx = Math.round(chartX / step);
     }
     this.hoveredIndex = (idx >= 0 && idx < this.visData.length) ? idx : null;
+    this.cdr.detectChanges();
   }
 
   onSvgMouseUp(event: MouseEvent): void {
@@ -478,11 +492,11 @@ export class InsightsSvgChartComponent implements OnChanges {
 
   onSvgMouseLeave(): void {
     if (this.isDragging) {
-      // Cancel drag if pointer leaves the chart
       this.isDragging    = false;
       this.dragDataStart = -1;
     }
     this.hoveredIndex = null;
+    this.cdr.detectChanges();
   }
 
   // ── Tooltip positioning ───────────────────────────────────────────────────
@@ -490,8 +504,18 @@ export class InsightsSvgChartComponent implements OnChanges {
     return (this.tooltipSvgX / this.SVG_W) * 100;
   }
 
+  get tooltipTopPct(): number {
+    // Clamp so tooltip stays within the chart area (top/bottom padding)
+    const raw = this.tooltipSvgY / this.SVG_H * 100;
+    return Math.max(5, Math.min(raw, 75));
+  }
+
   get tooltipOnLeft(): boolean {
     return this.tooltipSvgX > this.SVG_W * 0.6;
+  }
+
+  get tooltipFlipY(): boolean {
+    return (this.tooltipSvgY / this.SVG_H) > 0.55;
   }
 
   /** Metrics shown in the hover tooltip — all 6 KPI blocks when provided, else active metrics. */

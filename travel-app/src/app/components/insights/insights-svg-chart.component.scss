@@ -83,39 +83,50 @@
 // ── Tooltip ──────────────────────────────────────────────────────────────────
 .chart-tooltip {
   position: absolute;
-  top: 16px;
-  background: rgba(15, 23, 42, 0.96);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0F1A1F;
+  border: 1px solid #1ca698;
   border-radius: 10px;
-  padding: 10px 14px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  padding: 12px 14px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
   pointer-events: none;
-  z-index: 100;
-  min-width: 140px;
+  z-index: 200;
+  min-width: 176px;
   white-space: nowrap;
-  transform: translateX(10px);
+  // Default: tooltip appears to the right and anchored at its top-left
+  transform: translateX(14px) translateY(0);
 
-  &.tooltip-flip {
-    transform: translateX(calc(-100% - 10px));
+  &.tooltip-flip-x {
+    transform: translateX(calc(-100% - 14px)) translateY(0);
+  }
+
+  &.tooltip-flip-y {
+    transform: translateX(14px) translateY(-100%);
+  }
+
+  &.tooltip-flip-x.tooltip-flip-y {
+    transform: translateX(calc(-100% - 14px)) translateY(-100%);
   }
 }
 
 .tooltip-date {
-  font-size: 11px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.92);
-  margin-bottom: 7px;
-  font-family: 'Inter', system-ui, sans-serif;
-  letter-spacing: 0.3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #E6F0EE;
+  margin-bottom: 8px;
+  letter-spacing: 0.2px;
+}
+
+.tooltip-divider {
+  height: 1px;
+  background: rgba(28, 166, 152, 0.3);
+  margin-bottom: 8px;
 }
 
 .tooltip-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
-  font-family: 'Inter', system-ui, sans-serif;
+  gap: 7px;
+  margin-bottom: 5px;
 
   &:last-child { margin-bottom: 0; }
 }
@@ -128,16 +139,18 @@
 }
 
 .tooltip-metric {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.65);
+  font-size: 12px;
+  color: rgba(230, 240, 238, 0.65);
   flex: 1;
+  min-width: 80px;
 }
 
 .tooltip-value {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.95);
+  color: #E6F0EE;
   font-variant-numeric: tabular-nums;
+  font-family: 'Courier New', monospace;
 }
 
 // ── Period legend ─────────────────────────────────────────────────────────────

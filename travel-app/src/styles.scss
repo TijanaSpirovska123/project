@@ -1293,6 +1293,43 @@ body {
     }
   }
 
+  // ── Insights — Country filter dropdown ────────────────────────────────
+  .country-filter-btn {
+    background: $clr-surface-tonal-a10 !important;
+    border-color: $clr-surface-tonal-a20 !important;
+    color: $clr-primary-a50 !important;
+    mat-icon, .dropdown-arrow { color: $clr-surface-tonal-a50 !important; }
+    &:hover {
+      border-color: $clr-primary-a0 !important;
+      background: rgba(72, 224, 214, 0.08) !important;
+      color: $clr-primary-a0 !important;
+      mat-icon, .dropdown-arrow { color: $clr-primary-a0 !important; }
+    }
+    &.active {
+      border-color: $clr-primary-a0 !important;
+      background: rgba(72, 224, 214, 0.1) !important;
+      color: $clr-primary-a0 !important;
+      mat-icon, .dropdown-arrow { color: $clr-primary-a0 !important; }
+    }
+  }
+
+  .country-popover {
+    background: $clr-surface-tonal-a0 !important;
+    border-color: $clr-surface-tonal-a20 !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  .country-row {
+    color: $clr-primary-a50 !important;
+    mat-icon { color: $clr-surface-tonal-a50 !important; }
+    &:hover, &:focus-visible { background: $clr-surface-tonal-a10 !important; }
+    &.active {
+      color: $clr-primary-a0 !important;
+      background: rgba(72, 224, 214, 0.07) !important;
+      mat-icon { color: $clr-primary-a0 !important; }
+    }
+  }
+
   // ── Creative Library component ─────────────────────────────────────────
   .library-container {
     background: $clr-surface-a0 !important;

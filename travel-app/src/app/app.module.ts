@@ -25,6 +25,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTimepickerModule } from '@angular/material/timepicker';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatMenuModule } from '@angular/material/menu';
 import { SpinnerComponent } from './components/spinner/spinner.component';
 import { BreadcrumbModule } from 'primeng/breadcrumb';
 import { ChipModule } from 'primeng/chip';
@@ -112,6 +113,7 @@ import { InsightsBreakdownPanelsComponent } from './components/insights/insights
     PupilComponent,
     EyeballComponent,
     MatTooltipModule,
+    MatMenuModule,
     AppLoadingStateComponent,
     AppEmptyStateComponent,
     AppErrorStateComponent,

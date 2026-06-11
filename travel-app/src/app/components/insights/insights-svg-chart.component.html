@@ -151,7 +151,7 @@
         [attr.height]="innerH"
         fill="transparent"
         class="hover-zone"
-        (mouseenter)="!isDragging && (hoveredIndex = i)"
+        (mouseenter)="onHoverZoneEnter(i)"
       />
     }
 
@@ -208,10 +208,13 @@
   @if (hoveredIndex !== null && visData.length && !isDragging) {
     <div
       class="chart-tooltip"
-      [class.tooltip-flip]="tooltipOnLeft"
+      [class.tooltip-flip-x]="tooltipOnLeft"
+      [class.tooltip-flip-y]="tooltipFlipY"
       [style.left]="tooltipLeftPct + '%'"
+      [style.top]="tooltipTopPct + '%'"
     >
       <div class="tooltip-date">{{ formatTooltipDate(hoveredIndex) }}</div>
+      <div class="tooltip-divider"></div>
       @for (kpi of tooltipMetrics; track kpi.key) {
         <div class="tooltip-row">
           <span class="tooltip-dot" [style.background]="getColor(kpi.key)"></span>

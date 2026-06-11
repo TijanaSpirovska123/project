@@ -108,12 +108,42 @@
             </div>
           }
         </div>
+        <!-- Country filter dropdown -->
+        <div class="country-filter-wrap">
+          <button class="country-filter-btn"
+                  [class.active]="currentCountryKey !== 'all' || countryDropdownOpen"
+                  [attr.aria-expanded]="countryDropdownOpen"
+                  (click)="toggleCountryDropdown()">
+            <mat-icon>language</mat-icon>
+            <span>{{ currentCountryLabel }}</span>
+            <mat-icon class="dropdown-arrow" [class.rotated]="countryDropdownOpen">expand_more</mat-icon>
+          </button>
+          @if (countryDropdownOpen) {
+            <div class="country-popover">
+              <div class="country-popover-inner">
+                @for (opt of countryOptions; track opt.key) {
+                  <button type="button" class="country-row"
+                          [class.active]="currentCountryKey === opt.key"
+                          (click)="selectCountry(opt)">
+                    <span>{{ opt.label }}</span>
+                    @if (currentCountryKey === opt.key) {
+                      <mat-icon>check</mat-icon>
+                    }
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        </div>
+
         <!-- Dimension filter chips -->
         @for (f of dimensionFilterEntries; track f.dimensionKey) {
-          <button class="dim-filter-chip" (click)="removeDimensionFilter(f.dimensionKey)">
-            <span class="chip-x">×</span>
-            <span>{{ f.segmentLabel }}</span>
-          </button>
+          @if (f.dimensionKey !== 'country') {
+            <button class="dim-filter-chip" (click)="removeDimensionFilter(f.dimensionKey)">
+              <span class="chip-x">×</span>
+              <span>{{ f.segmentLabel }}</span>
+            </button>
+          }
         }
         <adflow-date-range-picker
           [value]="dateSelection"
@@ -761,6 +791,87 @@
       (leftDimensionChange)="onLeftDimensionChange($event)"
       (rightDimensionChange)="onRightDimensionChange($event)"
     ></app-insights-breakdown-panels>
+
+    <!-- Custom Breakdown Table -->
+    <div class="custom-breakdown-section">
+      <div class="custom-breakdown-header">
+        <span class="section-title">Custom breakdown</span>
+        <span class="section-hint">
+          @if (customTableDims.size === 1) {
+            Click any row value to filter the whole page
+          } @else {
+            Select one dimension to enable row filtering
+          }
+        </span>
+      </div>
+
+      <!-- Chip pickers -->
+      <div class="custom-breakdown-pickers">
+        <div class="picker-group">
+          <div class="picker-label">DIMENSIONS</div>
+          <div class="picker-chips">
+            @for (dim of customTableDimOptions; track dim.key) {
+              <button class="breakdown-chip"
+                      [class.active]="customTableDims.has(dim.key)"
+                      (click)="toggleCustomTableDim(dim.key)">
+                {{ dim.label }}
+              </button>
+            }
+          </div>
+        </div>
+        <div class="picker-group">
+          <div class="picker-label">METRICS</div>
+          <div class="picker-chips">
+            @for (met of customTableMetOptions; track met.key) {
+              <button class="breakdown-chip"
+                      [class.active]="customTableMets.has(met.key)"
+                      (click)="toggleCustomTableMet(met.key)">
+                {{ met.label }}
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      @if (customTableDims.size === 0 || customTableMets.size === 0) {
+        <div class="custom-breakdown-empty">Pick at least one dimension and one metric.</div>
+      } @else if (!customBreakdownTableRows.length) {
+        <div class="custom-breakdown-empty">No data — sync to see breakdown.</div>
+      } @else {
+        <div class="custom-breakdown-table-wrap">
+          <table class="custom-breakdown-table">
+            <thead>
+              <tr>
+                @for (dim of customBreakdownTableDims; track dim) {
+                  <th>{{ getCustomTableDimLabel(dim) }}</th>
+                }
+                @for (met of customBreakdownTableMets; track met) {
+                  <th class="th-right">{{ getCustomTableMetLabel(met) }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of customBreakdownTableRows; track row.primaryDim + '-' + row.primaryValue) {
+                <tr [class.row-clickable]="row.isClickable"
+                    [class.row-active-filter]="row.isActiveFilter"
+                    (click)="onCustomTableRowClick(row)">
+                  @for (dim of customBreakdownTableDims; track dim) {
+                    <td [class.td-clickable]="row.isClickable && dim === row.primaryDim"
+                        [class.td-active]="row.isActiveFilter && dim === row.primaryDim">
+                      {{ row.dimValues[dim] }}
+                    </td>
+                  }
+                  @for (met of customBreakdownTableMets; track met) {
+                    <td class="td-right td-value">{{ formatCustomTableValue(met, row) }}</td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
 
   </div>
 </div>

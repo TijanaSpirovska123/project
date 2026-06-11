@@ -55,9 +55,46 @@ import {
   PLATFORM_META,
 } from '../../data/insights/insights-fields';
 
+// ─── Custom breakdown table constants ────────────────────────────────────────
+
+const CUSTOM_TABLE_DIM_OPTIONS: ReadonlyArray<{ key: string; label: string }> = [
+  { key: 'country',   label: 'Country' },
+  { key: 'age',       label: 'Age' },
+  { key: 'gender',    label: 'Gender' },
+  { key: 'placement', label: 'Placement' },
+];
+
+const CUSTOM_TABLE_MET_OPTIONS: ReadonlyArray<{ key: string; label: string }> = [
+  { key: 'reach',     label: 'Reach' },
+  { key: 'ctr',       label: 'CTR' },
+  { key: 'purchases', label: 'Purchases' },
+  { key: 'roas',      label: 'ROAS' },
+];
+
+const COUNTRY_CYCLE_OPTIONS: ReadonlyArray<{ key: string; label: string }> = [
+  { key: 'all', label: 'All countries' },
+  { key: 'DE',  label: 'Germany' },
+  { key: 'IT',  label: 'Italy' },
+  { key: 'ES',  label: 'Spain' },
+  { key: 'FR',  label: 'France' },
+  { key: 'CZ',  label: 'Czech Republic' },
+];
+
+interface CustomBreakdownRow {
+  dimValues: Record<string, string>;
+  reach: number;
+  ctr: number;
+  purchases: number;
+  roas: number;
+  isClickable: boolean;
+  isActiveFilter: boolean;
+  primaryDim: string;
+  primaryValue: string;
+}
+
 @Component({
   selector: 'app-insights',
-  standalone: false, 
+  standalone: false,
   templateUrl: './insights.component.html',
   styleUrls: ['./insights.component.scss'],
 })
@@ -216,6 +253,14 @@ export class InsightsComponent implements OnInit, OnDestroy {
   leftBreakdownLoading = false;
   rightBreakdownLoading = false;
 
+  // ---------- Custom breakdown table ----------
+  readonly customTableDimOptions = CUSTOM_TABLE_DIM_OPTIONS;
+  readonly customTableMetOptions = CUSTOM_TABLE_MET_OPTIONS;
+  readonly countryOptions = COUNTRY_CYCLE_OPTIONS;
+  countryDropdownOpen = false;
+  customTableDims: Set<string> = new Set(['age']);
+  customTableMets: Set<string> = new Set(['reach', 'ctr', 'purchases', 'roas']);
+
   get combinedSegMult(): number {
     const entries = Object.values(this.dimensionFilters);
     if (!entries.length) return 1;
@@ -236,6 +281,8 @@ export class InsightsComponent implements OnInit, OnDestroy {
   savedViewsDropdownOpen = false;
   savedViewsLoading = false;
   private initialSavedViewAutoApplied = false;
+  /** Set when the initial saved view auto-applies; triggers a Meta API sync once available objects are loaded. */
+  private pendingInitialSync = false;
 
   // Save dialog
   saveDialogOpen = false;
@@ -328,6 +375,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
         this.savedViews = views ?? [];
         const mostRecentView = this.savedViews[0];
         if (mostRecentView) {
+          this.pendingInitialSync = true;
           this.applySavedView(mostRecentView);
         }
       },
@@ -337,6 +385,14 @@ export class InsightsComponent implements OnInit, OnDestroy {
         }
       },
     });
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (this.countryDropdownOpen && !(event.target as HTMLElement).closest('.country-filter-wrap')) {
+      this.countryDropdownOpen = false;
+      this.cdr.detectChanges();
+    }
   }
 
   @HostListener('window:resize')
@@ -505,6 +561,14 @@ export class InsightsComponent implements OnInit, OnDestroy {
     'unique_ctr', 'inline_link_click_ctr', 'estimated_ad_recall_rate',
   ]);
 
+  private static readonly DIMENSION_TO_BREAKDOWN_GROUP: Record<string, string> = {
+    age: 'age_gender',
+    gender: 'age_gender',
+    country: 'country',
+    impression_device: 'placement',
+    publisher_platform: 'placement',
+  };
+
   private static formatChartDateLabel(iso: string): string {
     const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const parts = iso.split('-');
@@ -514,8 +578,20 @@ export class InsightsComponent implements OnInit, OnDestroy {
   }
 
   get chartData(): ChartDataPoint[] {
-    const snapshots = this.getGraphSnapshots();
-    if (!snapshots.length) return [];
+    const rawSnapshots = this.getGraphSnapshots();
+    if (!rawSnapshots.length) return [];
+
+    // Apply dimension filters: use exact-match filtered entries when available,
+    // otherwise scale totals by combinedSegMult (proportional approximation).
+    const filterActive = this.dimensionFilterEntries.length > 0;
+    let snapshots = rawSnapshots;
+    let segMult = 1;
+    if (filterActive) {
+      const filtered = this.getFilteredSnapshots(rawSnapshots);
+      const hasRealData = filtered.some(s => (s.rawData?.data ?? []).length > 0);
+      snapshots = hasRealData ? filtered : rawSnapshots;
+      segMult = hasRealData ? 1 : this.combinedSegMult;
+    }
 
     // Compute values for active chart metrics + all 6 KPI block metrics (tooltip needs them all).
     const kpiKeys = this.metricBlocks.filter(b => b.metricKey).map(b => b.metricKey as string);
@@ -537,6 +613,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
       const point: ChartDataPoint = { label: InsightsComponent.formatChartDateLabel(d), date: d };
       for (const key of allKeys) {
         if (InsightsComponent.RATE_METRICS.has(key)) {
+          // Rate metrics are not scaled — they're averages, not sums.
           const vals = entries
             .map((e: any) => this.extractMetricValue(e, key))
             .filter(r => r.found);
@@ -546,7 +623,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
             const { value } = this.extractMetricValue(e, key);
             return sum + value;
           }, 0);
-          point[key] = total;
+          point[key] = total * segMult;
         }
       }
       return point;
@@ -684,6 +761,297 @@ export class InsightsComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
+  // ---------- Country filter pill ----------
+
+  get currentCountryKey(): string {
+    const f = this.dimensionFilters['country'];
+    if (!f) return 'all';
+    return f.segmentKey.slice(f.dimensionKey.length + 1);
+  }
+
+  get currentCountryLabel(): string {
+    return this.countryOptions.find(o => o.key === this.currentCountryKey)?.label ?? 'All countries';
+  }
+
+  cycleCountry(): void {
+    const opts = this.countryOptions;
+    const idx = opts.findIndex(o => o.key === this.currentCountryKey);
+    const next = opts[(idx + 1) % opts.length];
+    if (next.key === 'all') {
+      const filters = { ...this.dimensionFilters };
+      delete filters['country'];
+      this.dimensionFilters = filters;
+    } else {
+      const breakdownRows = this.computeBreakdownFromInsights('country');
+      const shareRow = breakdownRows.find(r => r.dimensionValue === next.key);
+      const share = shareRow?.share ?? 100;
+      this.dimensionFilters = {
+        ...this.dimensionFilters,
+        country: {
+          dimensionKey: 'country',
+          segmentKey: `country-${next.key}`,
+          segmentLabel: `Country: ${next.label}`,
+          share,
+        },
+      };
+    }
+    this.activeSegment = this.dimensionFilterEntries[0] ?? null;
+    this.updateBlockValues();
+    this.loadBreakdownData();
+    this.cdr.detectChanges();
+  }
+
+  toggleCountryDropdown(): void {
+    this.countryDropdownOpen = !this.countryDropdownOpen;
+    this.cdr.detectChanges();
+  }
+
+  selectCountry(opt: { key: string; label: string }): void {
+    this.countryDropdownOpen = false;
+    if (opt.key === 'all') {
+      const filters = { ...this.dimensionFilters };
+      delete filters['country'];
+      this.dimensionFilters = filters;
+    } else {
+      const breakdownRows = this.computeBreakdownFromInsights('country');
+      const shareRow = breakdownRows.find(r => r.dimensionValue === opt.key);
+      const share = shareRow?.share ?? 100;
+      this.dimensionFilters = {
+        ...this.dimensionFilters,
+        country: {
+          dimensionKey: 'country',
+          segmentKey: `country-${opt.key}`,
+          segmentLabel: `Country: ${opt.label}`,
+          share,
+        },
+      };
+    }
+    this.activeSegment = this.dimensionFilterEntries[0] ?? null;
+    this.updateBlockValues();
+    this.loadBreakdownData();
+    this.cdr.detectChanges();
+  }
+
+  // ---------- Custom breakdown table ----------
+
+  toggleCustomTableDim(dim: string): void {
+    const next = new Set(this.customTableDims);
+    if (next.has(dim)) next.delete(dim);
+    else next.add(dim);
+    this.customTableDims = next;
+  }
+
+  toggleCustomTableMet(met: string): void {
+    const next = new Set(this.customTableMets);
+    if (next.has(met)) next.delete(met);
+    else next.add(met);
+    this.customTableMets = next;
+  }
+
+  get customBreakdownTableDims(): string[] {
+    return Array.from(this.customTableDims);
+  }
+
+  get customBreakdownTableMets(): string[] {
+    return Array.from(this.customTableMets);
+  }
+
+  get customBreakdownTableRows(): CustomBreakdownRow[] {
+    const dims = this.customBreakdownTableDims;
+    if (dims.length === 0) return [];
+    if (dims.length === 1) {
+      const primaryDim = dims[0];
+      const rows = this.computeBreakdownWithPurchases(primaryDim);
+      return rows.map(row => ({
+        dimValues: { [primaryDim]: row.dimensionValue },
+        reach: row.reach,
+        ctr: row.ctr,
+        purchases: row.purchases,
+        roas: row.roas,
+        isClickable: true,
+        isActiveFilter: this.dimensionFilters[primaryDim]?.segmentKey === `${primaryDim}-${row.dimensionValue}`,
+        primaryDim,
+        primaryValue: row.dimensionValue,
+      }));
+    }
+    // Group selected dims by their shared breakdown source so dims that come from the
+    // same source (e.g. age + gender both come from the age_gender breakdown) are
+    // cross-tabulated into combined rows instead of showing '—' for each other.
+    const groups = new Map<string, string[]>();
+    for (const dim of dims) {
+      const groupKey = InsightsComponent.DIMENSION_TO_BREAKDOWN_GROUP[dim] ?? dim;
+      const list = groups.get(groupKey) ?? [];
+      list.push(dim);
+      groups.set(groupKey, list);
+    }
+
+    const result: CustomBreakdownRow[] = [];
+    const groupEntries = Array.from(groups.values());
+    for (let groupIndex = 0; groupIndex < groupEntries.length; groupIndex++) {
+      const groupDims = groupEntries[groupIndex];
+      const rows = this.computeCombinedBreakdown(groupDims);
+      // A secondary group with a single overall value (e.g. one country) applies to every
+      // row already built — merge it in instead of appending a separate '—'-filled row.
+      if (groupIndex > 0 && rows.length === 1 && result.length > 0) {
+        for (const r of result) {
+          for (const d of groupDims) {
+            r.dimValues[d] = rows[0].values[d];
+          }
+        }
+        continue;
+      }
+      if (groupDims.length > 1) {
+        // Order by the primary dim's overall ranking so its values stay grouped together,
+        // preserving the existing spend-desc order within each group (stable sort).
+        const primaryDim = groupDims[0];
+        const primaryOrder = this.computeBreakdownWithPurchases(primaryDim).map(r => r.dimensionValue);
+        rows.sort((a, b) => primaryOrder.indexOf(a.values[primaryDim]) - primaryOrder.indexOf(b.values[primaryDim]));
+      }
+      let lastPrimaryValue: string | null = null;
+      for (const row of rows) {
+        const dimValues = dims.reduce((acc, d) => {
+          acc[d] = groupDims.includes(d) ? row.values[d] : '—';
+          return acc;
+        }, {} as Record<string, string>);
+        if (groupDims.length > 1) {
+          const primaryDim = groupDims[0];
+          if (dimValues[primaryDim] === lastPrimaryValue) {
+            dimValues[primaryDim] = '';
+          } else {
+            lastPrimaryValue = dimValues[primaryDim];
+          }
+        }
+        result.push({
+          dimValues,
+          reach: row.reach,
+          ctr: row.ctr,
+          purchases: row.purchases,
+          roas: row.roas,
+          isClickable: false,
+          isActiveFilter: false,
+          primaryDim: groupDims.join('+'),
+          primaryValue: groupDims.map(d => row.values[d]).join('|'),
+        });
+      }
+    }
+    return result;
+  }
+
+  onCustomTableRowClick(row: CustomBreakdownRow): void {
+    if (!row.isClickable) return;
+    const { primaryDim, primaryValue } = row;
+    const segKey = `${primaryDim}-${primaryValue}`;
+    if (this.dimensionFilters[primaryDim]?.segmentKey === segKey) {
+      const next = { ...this.dimensionFilters };
+      delete next[primaryDim];
+      this.dimensionFilters = next;
+    } else {
+      const dimLabel = this.customTableDimOptions.find(d => d.key === primaryDim)?.label ?? primaryDim;
+      const breakdownRows = this.computeBreakdownFromInsights(primaryDim);
+      const shareRow = breakdownRows.find(r => r.dimensionValue === primaryValue);
+      const share = shareRow?.share ?? 100;
+      this.dimensionFilters = {
+        ...this.dimensionFilters,
+        [primaryDim]: {
+          dimensionKey: primaryDim,
+          segmentKey: segKey,
+          segmentLabel: `${dimLabel}: ${primaryValue}`,
+          share,
+        },
+      };
+    }
+    this.activeSegment = this.dimensionFilterEntries[0] ?? null;
+    this.updateBlockValues();
+    this.loadBreakdownData();
+    this.cdr.detectChanges();
+  }
+
+  getCustomTableDimLabel(key: string): string {
+    return this.customTableDimOptions.find(d => d.key === key)?.label ?? key;
+  }
+
+  getCustomTableMetLabel(key: string): string {
+    return this.customTableMetOptions.find(m => m.key === key)?.label ?? key;
+  }
+
+  formatCustomTableValue(metric: string, row: CustomBreakdownRow): string {
+    if (metric === 'reach') return this.formatNumber(row.reach);
+    if (metric === 'ctr') return row.ctr.toFixed(2) + '%';
+    if (metric === 'purchases') return String(Math.round(row.purchases));
+    if (metric === 'roas') return row.roas > 0 ? row.roas.toFixed(1) + 'x' : '—';
+    return '—';
+  }
+
+  private computeBreakdownWithPurchases(dimension: string): Array<{
+    dimensionValue: string; reach: number; ctr: number; purchases: number; roas: number;
+  }> {
+    return this.computeCombinedBreakdown([dimension]).map(row => ({
+      dimensionValue: row.values[dimension],
+      reach: row.reach,
+      ctr: row.ctr,
+      roas: row.roas,
+      purchases: row.purchases,
+    }));
+  }
+
+  /** Cross-tabulates the given dimensions (which must share the same breakdown source) into combined rows. */
+  private computeCombinedBreakdown(dimensions: string[]): Array<{
+    values: Record<string, string>; reach: number; ctr: number; purchases: number; roas: number;
+  }> {
+    const snapshots = this.getKpiSnapshots();
+    const groups = new Map<string, {
+      values: Record<string, string>;
+      spend: number; impressions: number; clicks: number; reach: number; purchases: number; revenue: number;
+    }>();
+    const groupKey = InsightsComponent.DIMENSION_TO_BREAKDOWN_GROUP[dimensions[0]];
+
+    for (const snap of snapshots) {
+      const structuredRows: any[] = groupKey
+        ? (snap.rawData as any)?.breakdowns?.[groupKey] ?? []
+        : [];
+      const entriesToProcess = structuredRows.length ? structuredRows : (snap.rawData?.data ?? []);
+
+      for (const entry of entriesToProcess) {
+        const values: Record<string, string> = {};
+        let missing = false;
+        for (const dim of dimensions) {
+          const val = entry[dim] as string | undefined;
+          if (!val) { missing = true; break; }
+          values[dim] = val;
+        }
+        if (missing) continue;
+        const key = dimensions.map(d => values[d]).join('|');
+        const g = groups.get(key) ?? { values, spend: 0, impressions: 0, clicks: 0, reach: 0, purchases: 0, revenue: 0 };
+        g.spend       += parseFloat(String(entry['spend']       ?? 0)) || 0;
+        g.impressions += parseFloat(String(entry['impressions'] ?? 0)) || 0;
+        g.clicks      += parseFloat(String(entry['clicks']      ?? 0)) || 0;
+        g.reach       += parseFloat(String(entry['reach']       ?? 0)) || 0;
+        const actions: any[] = Array.isArray(entry['actions']) ? entry['actions'] : [];
+        const purchAct = actions.find((a: any) =>
+          a.action_type === 'offsite_conversion.fb_pixel_purchase' || a.action_type === 'purchase'
+        );
+        g.purchases += purchAct ? (parseFloat(String(purchAct.value)) || 0) : 0;
+        const actionValues: any[] = Array.isArray(entry['action_values']) ? entry['action_values'] : [];
+        const purchVal = actionValues.find((a: any) =>
+          a.action_type === 'offsite_conversion.fb_pixel_purchase' || a.action_type === 'purchase'
+        );
+        g.revenue += purchVal ? (parseFloat(String(purchVal.value)) || 0) : 0;
+        groups.set(key, g);
+      }
+    }
+
+    if (!groups.size) return [];
+    return Array.from(groups.values())
+      .sort((a, b) => b.spend - a.spend)
+      .map(g => ({
+        values: g.values,
+        reach: g.reach,
+        ctr: g.impressions > 0 ? (g.clicks / g.impressions) * 100 : 0,
+        roas: g.spend > 0 ? g.revenue / g.spend : 0,
+        purchases: g.purchases,
+      }));
+  }
+
   onLeftDimensionChange(dim: string): void {
     this.leftDimension = dim;
     this.loadLeftBreakdown();
@@ -711,9 +1079,17 @@ export class InsightsComponent implements OnInit, OnDestroy {
   private computeBreakdownFromInsights(dimension: string): InsightsBreakdownRow[] {
     const snapshots = this.getKpiSnapshots();
     const groups = new Map<string, { spend: number; impressions: number; clicks: number; reach: number }>();
+    const groupKey = InsightsComponent.DIMENSION_TO_BREAKDOWN_GROUP[dimension];
 
     for (const snap of snapshots) {
-      for (const entry of snap.rawData?.data ?? []) {
+      // Prefer structured breakdown data merged by the backend mapper (breakdownsJson → rawData.breakdowns).
+      // Fall back to rawData.data entries that happen to carry demographic fields.
+      const structuredRows: any[] = groupKey
+        ? (snap.rawData as any)?.breakdowns?.[groupKey] ?? []
+        : [];
+      const entriesToProcess = structuredRows.length ? structuredRows : (snap.rawData?.data ?? []);
+
+      for (const entry of entriesToProcess) {
         const val = entry[dimension] as string | undefined;
         if (!val) continue;
         const g = groups.get(val) ?? { spend: 0, impressions: 0, clicks: 0, reach: 0 };
@@ -1074,6 +1450,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
         this.loadAllData();
       }
       this.cdr.detectChanges();
+      this.runPendingInitialSync();
       return;
     }
 
@@ -1090,6 +1467,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
           this.loadAllData();
         }
         this.cdr.detectChanges();
+        this.runPendingInitialSync();
       }
     };
 
@@ -1177,7 +1555,6 @@ export class InsightsComponent implements OnInit, OnDestroy {
         dateStart: this.dateStart,
         dateStop: this.dateStop,
         timeIncrement: 1,
-        timeIncrementAllDays: true,
         fields: Array.from(this.selectedCampaignFields),
         actionBreakdowns: 'action_type',
         actionReportTime: 'impression',
@@ -1197,7 +1574,6 @@ export class InsightsComponent implements OnInit, OnDestroy {
         dateStart: this.dateStart,
         dateStop: this.dateStop,
         timeIncrement: 1,
-        timeIncrementAllDays: true,
         fields: Array.from(this.selectedAdSetFields),
         actionBreakdowns: 'action_type',
         actionReportTime: 'impression',
@@ -1217,7 +1593,6 @@ export class InsightsComponent implements OnInit, OnDestroy {
         dateStart: this.dateStart,
         dateStop: this.dateStop,
         timeIncrement: 1,
-        timeIncrementAllDays: true,
         fields: Array.from(this.selectedAdFields),
         actionBreakdowns: 'action_type',
         actionReportTime: 'impression',
@@ -2524,6 +2899,15 @@ export class InsightsComponent implements OnInit, OnDestroy {
     this.loadBreakdownData();
     this.saveLastView();
     this.cdr.detectChanges();
+    this.runPendingInitialSync();
+  }
+
+  /** If an initial saved view auto-applied, run a Meta API sync once available objects are loaded. */
+  private runPendingInitialSync(): void {
+    if (!this.pendingInitialSync) return;
+    if (!this.availableCampaigns.length && !this.availableAdSets.length && !this.availableAds.length) return;
+    this.pendingInitialSync = false;
+    this.syncAllData();
   }
 
   get savedViewsButtonLabel(): string {
