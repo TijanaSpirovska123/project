@@ -1437,11 +1437,19 @@ export class InsightsComponent implements OnInit, OnDestroy {
   // ---------- Load Available Objects ----------
 
   private loadAvailableObjects(): void {
-    // Use cached objects to skip API calls on re-navigation
+    // Use cached objects to skip API calls on re-navigation. An all-empty
+    // cache is treated as stale (e.g. campaigns hadn't synced yet on the
+    // previous visit) so we retry instead of getting stuck with no data.
+    const cacheHasData =
+      !!InsightsComponent.cachedCampaigns?.length ||
+      !!InsightsComponent.cachedAdSets?.length ||
+      !!InsightsComponent.cachedAds?.length;
+
     if (
       InsightsComponent.cachedCampaigns &&
       InsightsComponent.cachedAdSets &&
-      InsightsComponent.cachedAds
+      InsightsComponent.cachedAds &&
+      cacheHasData
     ) {
       this.availableCampaigns = InsightsComponent.cachedCampaigns;
       this.availableAdSets = InsightsComponent.cachedAdSets;
@@ -1459,9 +1467,13 @@ export class InsightsComponent implements OnInit, OnDestroy {
     const finish = () => {
       done++;
       if (done === 3) {
-        InsightsComponent.cachedCampaigns = this.availableCampaigns;
-        InsightsComponent.cachedAdSets = this.availableAdSets;
-        InsightsComponent.cachedAds = this.availableAds;
+        // Only cache non-empty results — caching an all-empty result would
+        // permanently block future navigations from retrying once data syncs.
+        if (this.availableCampaigns.length || this.availableAdSets.length || this.availableAds.length) {
+          InsightsComponent.cachedCampaigns = this.availableCampaigns;
+          InsightsComponent.cachedAdSets = this.availableAdSets;
+          InsightsComponent.cachedAds = this.availableAds;
+        }
         this.isLoadingObjects = false;
         if (!this.isLoading) {
           this.loadAllData();

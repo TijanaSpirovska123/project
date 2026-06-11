@@ -151,9 +151,25 @@ export class InsightsSvgChartComponent implements OnChanges {
     return this.getMetricMax(this.activeMetrics[0] ?? '');
   }
 
-  ngOnChanges(_changes: SimpleChanges): void {
-    this.zoomWindow = null;   // reset zoom when input data changes
-    this.hoveredIndex = null;
+  /** Cheap signature so we can tell a genuinely new dataset apart from a fresh
+   *  array reference returned by a parent getter on every CD cycle. */
+  private dataSignature(data: ChartDataPoint[]): string {
+    if (!data.length) return '';
+    const first = data[0];
+    const last = data[data.length - 1];
+    return `${data.length}|${first['date'] ?? first.label}|${last['date'] ?? last.label}`;
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes['data']) return;
+    const prev = changes['data'].previousValue as ChartDataPoint[] | undefined;
+    const curr = changes['data'].currentValue as ChartDataPoint[] | undefined;
+    const prevSig = prev ? this.dataSignature(prev) : null;
+    const currSig = curr ? this.dataSignature(curr) : null;
+    if (prevSig !== currSig) {
+      this.zoomWindow = null;
+      this.hoveredIndex = null;
+    }
   }
 
   getColor(metric: string): string {
