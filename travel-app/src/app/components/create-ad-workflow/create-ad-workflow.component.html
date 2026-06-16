@@ -441,15 +441,18 @@
                   <mat-icon class="spin-icon">hourglass_empty</mat-icon>
                   <span>Loading assets...</span>
                 </div>
-              } @else if (pickerAssets.length === 0) {
+              } @else if (pickerAssets.length === 0 || !pickerAssets.some(a => a.assetType === 'IMAGE' && a.status === 'READY' && hasMetaUpload(a))) {
                 <div class="panel-empty">
                   <mat-icon>image_not_supported</mat-icon>
-                  <span>No assets found</span>
+                  <span>No images uploaded to Meta yet</span>
+                  <small style="color: var(--tbl-muted); font-size: 11px; text-align: center; margin-top: 4px;">
+                    Upload images in the Creative Library and push them to Meta first
+                  </small>
                 </div>
               } @else {
                 <div class="creative-grid">
                   @for (a of pickerAssets; track trackAssetById($index, a)) {
-                    @if (a.assetType === "IMAGE" && a.status === "READY") {
+                    @if (a.assetType === "IMAGE" && a.status === "READY" && hasMetaUpload(a)) {
                       <div
                         class="creative-card"
                         [class.selected]="selectedPickerAsset?.id === a.id"
@@ -811,7 +814,7 @@
         </div>
 
         <div class="variant-list">
-          @for (variant of selectedAssetForVariant.variants; track variant.id) {
+          @for (variant of metaVariants(selectedAssetForVariant); track variant.id) {
             <div
               class="variant-item"
               (click)="selectVariant(variant.variantKey)"

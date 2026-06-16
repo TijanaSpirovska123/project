@@ -27,6 +27,7 @@ import { PageService } from '../../services/ad-creative/page.service';
 import {
   AdSetResponse,
   StoredAssetDto,
+  StoredAssetVariantDto,
   CreativeDto,
 } from '../../models/adset/adset.model';
 import { Campaign } from '../../models/campaign/campaign';
@@ -578,6 +579,18 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
 
   isImage(asset: StoredAssetDto): boolean {
     return asset.assetType === 'IMAGE';
+  }
+
+  hasMetaUpload(asset: StoredAssetDto): boolean {
+    return (asset.variants ?? []).some(
+      (v) => v.metaImageHash != null && v.metaImageHash !== '',
+    );
+  }
+
+  metaVariants(asset: StoredAssetDto): StoredAssetVariantDto[] {
+    return (asset.variants ?? []).filter(
+      (v) => v.metaImageHash != null && v.metaImageHash !== '',
+    );
   }
 
   trackAssetById(_: number, asset: StoredAssetDto): number {
