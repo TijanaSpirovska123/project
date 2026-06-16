@@ -200,6 +200,14 @@
                       </button>
                     </div>
                   } @else {
+                    <button
+                      type="button"
+                      class="btn-select-creative"
+                      (click)="openPanel('picker')"
+                    >
+                      <mat-icon>add_photo_alternate</mat-icon>
+                      Select Ad Creative
+                    </button>
                     @if (hasError("creativeId", "required")) {
                       <div class="error-message">Ad creative is required</div>
                     }

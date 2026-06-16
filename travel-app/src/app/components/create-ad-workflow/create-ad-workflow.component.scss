@@ -651,6 +651,35 @@
   }
 }
 
+.btn-select-creative {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 16px;
+  border: 2px dashed var(--tbl-border);
+  border-radius: 8px;
+  background: var(--tbl-bg-alt);
+  color: var(--tbl-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  justify-content: center;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover {
+    border-color: #1ca698;
+    color: #1ca698;
+    background: rgba(28, 166, 152, 0.05);
+  }
+}
+
 // ─── Badges ───────────────────────────────────────────────────────────────────
 .creative-type-badge {
   display: inline-block;
