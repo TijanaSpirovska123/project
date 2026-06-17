@@ -36,7 +36,7 @@
   </div>
 
   <!-- table -->
-  <div class="table-scroll-wrapper" [class.has-scroll]="enableScrollX" [class.has-add-col]="showAddCol">
+  <div class="table-scroll-wrapper" #scrollWrapper [class.has-scroll]="enableScrollX" [class.has-add-col]="showAddCol">
   <div class="table">
     <!-- Header -->
     <div class="thead" [style.grid-template-columns]="getGridTemplate()">

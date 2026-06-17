@@ -6,10 +6,14 @@ import {
   EventEmitter,
   ChangeDetectionStrategy,
   OnChanges,
+  AfterViewInit,
+  OnDestroy,
   SimpleChanges,
   TrackByFunction,
   ElementRef,
   ChangeDetectorRef,
+  ViewChild,
+  NgZone,
 } from '@angular/core';
 
 import { TableData, TableDataRow } from '../../data/table/table-data.model';
@@ -27,7 +31,7 @@ type SortDir = 'asc' | 'desc' | '';
   styleUrls: ['./table.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ReusableTableComponent implements OnChanges {
+export class ReusableTableComponent implements OnChanges, AfterViewInit, OnDestroy {
   @Input() columns: ColumnDef[] = [];
   @Input() data: TableData[] = [];
   @Input() hasSearch = false;
@@ -92,6 +96,9 @@ export class ReusableTableComponent implements OnChanges {
   filtered: TableData[] = [];
   trackByGuid: TrackByFunction<TableData> = (index, item) => item.guid ?? index;
 
+  @ViewChild('scrollWrapper') scrollWrapperRef!: ElementRef<HTMLElement>;
+  private resizeObserver: ResizeObserver | null = null;
+
   // Pagination
   currentPage: number = 1;
   itemsPerPage: number = 5;
@@ -127,10 +134,50 @@ export class ReusableTableComponent implements OnChanges {
   constructor(
     private readonly elRef: ElementRef,
     private readonly cdr: ChangeDetectorRef,
+    private readonly ngZone: NgZone,
   ) {}
 
   ngOnChanges(_: SimpleChanges) {
     this.applyFilters();
+  }
+
+  ngAfterViewInit(): void {
+    setTimeout(() => this.calculateItemsPerPage(), 0);
+    if (typeof ResizeObserver !== 'undefined' && this.scrollWrapperRef) {
+      this.resizeObserver = new ResizeObserver(() => {
+        this.ngZone.run(() => this.calculateItemsPerPage());
+      });
+      this.resizeObserver.observe(this.scrollWrapperRef.nativeElement);
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
+  }
+
+  private calculateItemsPerPage(): void {
+    const wrapperEl = this.scrollWrapperRef?.nativeElement;
+    if (!wrapperEl) return;
+
+    const wrapperHeight = wrapperEl.clientHeight;
+    if (wrapperHeight <= 0) return;
+
+    const theadEl = wrapperEl.querySelector('.thead') as HTMLElement | null;
+    const theadHeight = theadEl ? theadEl.getBoundingClientRect().height : 44;
+
+    const availableHeight = wrapperHeight - theadHeight;
+    if (availableHeight <= 0) return;
+
+    const rowHeight = window.innerWidth >= 1280 ? 64 : window.innerWidth >= 1024 ? 56 : 48;
+    const count = Math.max(1, Math.floor(availableHeight / rowHeight));
+
+    if (count === this.itemsPerPage) return;
+
+    this.itemsPerPage = count;
+    this.itemsPerPageOptions = Array.from(new Set([count, 10, 25, 50].filter(v => v > 0))).sort((a, b) => a - b);
+    this.currentPage = 1;
+    this.updatePagination();
+    this.cdr.markForCheck();
   }
 
   // ---------- pagination ----------
