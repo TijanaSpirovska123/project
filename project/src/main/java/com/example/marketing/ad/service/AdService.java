@@ -6,6 +6,8 @@ import com.example.marketing.ad.mapper.AdMapper;
 import com.example.marketing.ad.repository.AdRepository;
 import com.example.marketing.ad.strategy.AdStrategy;
 import com.example.marketing.ad.strategy.AdStrategyRegistry;
+import com.example.marketing.adcreative.entity.CreativeEntity;
+import com.example.marketing.adcreative.repository.CreativeRepository;
 import com.example.marketing.adset.entity.AdSetEntity;
 import com.example.marketing.adset.repository.AdSetRepository;
 import com.example.marketing.exception.BusinessException;
@@ -33,12 +35,14 @@ public class AdService extends AbstractPlatformService<AdEntity, AdDto, AdStrate
     private final AdSetRepository adSetRepository;
     private final AdMapper adMapper;
     private final UserRepository userRepository;
+    private final CreativeRepository creativeRepository;
 
     public AdService(
             AdRepository repo,
             AdMapper adMapper,
             AdSetRepository adSetRepository,
             UserRepository userRepository,
+            CreativeRepository creativeRepository,
             PlatformClientRegistry clients,
             TokenService tokens,
             AdStrategyRegistry strategyRegistry,
@@ -49,6 +53,7 @@ public class AdService extends AbstractPlatformService<AdEntity, AdDto, AdStrate
         this.adMapper = adMapper;
         this.adSetRepository = adSetRepository;
         this.userRepository = userRepository;
+        this.creativeRepository = creativeRepository;
     }
 
     @Transactional
@@ -94,6 +99,13 @@ public class AdService extends AbstractPlatformService<AdEntity, AdDto, AdStrate
                     + " must be synced to the platform before creating an ad (missing externalId)");
         }
 
+        // Use the request's adAccountId when explicitly provided; fall back to the adSet's stored value.
+        // This handles the case where the adSet entity has a stale/mismatched account in the DB
+        // but the user's request carries the correct working account.
+        String effectiveAdAccountId = (dto.getAdAccountId() != null && !dto.getAdAccountId().isBlank())
+                ? dto.getAdAccountId()
+                : adSet.getAdAccountId();
+
         AdEntity e = new AdEntity();
         e.setAdSet(adSet);
         e.setAdSetExternalId(adSet.getExternalId());
@@ -101,11 +113,11 @@ public class AdService extends AbstractPlatformService<AdEntity, AdDto, AdStrate
 
         e.setName(dto.getName());
         e.setStatus(dto.getStatus() != null ? dto.getStatus() : "PAUSED");
-        e.setCreativeId(dto.getCreativeId());
+        e.setCreativeId(resolveCreativeExternalId(dto.getCreativeId(), effectiveAdAccountId));
 
         e.setUser(user);
-        e.setPlatform(adSet.getPlatform());
-        e.setAdAccountId(adSet.getAdAccountId());
+        e.setPlatform(adSet.getPlatform() != null ? adSet.getPlatform() : (dto.getPlatform() != null ? dto.getPlatform() : "META"));
+        e.setAdAccountId(effectiveAdAccountId);
         e.setUpdatedAt(LocalDateTime.now());
 
         e = adRepository.save(e);
@@ -283,5 +295,57 @@ public class AdService extends AbstractPlatformService<AdEntity, AdDto, AdStrate
     @Override
     protected void deleteAllByUserAndPlatform(Long userId, String platform) {
         adRepository.deleteAllByUserIdAndPlatform(userId, platform);
+    }
+
+    /**
+     * Resolves creativeId to a platform externalId.
+     *
+     * Flow 1 — local DB id (e.g. "29" from the newly-created creative):
+     *   findById → validate account → return externalId
+     *
+     * Flow 2 — Facebook external id (e.g. "2194316378084188" selected from the list):
+     *   findByExternalId → validate account → return as-is (it's already the platform id)
+     *   If not in our DB at all, pass through and let Facebook validate.
+     */
+    private String resolveCreativeExternalId(String creativeId, String adAccountId) {
+        // Step 1: try as a local DB id
+        try {
+            long localId = Long.parseLong(creativeId);
+            CreativeEntity creative = creativeRepository.findById(localId).orElse(null);
+            if (creative != null) {
+                if (creative.getExternalId() == null || creative.getExternalId().isBlank()) {
+                    throw BusinessException.badRequest(
+                            "Creative with id " + localId + " has not been synced to the platform yet (missing externalId)");
+                }
+                validateCreativeAccount(creative, adAccountId);
+                return creative.getExternalId();
+            }
+        } catch (NumberFormatException ignored) {
+            // not a numeric local id — fall through
+        }
+
+        // Step 2: try as a platform external id (user selected from existing list)
+        CreativeEntity byExtId = creativeRepository.findByExternalId(creativeId).orElse(null);
+        if (byExtId != null) {
+            validateCreativeAccount(byExtId, adAccountId);
+            return creativeId;
+        }
+
+        // Step 3: unknown creative id — pass through and let the platform validate
+        return creativeId;
+    }
+
+    private void validateCreativeAccount(CreativeEntity creative, String adAccountId) {
+        if (creative.getAdAccountId() == null || adAccountId == null) return;
+        if (!stripActPrefix(adAccountId).equals(stripActPrefix(creative.getAdAccountId()))) {
+            throw BusinessException.badRequest(
+                    "Creative '" + creative.getExternalId() + "' belongs to ad account '"
+                            + creative.getAdAccountId() + "' but the ad set is under '" + adAccountId + "'. "
+                            + "Use a creative from the same ad account.");
+        }
+    }
+
+    private static String stripActPrefix(String accountId) {
+        return accountId.startsWith("act_") ? accountId.substring(4) : accountId;
     }
 }

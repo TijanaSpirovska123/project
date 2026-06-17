@@ -231,6 +231,7 @@ public class AdCreativeService {
         e.setExternalId(platformCreativeId);
         e.setPageId(dto.getPageId());
         e.setLinkUrl(dto.getObjectUrl());
+        e.setImageHash(dto.getImageHash());
 
         e = creativeRepository.save(e);
         return creativeMapper.convertToBaseDto(e);
