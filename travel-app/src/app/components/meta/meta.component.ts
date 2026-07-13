@@ -368,7 +368,7 @@ export class MetaComponent implements OnInit {
     this.pendingRequests--;
     if (this.pendingRequests === 0) {
       this.isLoading = false;
-      this.cdr.detectChanges();
+      this.cdr.markForCheck();
     }
   }
 
