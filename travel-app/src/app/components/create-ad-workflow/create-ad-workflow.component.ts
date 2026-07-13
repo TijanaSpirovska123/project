@@ -183,25 +183,12 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: ({ campaigns, adSets, pages }: any) => {
-          this.campaigns = this.filterByActiveAccount(campaigns?.data ?? []);
-          this.allAdSets = this.filterByActiveAccount(adSets?.data ?? []);
+          this.campaigns = campaigns?.data ?? [];
+          this.allAdSets = adSets?.data ?? [];
           this.pages = Array.isArray(pages) ? pages : (pages?.data ?? []);
         },
         error: (err: any) => this.handleError(err, 'Failed to load form data'),
       });
-  }
-
-  /**
-   * getAllByPlatform() returns campaigns/ad sets across every ad account the
-   * user has synced, not just the one currently active in this workflow.
-   * Picking a campaign/ad set from a different account than `actId` still
-   * publishes against `actId`, so Meta rejects the ad set as not belonging
-   * to that account. Scope the lists to the active account to prevent that.
-   */
-  private filterByActiveAccount<T extends { adAccountId?: string }>(items: T[]): T[] {
-    if (!this.actId) return items;
-    const target = `act_${this.actId}`;
-    return items.filter((i) => i.adAccountId === target);
   }
 
   ngOnDestroy(): void {
@@ -269,8 +256,8 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: ({ campaigns, adSets }: any) => {
-          this.campaigns = this.filterByActiveAccount(campaigns?.data ?? []);
-          this.allAdSets = this.filterByActiveAccount(adSets?.data ?? []);
+          this.campaigns = campaigns?.data ?? [];
+          this.allAdSets = adSets?.data ?? [];
         },
         error: (err: any) => this.handleError(err, 'Failed to reload data'),
       });
