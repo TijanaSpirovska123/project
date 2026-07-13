@@ -478,16 +478,40 @@ public class AdCreativeService {
     }
 
     public List<Map<String, Object>> getAllAdCreativesWithDetails(Long userId, String adAccountId) {
-        List<String> ids = getAllAdCreativeIds(userId, adAccountId);
-        List<Map<String, Object>> out = new ArrayList<>(ids.size());
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> BusinessException.notFound("User not found with id: " + userId));
 
-        for (String id : ids) {
-            try {
-                out.add(getAdCreativeDetails(userId, adAccountId, id));
-            } catch (Exception e) {
-                out.add(Map.of("id", id, "error", e.getMessage()));
-            }
-        }
+        String act = normalizeAct(resolveAdAccountId(adAccountId));
+
+        var token = tokens.getAccessToken(user, Provider.META);
+        var client = clients.of(Provider.META);
+
+        String path = act + "/adcreatives";
+        String fields = "id,name,object_story_id,object_story_spec,object_type,image_hash,image_url,video_id,body,title,status,thumbnail_url,url_tags";
+
+        List<Map<String, Object>> out = new ArrayList<>();
+        String after = null;
+
+        do {
+            Map<String, String> q = new HashMap<>();
+            q.put("fields", fields);
+            if (after != null) q.put("after", after);
+
+            ResponseEntity<Map> resp = client.get(path, q, token);
+
+            Map body = resp.getBody();
+            if (body == null || !resp.getStatusCode().is2xxSuccessful()) break;
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> data = (List<Map<String, Object>>) body.get("data");
+            if (data != null) out.addAll(data);
+
+            Map paging = (Map) body.get("paging");
+            Map cursors = paging == null ? null : (Map) paging.get("cursors");
+            after = (cursors == null) ? null : (String) cursors.get("after");
+
+        } while (after != null);
+
         return out;
     }
 
