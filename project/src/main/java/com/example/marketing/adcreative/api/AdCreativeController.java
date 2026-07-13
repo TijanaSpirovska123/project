@@ -83,7 +83,7 @@ public class AdCreativeController extends BaseController {
     ) {
         Long userId = extractUserId(auth);
         logger.info("Fetching all creatives with details for user: {}", userId);
-        List<Map<String, Object>> creativesWithDetails = adCreativeService.getAllAdCreativesWithDetails(userId, adAccountId);
+        List<Map<String, Object>> creativesWithDetails = adCreativeService.getAllAdCreativesWithDetails(userId, adAccountId, forceRefresh);
         logger.info("Fetched {} creatives with details", creativesWithDetails.size());
         return ok(creativesWithDetails);
     }

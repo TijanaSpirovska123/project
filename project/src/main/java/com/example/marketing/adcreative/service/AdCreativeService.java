@@ -19,6 +19,7 @@ import com.example.marketing.asset.service.MetaVideoUploadService;
 import com.example.marketing.asset.storage.ObjectStorageClient;
 import com.example.marketing.exception.BusinessException;
 import com.example.marketing.exception.StatusErrorResponse;
+import com.example.marketing.infrastructure.cache.PlatformRawDataCache;
 import com.example.marketing.infrastructure.service.platformserviceimpl.AbstractPlatformService;
 import com.example.marketing.infrastructure.strategy.PlatformClientRegistry;
 import com.example.marketing.infrastructure.util.Provider;
@@ -68,6 +69,7 @@ public class AdCreativeService {
     private final StoredAssetVariantRepository storedAssetVariantRepository;
     private final ObjectStorageClient storage;
     private final MetaVideoUploadService metaVideoUploadService;
+    private final PlatformRawDataCache rawDataCache;
 
     @Value("${facebook.login.marketing.ad-account-id:}")
     private String defaultAdAccountId;
@@ -86,7 +88,8 @@ public class AdCreativeService {
             StoredAssetRepository storedAssetRepository,
             StoredAssetVariantRepository storedAssetVariantRepository,
             ObjectStorageClient storage,
-            MetaVideoUploadService metaVideoUploadService
+            MetaVideoUploadService metaVideoUploadService,
+            PlatformRawDataCache rawDataCache
     ) {
         this.creativeRepository = creativeRepository;
         this.creativeMapper = creativeMapper;
@@ -102,6 +105,7 @@ public class AdCreativeService {
         this.storedAssetVariantRepository = storedAssetVariantRepository;
         this.storage = storage;
         this.metaVideoUploadService = metaVideoUploadService;
+        this.rawDataCache = rawDataCache;
     }
 
     /* =========================
@@ -160,6 +164,7 @@ public class AdCreativeService {
         e.setLinkUrl(linkUrl);
 
         e = creativeRepository.save(e);
+        rawDataCache.evictCreativesList(platform.name(), normalizeAct(dto.getAdAccountId()));
         return creativeMapper.convertToBaseDto(e);
     }
 
@@ -234,6 +239,7 @@ public class AdCreativeService {
         e.setImageHash(dto.getImageHash());
 
         e = creativeRepository.save(e);
+        rawDataCache.evictCreativesList(platform.name(), normalizeAct(scopedAdAccountId));
         return creativeMapper.convertToBaseDto(e);
     }
 
@@ -330,6 +336,7 @@ public class AdCreativeService {
             String platformCreativeId = createCreativeOnPlatform(user, videoCreativeDto, platform);
             e.setExternalId(platformCreativeId);
             e = creativeRepository.save(e);
+            rawDataCache.evictCreativesList(platform.name(), normalizeAct(scopedAdAccountId));
         }
 
         return creativeMapper.convertToBaseDto(e);
@@ -478,10 +485,19 @@ public class AdCreativeService {
     }
 
     public List<Map<String, Object>> getAllAdCreativesWithDetails(Long userId, String adAccountId) {
+        return getAllAdCreativesWithDetails(userId, adAccountId, false);
+    }
+
+    public List<Map<String, Object>> getAllAdCreativesWithDetails(Long userId, String adAccountId, boolean forceRefresh) {
+        String act = normalizeAct(resolveAdAccountId(adAccountId));
+
+        if (!forceRefresh) {
+            List<Map<String, Object>> cached = rawDataCache.getCreativesList(Provider.META.name(), act);
+            if (cached != null) return cached;
+        }
+
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> BusinessException.notFound("User not found with id: " + userId));
-
-        String act = normalizeAct(resolveAdAccountId(adAccountId));
 
         var token = tokens.getAccessToken(user, Provider.META);
         var client = clients.of(Provider.META);
@@ -495,6 +511,7 @@ public class AdCreativeService {
         do {
             Map<String, String> q = new HashMap<>();
             q.put("fields", fields);
+            q.put("limit", "100");
             if (after != null) q.put("after", after);
 
             ResponseEntity<Map> resp = client.get(path, q, token);
@@ -512,6 +529,7 @@ public class AdCreativeService {
 
         } while (after != null);
 
+        rawDataCache.putCreativesList(Provider.META.name(), act, out);
         return out;
     }
 

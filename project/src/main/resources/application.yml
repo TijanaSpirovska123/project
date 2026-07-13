@@ -94,6 +94,8 @@ app:
       ttl-seconds: 300
     ad:
       ttl-seconds: 120
+    creative:
+      ttl-seconds: 180
 
 facebook:
   login:

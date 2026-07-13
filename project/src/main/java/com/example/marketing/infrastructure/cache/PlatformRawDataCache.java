@@ -7,6 +7,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -26,9 +27,17 @@ public class PlatformRawDataCache {
     @Value("${app.cache.ad.ttl-seconds:120}")
     private long adTtl;
 
+    @Value("${app.cache.creative.ttl-seconds:180}")
+    private long creativeTtl;
+
     // Key pattern: rawdata:{type}:{platform}:{adAccountId}:{externalId}
     private String key(String type, String platform, String adAccountId, String externalId) {
         return String.format("rawdata:%s:%s:%s:%s", type, platform, adAccountId, externalId);
+    }
+
+    // Key pattern for whole-list caches: rawdata:{type}:{platform}:{adAccountId}
+    private String listKey(String type, String platform, String adAccountId) {
+        return String.format("rawdata:%s:%s:%s", type, platform, adAccountId);
     }
 
     public void putCampaign(String platform, String adAccountId,
@@ -97,6 +106,35 @@ public class PlatformRawDataCache {
         } catch (Exception e) {
             log.warn("Redis unavailable, cache miss for ad {}: {}", externalId, e.getMessage());
             return null;
+        }
+    }
+
+    public void putCreativesList(String platform, String adAccountId, List<Map<String, Object>> data) {
+        try {
+            redisTemplate.opsForValue().set(
+                    listKey("creatives-list", platform, adAccountId),
+                    data, Duration.ofSeconds(creativeTtl));
+        } catch (Exception e) {
+            log.warn("Redis unavailable, skipping creatives-list cache write for {}: {}", adAccountId, e.getMessage());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<Map<String, Object>> getCreativesList(String platform, String adAccountId) {
+        try {
+            Object val = redisTemplate.opsForValue().get(listKey("creatives-list", platform, adAccountId));
+            return val instanceof List ? (List<Map<String, Object>>) val : null;
+        } catch (Exception e) {
+            log.warn("Redis unavailable, cache miss for creatives-list {}: {}", adAccountId, e.getMessage());
+            return null;
+        }
+    }
+
+    public void evictCreativesList(String platform, String adAccountId) {
+        try {
+            redisTemplate.delete(listKey("creatives-list", platform, adAccountId));
+        } catch (Exception e) {
+            log.warn("Redis unavailable, skipping creatives-list eviction: {}", e.getMessage());
         }
     }
 
