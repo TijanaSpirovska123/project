@@ -83,11 +83,11 @@ public abstract class AbstractPlatformService<
         Map body = response.getBody();
 
         if (body == null) {
-            throw BusinessException.of(StatusErrorResponse.FACEBOOK_API_ERROR,
+            throw BusinessException.of(StatusErrorResponse.EXTERNAL_API_ERROR,
                     "Platform returned no response when creating " + entity.getClass().getSimpleName());
         }
         if (body.get("id") == null) {
-            throw BusinessException.of(StatusErrorResponse.FACEBOOK_API_ERROR,
+            throw BusinessException.of(StatusErrorResponse.EXTERNAL_API_ERROR,
                     "Platform did not return an id for the created " + entity.getClass().getSimpleName());
         }
         entity.setExternalId(body.get("id").toString());

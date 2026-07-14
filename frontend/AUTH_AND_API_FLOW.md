@@ -1,4 +1,4 @@
-# travel-app — Authentication & API Flow
+# frontend — Authentication & API Flow
 
 ## Table of Contents
 

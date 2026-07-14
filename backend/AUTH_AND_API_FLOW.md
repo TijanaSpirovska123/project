@@ -1,4 +1,4 @@
-# project (backend) — Authentication & API Flow
+# backend — Authentication & API Flow
 
 ## Table of Contents
 

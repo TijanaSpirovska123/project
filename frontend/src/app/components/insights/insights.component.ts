@@ -43,6 +43,9 @@ import {
   SegmentFilter,
   InsightsBreakdownRow,
 } from './insights-breakdown.types';
+import { InsightsBreakdownService, CustomBreakdownRow } from '../../services/insights/insights-breakdown.service';
+import { InsightsChartDataService } from '../../services/insights/insights-chart-data.service';
+import { InsightsSavedViewCodecService } from '../../services/insights/insights-saved-view-codec.service';
 import {
   CHART_COLORS,
   DEFAULT_DATE_SELECTION,
@@ -79,18 +82,6 @@ const COUNTRY_CYCLE_OPTIONS: ReadonlyArray<{ key: string; label: string }> = [
   { key: 'FR',  label: 'France' },
   { key: 'CZ',  label: 'Czech Republic' },
 ];
-
-interface CustomBreakdownRow {
-  dimValues: Record<string, string>;
-  reach: number;
-  ctr: number;
-  purchases: number;
-  roas: number;
-  isClickable: boolean;
-  isActiveFilter: boolean;
-  primaryDim: string;
-  primaryValue: string;
-}
 
 @Component({
   selector: 'app-insights',
@@ -262,9 +253,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
   customTableMets: Set<string> = new Set(['reach', 'ctr', 'purchases', 'roas']);
 
   get combinedSegMult(): number {
-    const entries = Object.values(this.dimensionFilters);
-    if (!entries.length) return 1;
-    return entries.reduce((acc, f) => acc * (f.share / 100), 1);
+    return this.breakdownService.combinedSegMult(this.dimensionFilterEntries);
   }
 
   get dimensionFilterEntries(): SegmentFilter[] {
@@ -316,6 +305,9 @@ export class InsightsComponent implements OnInit, OnDestroy {
     private readonly authStore: AuthStoreService,
     private readonly insightsService: InsightsService,
     private readonly savedViewService: InsightsSavedViewService,
+    private readonly breakdownService: InsightsBreakdownService,
+    private readonly chartDataService: InsightsChartDataService,
+    private readonly savedViewCodec: InsightsSavedViewCodecService,
     private readonly campaignService: CampaignService,
     private readonly adSetService: AdSetService,
     private readonly adService: AdService,
@@ -485,9 +477,9 @@ export class InsightsComponent implements OnInit, OnDestroy {
     const { column, direction } = this.sortBy;
     const dir = direction === 'asc' ? 1 : -1;
     return [...rows].sort((a, b) => {
-      const av = this.aggregateMetricRaw(column,
+      const av = this.chartDataService.aggregateMetricRaw(column,
         this.campaignInsights.filter(s => s.objectExternalId === a.externalId));
-      const bv = this.aggregateMetricRaw(column,
+      const bv = this.chartDataService.aggregateMetricRaw(column,
         this.campaignInsights.filter(s => s.objectExternalId === b.externalId));
       return (av - bv) * dir;
     });
@@ -503,9 +495,9 @@ export class InsightsComponent implements OnInit, OnDestroy {
     const { column, direction } = this.sortBy;
     const dir = direction === 'asc' ? 1 : -1;
     return [...rows].sort((a, b) => {
-      const av = this.aggregateMetricRaw(column,
+      const av = this.chartDataService.aggregateMetricRaw(column,
         this.adSetInsights.filter(s => s.objectExternalId === a.externalId));
-      const bv = this.aggregateMetricRaw(column,
+      const bv = this.chartDataService.aggregateMetricRaw(column,
         this.adSetInsights.filter(s => s.objectExternalId === b.externalId));
       return (av - bv) * dir;
     });
@@ -520,9 +512,9 @@ export class InsightsComponent implements OnInit, OnDestroy {
     const { column, direction } = this.sortBy;
     const dir = direction === 'asc' ? 1 : -1;
     return [...rows].sort((a, b) => {
-      const av = this.aggregateMetricRaw(column,
+      const av = this.chartDataService.aggregateMetricRaw(column,
         this.adInsights.filter(s => s.objectExternalId === a.externalId));
-      const bv = this.aggregateMetricRaw(column,
+      const bv = this.chartDataService.aggregateMetricRaw(column,
         this.adInsights.filter(s => s.objectExternalId === b.externalId));
       return (av - bv) * dir;
     });
@@ -555,27 +547,6 @@ export class InsightsComponent implements OnInit, OnDestroy {
   }
 
   // ---------- Chart Data Getter (for SVG chart) ----------
-
-  private static readonly RATE_METRICS = new Set([
-    'ctr', 'cpm', 'cpc', 'frequency',
-    'unique_ctr', 'inline_link_click_ctr', 'estimated_ad_recall_rate',
-  ]);
-
-  private static readonly DIMENSION_TO_BREAKDOWN_GROUP: Record<string, string> = {
-    age: 'age_gender',
-    gender: 'age_gender',
-    country: 'country',
-    impression_device: 'placement',
-    publisher_platform: 'placement',
-  };
-
-  private static formatChartDateLabel(iso: string): string {
-    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const parts = iso.split('-');
-    const m = parseInt(parts[1], 10);
-    const d = parseInt(parts[2], 10);
-    return (MONTHS[m - 1] ?? '') + ' ' + d;
-  }
 
   get chartData(): ChartDataPoint[] {
     const rawSnapshots = this.getGraphSnapshots();
@@ -610,17 +581,17 @@ export class InsightsComponent implements OnInit, OnDestroy {
     const dates = Array.from(dateMap.keys()).sort();
     return dates.map(d => {
       const entries = dateMap.get(d) ?? [];
-      const point: ChartDataPoint = { label: InsightsComponent.formatChartDateLabel(d), date: d };
+      const point: ChartDataPoint = { label: this.chartDataService.formatChartDateLabel(d), date: d };
       for (const key of allKeys) {
-        if (InsightsComponent.RATE_METRICS.has(key)) {
+        if (this.chartDataService.isRateMetric(key)) {
           // Rate metrics are not scaled — they're averages, not sums.
           const vals = entries
-            .map((e: any) => this.extractMetricValue(e, key))
+            .map((e: any) => this.chartDataService.extractMetricValue(e, key))
             .filter(r => r.found);
           point[key] = vals.length ? vals.reduce((s, r) => s + r.value, 0) / vals.length : 0;
         } else {
           const total = entries.reduce((sum: number, e: any) => {
-            const { value } = this.extractMetricValue(e, key);
+            const { value } = this.chartDataService.extractMetricValue(e, key);
             return sum + value;
           }, 0);
           point[key] = total * segMult;
@@ -688,16 +659,16 @@ export class InsightsComponent implements OnInit, OnDestroy {
     const dates = Array.from(dateMap.keys()).sort();
     return dates.map(d => {
       const entries = dateMap.get(d) ?? [];
-      const point: ChartDataPoint = { label: InsightsComponent.formatChartDateLabel(d), date: d };
+      const point: ChartDataPoint = { label: this.chartDataService.formatChartDateLabel(d), date: d };
       for (const key of this.activeMetrics) {
-        if (InsightsComponent.RATE_METRICS.has(key)) {
+        if (this.chartDataService.isRateMetric(key)) {
           const vals = entries
-            .map((e: any) => this.extractMetricValue(e, key))
+            .map((e: any) => this.chartDataService.extractMetricValue(e, key))
             .filter(r => r.found);
           point[key] = vals.length ? vals.reduce((s, r) => s + r.value, 0) / vals.length : 0;
         } else {
           point[key] = entries.reduce((sum: number, e: any) => {
-            const { value } = this.extractMetricValue(e, key);
+            const { value } = this.chartDataService.extractMetricValue(e, key);
             return sum + value;
           }, 0);
         }
@@ -857,84 +828,12 @@ export class InsightsComponent implements OnInit, OnDestroy {
   }
 
   get customBreakdownTableRows(): CustomBreakdownRow[] {
-    const dims = this.customBreakdownTableDims;
-    if (dims.length === 0) return [];
-    if (dims.length === 1) {
-      const primaryDim = dims[0];
-      const rows = this.computeBreakdownWithPurchases(primaryDim);
-      return rows.map(row => ({
-        dimValues: { [primaryDim]: row.dimensionValue },
-        reach: row.reach,
-        ctr: row.ctr,
-        purchases: row.purchases,
-        roas: row.roas,
-        isClickable: true,
-        isActiveFilter: this.dimensionFilters[primaryDim]?.segmentKey === `${primaryDim}-${row.dimensionValue}`,
-        primaryDim,
-        primaryValue: row.dimensionValue,
-      }));
-    }
-    // Group selected dims by their shared breakdown source so dims that come from the
-    // same source (e.g. age + gender both come from the age_gender breakdown) are
-    // cross-tabulated into combined rows instead of showing '—' for each other.
-    const groups = new Map<string, string[]>();
-    for (const dim of dims) {
-      const groupKey = InsightsComponent.DIMENSION_TO_BREAKDOWN_GROUP[dim] ?? dim;
-      const list = groups.get(groupKey) ?? [];
-      list.push(dim);
-      groups.set(groupKey, list);
-    }
-
-    const result: CustomBreakdownRow[] = [];
-    const groupEntries = Array.from(groups.values());
-    for (let groupIndex = 0; groupIndex < groupEntries.length; groupIndex++) {
-      const groupDims = groupEntries[groupIndex];
-      const rows = this.computeCombinedBreakdown(groupDims);
-      // A secondary group with a single overall value (e.g. one country) applies to every
-      // row already built — merge it in instead of appending a separate '—'-filled row.
-      if (groupIndex > 0 && rows.length === 1 && result.length > 0) {
-        for (const r of result) {
-          for (const d of groupDims) {
-            r.dimValues[d] = rows[0].values[d];
-          }
-        }
-        continue;
-      }
-      if (groupDims.length > 1) {
-        // Order by the primary dim's overall ranking so its values stay grouped together,
-        // preserving the existing spend-desc order within each group (stable sort).
-        const primaryDim = groupDims[0];
-        const primaryOrder = this.computeBreakdownWithPurchases(primaryDim).map(r => r.dimensionValue);
-        rows.sort((a, b) => primaryOrder.indexOf(a.values[primaryDim]) - primaryOrder.indexOf(b.values[primaryDim]));
-      }
-      let lastPrimaryValue: string | null = null;
-      for (const row of rows) {
-        const dimValues = dims.reduce((acc, d) => {
-          acc[d] = groupDims.includes(d) ? row.values[d] : '—';
-          return acc;
-        }, {} as Record<string, string>);
-        if (groupDims.length > 1) {
-          const primaryDim = groupDims[0];
-          if (dimValues[primaryDim] === lastPrimaryValue) {
-            dimValues[primaryDim] = '';
-          } else {
-            lastPrimaryValue = dimValues[primaryDim];
-          }
-        }
-        result.push({
-          dimValues,
-          reach: row.reach,
-          ctr: row.ctr,
-          purchases: row.purchases,
-          roas: row.roas,
-          isClickable: false,
-          isActiveFilter: false,
-          primaryDim: groupDims.join('+'),
-          primaryValue: groupDims.map(d => row.values[d]).join('|'),
-        });
-      }
-    }
-    return result;
+    return this.breakdownService.buildCustomBreakdownTableRows(
+      this.getKpiSnapshots(),
+      this.customBreakdownTableDims,
+      this.availableCampaigns,
+      this.dimensionFilters,
+    );
   }
 
   onCustomTableRowClick(row: CustomBreakdownRow): void {
@@ -985,71 +884,14 @@ export class InsightsComponent implements OnInit, OnDestroy {
   private computeBreakdownWithPurchases(dimension: string): Array<{
     dimensionValue: string; reach: number; ctr: number; purchases: number; roas: number;
   }> {
-    return this.computeCombinedBreakdown([dimension]).map(row => ({
-      dimensionValue: row.values[dimension],
-      reach: row.reach,
-      ctr: row.ctr,
-      roas: row.roas,
-      purchases: row.purchases,
-    }));
+    return this.breakdownService.computeBreakdownWithPurchases(this.getKpiSnapshots(), dimension, this.availableCampaigns);
   }
 
   /** Cross-tabulates the given dimensions (which must share the same breakdown source) into combined rows. */
   private computeCombinedBreakdown(dimensions: string[]): Array<{
     values: Record<string, string>; reach: number; ctr: number; purchases: number; roas: number;
   }> {
-    const snapshots = this.getKpiSnapshots();
-    const groups = new Map<string, {
-      values: Record<string, string>;
-      spend: number; impressions: number; clicks: number; reach: number; purchases: number; revenue: number;
-    }>();
-    const groupKey = InsightsComponent.DIMENSION_TO_BREAKDOWN_GROUP[dimensions[0]];
-
-    for (const snap of snapshots) {
-      const structuredRows: any[] = groupKey
-        ? (snap.rawData as any)?.breakdowns?.[groupKey] ?? []
-        : [];
-      const entriesToProcess = structuredRows.length ? structuredRows : (snap.rawData?.data ?? []);
-
-      for (const entry of entriesToProcess) {
-        const values: Record<string, string> = {};
-        let missing = false;
-        for (const dim of dimensions) {
-          const val = entry[dim] as string | undefined;
-          if (!val) { missing = true; break; }
-          values[dim] = val;
-        }
-        if (missing) continue;
-        const key = dimensions.map(d => values[d]).join('|');
-        const g = groups.get(key) ?? { values, spend: 0, impressions: 0, clicks: 0, reach: 0, purchases: 0, revenue: 0 };
-        g.spend       += parseFloat(String(entry['spend']       ?? 0)) || 0;
-        g.impressions += parseFloat(String(entry['impressions'] ?? 0)) || 0;
-        g.clicks      += parseFloat(String(entry['clicks']      ?? 0)) || 0;
-        g.reach       += parseFloat(String(entry['reach']       ?? 0)) || 0;
-        const actions: any[] = Array.isArray(entry['actions']) ? entry['actions'] : [];
-        const purchAct = actions.find((a: any) =>
-          a.action_type === 'offsite_conversion.fb_pixel_purchase' || a.action_type === 'purchase'
-        );
-        g.purchases += purchAct ? (parseFloat(String(purchAct.value)) || 0) : 0;
-        const actionValues: any[] = Array.isArray(entry['action_values']) ? entry['action_values'] : [];
-        const purchVal = actionValues.find((a: any) =>
-          a.action_type === 'offsite_conversion.fb_pixel_purchase' || a.action_type === 'purchase'
-        );
-        g.revenue += purchVal ? (parseFloat(String(purchVal.value)) || 0) : 0;
-        groups.set(key, g);
-      }
-    }
-
-    if (!groups.size) return [];
-    return Array.from(groups.values())
-      .sort((a, b) => b.spend - a.spend)
-      .map(g => ({
-        values: g.values,
-        reach: g.reach,
-        ctr: g.impressions > 0 ? (g.clicks / g.impressions) * 100 : 0,
-        roas: g.spend > 0 ? g.revenue / g.spend : 0,
-        purchases: g.purchases,
-      }));
+    return this.breakdownService.computeCombinedBreakdown(this.getKpiSnapshots(), dimensions, this.availableCampaigns);
   }
 
   onLeftDimensionChange(dim: string): void {
@@ -1077,46 +919,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
    * fields alongside date_start/spend/impressions/clicks/reach.
    */
   private computeBreakdownFromInsights(dimension: string): InsightsBreakdownRow[] {
-    const snapshots = this.getKpiSnapshots();
-    const groups = new Map<string, { spend: number; impressions: number; clicks: number; reach: number }>();
-    const groupKey = InsightsComponent.DIMENSION_TO_BREAKDOWN_GROUP[dimension];
-
-    for (const snap of snapshots) {
-      // Prefer structured breakdown data merged by the backend mapper (breakdownsJson → rawData.breakdowns).
-      // Fall back to rawData.data entries that happen to carry demographic fields.
-      const structuredRows: any[] = groupKey
-        ? (snap.rawData as any)?.breakdowns?.[groupKey] ?? []
-        : [];
-      const entriesToProcess = structuredRows.length ? structuredRows : (snap.rawData?.data ?? []);
-
-      for (const entry of entriesToProcess) {
-        const val = entry[dimension] as string | undefined;
-        if (!val) continue;
-        const g = groups.get(val) ?? { spend: 0, impressions: 0, clicks: 0, reach: 0 };
-        g.spend       += parseFloat(String(entry['spend']       ?? 0)) || 0;
-        g.impressions += parseFloat(String(entry['impressions'] ?? 0)) || 0;
-        g.clicks      += parseFloat(String(entry['clicks']      ?? 0)) || 0;
-        g.reach       += parseFloat(String(entry['reach']       ?? 0)) || 0;
-        groups.set(val, g);
-      }
-    }
-
-    if (!groups.size) return [];
-
-    const totalSpend = Array.from(groups.values()).reduce((s, g) => s + g.spend, 0);
-    return Array.from(groups.entries())
-      .sort((a, b) => b[1].spend - a[1].spend)
-      .map(([val, g]) => ({
-        dimension,
-        dimensionValue: val,
-        spend:       g.spend,
-        impressions: g.impressions,
-        clicks:      g.clicks,
-        reach:       g.reach,
-        ctr:         g.impressions > 0 ? (g.clicks / g.impressions) * 100 : 0,
-        roas:        0,
-        share:       totalSpend > 0 ? (g.spend / totalSpend) * 100 : 0,
-      }));
+    return this.breakdownService.computeBreakdownFromInsights(this.getKpiSnapshots(), dimension, this.availableCampaigns);
   }
 
   private loadLeftBreakdown(): void {
@@ -2066,27 +1869,9 @@ export class InsightsComponent implements OnInit, OnDestroy {
     return this.campaignInsights.filter(s => this.selectedCampaignIds.has(s.objectExternalId ?? ''));
   }
 
-  /** Filter raw data entries to only those matching every active dimension filter. */
-  private filterEntriesByDimensions(entries: any[]): any[] {
-    const filters = this.dimensionFilterEntries;
-    if (!filters.length) return entries;
-    return entries.filter(entry =>
-      filters.every(f => {
-        const val = f.segmentKey.slice(f.dimensionKey.length + 1);
-        return entry[f.dimensionKey] === val;
-      })
-    );
-  }
-
   /** Return snapshots with rawData entries pre-filtered by the active dimension filters. */
   private getFilteredSnapshots(snapshots: InsightSnapshot[]): InsightSnapshot[] {
-    if (!this.dimensionFilterEntries.length) return snapshots;
-    return snapshots.map(snap => ({
-      ...snap,
-      rawData: snap.rawData
-        ? { ...snap.rawData, data: this.filterEntriesByDimensions(snap.rawData.data ?? []) }
-        : snap.rawData,
-    }));
+    return this.breakdownService.getFilteredSnapshots(snapshots, this.dimensionFilterEntries);
   }
 
   private get drillFilteredAdSetExternalIds(): Set<string> | null {
@@ -2173,16 +1958,16 @@ export class InsightsComponent implements OnInit, OnDestroy {
       : null;
 
     this.metricBlocks = this.metricBlocks.map((block) => {
-      let value = this.aggregateMetric(block.metricKey, snapshots);
+      let value = this.chartDataService.aggregateMetric(block.metricKey, snapshots);
       if (!hasRealData && filterActive && block.metricKey && value !== '—') {
-        const raw = this.aggregateMetricRaw(block.metricKey, snapshots);
-        value = this.formatValue(raw * segMult, this.getMetricFormat(block.metricKey));
+        const raw = this.chartDataService.aggregateMetricRaw(block.metricKey, snapshots);
+        value = this.chartDataService.formatValue(raw * segMult, this.chartDataService.getMetricFormat(block.metricKey));
       }
       let trend: number | undefined;
       let trendDirection: 'up' | 'down' | 'neutral' | undefined;
       if (this.dateSelection.compareToPrevious && prevSnaps && block.metricKey) {
-        const prevVal = this.aggregateMetricRaw(block.metricKey, prevSnaps) * segMult;
-        const curVal = this.aggregateMetricRaw(block.metricKey, snapshots) * segMult;
+        const prevVal = this.chartDataService.aggregateMetricRaw(block.metricKey, prevSnaps) * segMult;
+        const curVal = this.chartDataService.aggregateMetricRaw(block.metricKey, snapshots) * segMult;
         if (prevVal > 0) {
           trend = ((curVal - prevVal) / prevVal) * 100;
           trendDirection = trend > 1 ? 'up' : trend < -1 ? 'down' : 'neutral';
@@ -2201,76 +1986,6 @@ export class InsightsComponent implements OnInit, OnDestroy {
         trendDirection,
       };
     });
-  }
-
-  /**
-   * Extracts a numeric value from a rawData entry for a given metric key.
-   * Handles both flat fields (e.g. "spend") and dot-notation array fields
-   * (e.g. "video_play_actions.video_view", "actions.offsite_conversion.fb_pixel_purchase").
-   */
-  private extractMetricValue(entry: any, metricKey: string): { value: number; found: boolean } {
-    const dotIdx = metricKey.indexOf('.');
-    if (dotIdx === -1) {
-      const val = entry[metricKey];
-      if (val === undefined || val === null || val === '') return { value: 0, found: false };
-      return { value: parseFloat(String(val)) || 0, found: true };
-    }
-    // Dot-notation: fieldName.action_type (action_type may itself contain dots)
-    const fieldName = metricKey.substring(0, dotIdx);
-    const actionType = metricKey.substring(dotIdx + 1);
-    const arr = entry[fieldName];
-    if (!Array.isArray(arr)) return { value: 0, found: false };
-    const item = arr.find((a: any) => a.action_type === actionType);
-    if (!item) return { value: 0, found: false };
-    return { value: parseFloat(String(item.value)) || 0, found: true };
-  }
-
-  private aggregateMetricRaw(
-    metricKey: string,
-    snapshots: InsightSnapshot[],
-  ): number {
-    let total = 0;
-    for (const snap of snapshots) {
-      for (const entry of snap.rawData?.data ?? []) {
-        const { value } = this.extractMetricValue(entry, metricKey);
-        total += value;
-      }
-    }
-    return total;
-  }
-
-  aggregateMetric(
-    metricKey: string | null,
-    snapshots: InsightSnapshot[],
-  ): string {
-    if (!metricKey) return '—';
-    let total = 0;
-    let hasData = false;
-    for (const snap of snapshots) {
-      const entries: any[] = snap.rawData?.data ?? [];
-      for (const entry of entries) {
-        const { value, found } = this.extractMetricValue(entry, metricKey);
-        if (found) {
-          hasData = true;
-          total += value;
-        }
-      }
-    }
-    if (!hasData) return '—';
-    return this.formatValue(total, this.getMetricFormat(metricKey));
-  }
-
-  formatValue(value: number, format: 'number' | 'currency' | 'percent' | 'decimal2'): string {
-    switch (format) {
-      case 'currency': return '$' + this.formatNumber(value);
-      case 'percent': return value.toFixed(2) + '%';
-      case 'decimal2': return value.toFixed(2);
-      default: return this.formatNumber(value);
-    }
-  }
-
-  getMetricFormat(key: string): 'number' | 'currency' | 'percent' | 'decimal2' {
-    return METRIC_CONFIG.find(m => m.key === key)?.format ?? 'number';
   }
 
   getMetricCategories(): string[] {
@@ -2305,7 +2020,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
     block.icon = block.metricKey
       ? (METRIC_ICONS[block.metricKey] ?? 'analytics')
       : 'add_circle';
-    block.value = this.aggregateMetric(
+    block.value = this.chartDataService.aggregateMetric(
       block.metricKey,
       this.getKpiSnapshots(),
     );
@@ -2861,35 +2576,21 @@ export class InsightsComponent implements OnInit, OnDestroy {
     this.selectedAdSetIds = new Set(cfg.selectedAdSetIds ?? []);
     this.selectedAdIds = new Set(cfg.selectedAdIds ?? []);
     if (cfg.activePlatform) this.activePlatform = cfg.activePlatform;
-    if (Array.isArray(cfg.kpiCardMetrics) && cfg.kpiCardMetrics.length === 6) {
-      this.metricBlocks = cfg.kpiCardMetrics.map((key, i) => ({
-        index: i,
-        metricKey: key || null,
-        label: key ? this.formatMetricLabel(key) : 'Click to select',
-        value: '—',
-        icon: key ? (METRIC_ICONS[key] ?? 'analytics') : 'add_circle',
-      }));
+    const restoredBlocks = this.savedViewCodec.buildMetricBlocksFromKeys(
+      cfg.kpiCardMetrics, (key) => this.formatMetricLabel(key));
+    if (restoredBlocks) {
+      this.metricBlocks = restoredBlocks;
     }
     // Restore new fields — fall back to defaults when missing (older saved views)
     this.treeLevel = cfg.treeLevel ?? 'all';
     this.selectedTreeRow = cfg.selectedTreeRow ?? null;
-    if (Array.isArray(cfg.expandedNodeIds)) {
-      this.expandedCampaignIds = new Set(
-        cfg.expandedNodeIds.filter((id: string) => id.startsWith('c:')).map((id: string) => id.slice(2))
-      );
-      this.expandedAdSetIds = new Set(
-        cfg.expandedNodeIds.filter((id: string) => id.startsWith('a:')).map((id: string) => id.slice(2))
-      );
+    const decodedNodes = this.savedViewCodec.decodeExpandedNodeIds(cfg.expandedNodeIds);
+    if (decodedNodes) {
+      this.expandedCampaignIds = decodedNodes.campaignIds;
+      this.expandedAdSetIds = decodedNodes.adSetIds;
     }
     if (cfg.visibleMetrics) {
-      this.visibleMetrics = {
-        campaigns: Array.isArray(cfg.visibleMetrics.campaigns) && cfg.visibleMetrics.campaigns.length
-          ? cfg.visibleMetrics.campaigns : [...DEFAULT_VISIBLE_METRICS],
-        adSets: Array.isArray(cfg.visibleMetrics.adSets) && cfg.visibleMetrics.adSets.length
-          ? cfg.visibleMetrics.adSets : [...DEFAULT_VISIBLE_METRICS],
-        ads: Array.isArray(cfg.visibleMetrics.ads) && cfg.visibleMetrics.ads.length
-          ? cfg.visibleMetrics.ads : [...DEFAULT_VISIBLE_METRICS],
-      };
+      this.visibleMetrics = this.savedViewCodec.resolveVisibleMetrics(cfg.visibleMetrics, DEFAULT_VISIBLE_METRICS);
     }
     if (cfg.platformColumnVisible !== undefined) this.platformColumnVisible = cfg.platformColumnVisible;
     this.groupBy = cfg.groupBy ?? 'none';
@@ -3147,10 +2848,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
       // Change 1
       treeLevel: this.treeLevel,
       selectedTreeRow: this.selectedTreeRow,
-      expandedNodeIds: [
-        ...Array.from(this.expandedCampaignIds).map(id => `c:${id}`),
-        ...Array.from(this.expandedAdSetIds).map(id => `a:${id}`),
-      ],
+      expandedNodeIds: this.savedViewCodec.encodeExpandedNodeIds(this.expandedCampaignIds, this.expandedAdSetIds),
       // Change 2
       visibleMetrics: {
         campaigns: [...this.visibleMetrics.campaigns],
@@ -3368,7 +3066,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
                : this.adInsights;
     const snaps = pool.filter(s => s.objectExternalId === externalId);
     if (!snaps.length) return '—';
-    return this.aggregateMetric(metricKey, snaps);
+    return this.chartDataService.aggregateMetric(metricKey, snaps);
   }
 
   // ---------- Change 4 — Platform column + side-by-side ----------

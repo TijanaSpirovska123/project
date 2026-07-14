@@ -28,14 +28,15 @@ export const BREAKDOWN_DIMENSIONS: BreakdownDimension[] = [
   { key: 'age',       label: 'Age',              group: 'Audience',  metaParam: 'age' },
   { key: 'gender',    label: 'Gender',           group: 'Audience',  metaParam: 'gender' },
   { key: 'country',   label: 'Country',          group: 'Audience',  metaParam: 'country' },
-  { key: 'language',  label: 'Language',         group: 'Audience',  metaParam: 'age' },
-  { key: 'placement', label: 'Placement',        group: 'Placement', metaParam: 'publisher_platform' },
-  { key: 'device',    label: 'Device',           group: 'Placement', metaParam: 'device_platform' },
-  { key: 'os',        label: 'Operating system', group: 'Placement', metaParam: 'device_platform' },
-  { key: 'format',    label: 'Ad format',        group: 'Creative',  metaParam: 'publisher_platform' },
+  { key: 'placement', label: 'Placement',        group: 'Audience',  metaParam: 'publisher_platform' },
+  { key: 'device',    label: 'Device',           group: 'Placement', metaParam: 'impression_device' },
+  // Meta has no dedicated OS breakdown — value is a best-effort classification of
+  // impression_device (iphone/ipad -> iOS, android_* -> Android, ...), not exact data.
+  { key: 'os',        label: 'OS (approx.)',     group: 'Placement', metaParam: 'impression_device' },
+  // Not a Meta insights breakdown — grouped from each snapshot's campaign objective.
   { key: 'objective', label: 'Objective',        group: 'Campaign',  metaParam: null },
-  { key: 'dow',       label: 'Day of week',      group: 'Time',      metaParam: 'hourly_stats_aggregated_by_advertiser_time_zone' },
-  { key: 'hour',      label: 'Hour of day',      group: 'Time',      metaParam: 'hourly_stats_aggregated_by_advertiser_time_zone' },
+  // Not a Meta insights breakdown — derived client-side from each row's date_start.
+  { key: 'dow',       label: 'Day of week',      group: 'Time',      metaParam: null },
 ];
 
-export const BREAKDOWN_GROUPS = ['Audience', 'Placement', 'Creative', 'Campaign', 'Time'];
+export const BREAKDOWN_GROUPS = ['Audience', 'Placement', 'Campaign', 'Time'];

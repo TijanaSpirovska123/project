@@ -74,7 +74,7 @@ services:
 
   backend:
     build:
-      context: ./project
+      context: ./backend
       dockerfile: Dockerfile
     container_name: marketing_backend
     restart: unless-stopped
@@ -121,7 +121,7 @@ services:
 
   frontend:
     build:
-      context: ./travel-app
+      context: ./frontend
       dockerfile: Dockerfile
     container_name: marketing_frontend
     restart: unless-stopped

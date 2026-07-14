@@ -21,10 +21,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpStatusCodeException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -65,13 +69,24 @@ public class InsightsService {
         BREAKDOWN_GROUPS.put("placement",  List.of("impression_device", "publisher_platform"));
     }
 
+    /** Runs the (up to 3) breakdown-group Meta API calls concurrently instead of sequentially. */
+    private static final ExecutorService BREAKDOWN_EXECUTOR =
+            Executors.newFixedThreadPool(BREAKDOWN_GROUPS.size());
+
     /** Maps each breakdown dimension to the group key used in breakdownsJson. */
-    private static final Map<String, String> DIMENSION_TO_GROUP = Map.of(
-            "age",                "age_gender",
-            "gender",             "age_gender",
-            "country",            "country",
-            "impression_device",  "placement",
-            "publisher_platform", "placement"
+    private static final Map<String, String> DIMENSION_TO_GROUP = Map.ofEntries(
+            Map.entry("age",                "age_gender"),
+            Map.entry("gender",             "age_gender"),
+            Map.entry("country",            "country"),
+            Map.entry("impression_device",  "placement"),
+            Map.entry("publisher_platform", "placement"),
+            // "placement" is a UI-level dimension key — Meta itself never returns a field
+            // literally called "placement", only impression_device + publisher_platform.
+            Map.entry("placement",          "placement"),
+            // "device" and "os" both derive from the same impression_device field the
+            // placement group already fetches — no separate Meta call needed.
+            Map.entry("device",             "placement"),
+            Map.entry("os",                 "placement")
     );
 
     @Transactional
@@ -102,7 +117,7 @@ public class InsightsService {
             try {
                 fetchAndStoreBreakdowns(user, req, strategy);
             } catch (Exception e) {
-                log.warn("Breakdown post-sync failed (non-fatal): {}", e.getMessage());
+                logBreakdownFailure("post-sync", e);
             }
         }
 
@@ -126,27 +141,79 @@ public class InsightsService {
 
         int storedTimeInc = Optional.ofNullable(req.getTimeIncrement()).orElse(1);
 
-        for (var groupEntry : BREAKDOWN_GROUPS.entrySet()) {
-            String groupKey      = groupEntry.getKey();
-            String breakdownsVal = String.join(",", groupEntry.getValue());
+        // Fire all breakdown-group calls concurrently — they're independent Meta API
+        // requests (age/gender, country, placement can't be combined in one call), so
+        // running them in parallel cuts wait time from ~3x a single call down to ~1x.
+        List<CompletableFuture<AbstractMap.SimpleEntry<String, Map<String, Map<String, Object>>>>> futures =
+                BREAKDOWN_GROUPS.entrySet().stream()
+                        .map(groupEntry -> CompletableFuture.supplyAsync(
+                                () -> fetchOneBreakdownGroup(user, req, strategy, validIds, groupEntry),
+                                BREAKDOWN_EXECUTOR))
+                        .collect(Collectors.toList());
 
-            InsightSyncRequestDto bReq   = buildBreakdownRequest(req, breakdownsVal);
-            Map<String, String>   bParams = strategy.buildQueryParams(bReq, BREAKDOWN_FETCH_FIELDS, 0);
+        // Combine each object's rows across all 3 groups first, so every snapshot gets
+        // exactly ONE read-modify-write instead of one per group (also avoids a lost-update
+        // race that per-group writes would have if this loop were ever parallelized too).
+        Map<String, Map<String, List<Object>>> rowsByObjectThenGroup = new LinkedHashMap<>();
+        for (var future : futures) {
+            AbstractMap.SimpleEntry<String, Map<String, Map<String, Object>>> entry = future.join();
+            String groupKey = entry.getKey();
+            entry.getValue().forEach((objectId, body) -> {
+                @SuppressWarnings("unchecked")
+                List<Object> rows = (List<Object>) body.getOrDefault("data", List.of());
+                rowsByObjectThenGroup
+                        .computeIfAbsent(objectId, k -> new LinkedHashMap<>())
+                        .put(groupKey, rows);
+            });
+        }
 
-            try {
-                // Reuse fetchForObjects — it batches up to 50 IDs per call automatically
-                Map<String, Map<String, Object>> batchResult =
-                        strategy.fetchForObjects(user, validIds, bParams);
+        rowsByObjectThenGroup.forEach((objectId, groupRows) ->
+                mergeBreakdownGroupsIntoSnapshot(user, req, objectId, storedTimeInc, groupRows));
+    }
 
-                batchResult.forEach((objectId, body) -> {
-                    @SuppressWarnings("unchecked")
-                    List<Object> rows = (List<Object>) body.getOrDefault("data", List.of());
-                    mergeBreakdownIntoSnapshot(user, req, objectId, storedTimeInc, groupKey, rows);
-                });
+    private AbstractMap.SimpleEntry<String, Map<String, Map<String, Object>>> fetchOneBreakdownGroup(
+            UserEntity user, InsightSyncRequestDto req, InsightsFetchStrategy strategy,
+            List<String> validIds, Map.Entry<String, List<String>> groupEntry) {
 
-            } catch (Exception e) {
-                log.warn("Breakdown group '{}' fetch failed: {}", groupKey, e.getMessage());
+        String groupKey      = groupEntry.getKey();
+        String breakdownsVal = String.join(",", groupEntry.getValue());
+
+        InsightSyncRequestDto bReq   = buildBreakdownRequest(req, breakdownsVal);
+        Map<String, String>   bParams = strategy.buildQueryParams(bReq, BREAKDOWN_FETCH_FIELDS, 0);
+
+        try {
+            // Reuse fetchForObjects — it batches up to 50 IDs per call automatically
+            Map<String, Map<String, Object>> batchResult = strategy.fetchForObjects(user, validIds, bParams);
+            return new AbstractMap.SimpleEntry<>(groupKey, batchResult);
+        } catch (Exception e) {
+            logBreakdownFailure("group '" + groupKey + "'", e);
+            return new AbstractMap.SimpleEntry<>(groupKey, Map.of());
+        }
+    }
+
+    /**
+     * Breakdown fetch failures are swallowed (non-fatal — the main sync already
+     * succeeded), so this is the only place the real cause is visible. RestTemplate
+     * throws HttpStatusCodeException before InsightsFetchStrategy ever sees the
+     * response, so the Meta error body (with its rate-limit code) is only reachable
+     * here via getResponseBodyAsString() — e.getMessage() alone omits it.
+     */
+    private void logBreakdownFailure(String what, Exception e) {
+        if (e instanceof HttpStatusCodeException httpEx) {
+            String responseBody = httpEx.getResponseBodyAsString();
+            boolean rateLimited = responseBody != null && (
+                    responseBody.contains("\"code\":80004")
+                            || responseBody.contains("\"code\":17")
+                            || responseBody.contains("\"code\":613")
+                            || responseBody.toLowerCase().contains("too many calls"));
+            if (rateLimited) {
+                log.warn("Breakdown {} failed due to Meta rate limiting [{}]: {}",
+                        what, httpEx.getStatusCode(), responseBody);
+            } else {
+                log.warn("Breakdown {} failed [{}]: {}", what, httpEx.getStatusCode(), responseBody);
             }
+        } else {
+            log.warn("Breakdown {} failed ({}): {}", what, e.getClass().getSimpleName(), e.getMessage());
         }
     }
 
@@ -166,8 +233,8 @@ public class InsightsService {
     }
 
     @SuppressWarnings("unchecked")
-    private void mergeBreakdownIntoSnapshot(UserEntity user, InsightSyncRequestDto req,
-            String objectId, int storedTimeInc, String groupKey, List<Object> newRows) {
+    private void mergeBreakdownGroupsIntoSnapshot(UserEntity user, InsightSyncRequestDto req,
+            String objectId, int storedTimeInc, Map<String, List<Object>> newGroupRows) {
 
         snapshotRepository
                 .findByUserAndProviderAndAdAccountIdAndObjectTypeAndObjectExternalIdAndDateStartAndDateStopAndTimeIncrement(
@@ -189,7 +256,7 @@ public class InsightsService {
                         } catch (Exception ignored) {}
                     }
 
-                    breakdownMap.put(groupKey, newRows);
+                    breakdownMap.putAll(newGroupRows);
                     snapshot.setBreakdownsJson(serializeToJson(breakdownMap));
                     snapshotRepository.save(snapshot);
                 });
@@ -224,6 +291,48 @@ public class InsightsService {
         }
 
         return List.of();
+    }
+
+    /**
+     * Reads the dimension value off a breakdown row. Several UI-level dimension keys
+     * have no field of that literal name in Meta's response and must be derived from
+     * whatever field the row actually carries.
+     */
+    private Object extractDimensionValue(Map<String, Object> row, String dimension) {
+        return switch (dimension) {
+            // placement/device share the same impression_device+publisher_platform row shape
+            case "placement" -> row.get("publisher_platform");
+            case "device"    -> row.get("impression_device");
+            case "os"        -> classifyOs((String) row.get("impression_device"));
+            // "day of week" isn't a Meta breakdown at all — derived from the daily
+            // date_start already present on main (non-breakdown-group) time-series rows.
+            case "dow"       -> dayOfWeekFromDate((String) row.get("date_start"));
+            default          -> row.get(dimension);
+        };
+    }
+
+    /**
+     * Meta has no dedicated OS breakdown — this is a best-effort classification of the
+     * impression_device value (e.g. "iphone", "android_smartphone") into iOS/Android/
+     * Desktop/Other. Approximate by nature; labeled as such in the UI.
+     */
+    private static String classifyOs(String impressionDevice) {
+        if (impressionDevice == null || impressionDevice.isBlank()) return null;
+        String d = impressionDevice.toLowerCase(Locale.ROOT);
+        if (d.contains("iphone") || d.contains("ipad") || d.contains("ipod") || d.contains("ios")) return "iOS";
+        if (d.contains("android")) return "Android";
+        if (d.contains("desktop")) return "Desktop";
+        return "Other";
+    }
+
+    private static String dayOfWeekFromDate(String dateStart) {
+        if (dateStart == null || dateStart.isBlank()) return null;
+        try {
+            return LocalDate.parse(dateStart).getDayOfWeek()
+                    .getDisplayName(java.time.format.TextStyle.FULL, Locale.ENGLISH);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private List<InsightSnapshotDto> syncBatch(UserEntity user, InsightSyncRequestDto req,
@@ -534,7 +643,7 @@ public class InsightsService {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> row = (Map<String, Object>) item;
 
-                Object dimValue = row.get(dimension);
+                Object dimValue = extractDimensionValue(row, dimension);
                 if (dimValue == null) continue;
 
                 String dimStr = String.valueOf(dimValue);
