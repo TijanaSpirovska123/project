@@ -70,6 +70,7 @@ public class AdCreativeService {
     private final ObjectStorageClient storage;
     private final MetaVideoUploadService metaVideoUploadService;
     private final PlatformRawDataCache rawDataCache;
+    private final com.example.marketing.campaign.repository.CampaignRepository campaignRepository;
 
     @Value("${facebook.login.marketing.ad-account-id:}")
     private String defaultAdAccountId;
@@ -89,7 +90,8 @@ public class AdCreativeService {
             StoredAssetVariantRepository storedAssetVariantRepository,
             ObjectStorageClient storage,
             MetaVideoUploadService metaVideoUploadService,
-            PlatformRawDataCache rawDataCache
+            PlatformRawDataCache rawDataCache,
+            com.example.marketing.campaign.repository.CampaignRepository campaignRepository
     ) {
         this.creativeRepository = creativeRepository;
         this.creativeMapper = creativeMapper;
@@ -106,6 +108,7 @@ public class AdCreativeService {
         this.storage = storage;
         this.metaVideoUploadService = metaVideoUploadService;
         this.rawDataCache = rawDataCache;
+        this.campaignRepository = campaignRepository;
     }
 
     /* =========================
@@ -489,15 +492,15 @@ public class AdCreativeService {
     }
 
     public List<Map<String, Object>> getAllAdCreativesWithDetails(Long userId, String adAccountId, boolean forceRefresh) {
-        String act = normalizeAct(resolveAdAccountId(adAccountId));
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> BusinessException.notFound("User not found with id: " + userId));
+
+        String act = resolveConnectedAdAccountId(user, adAccountId);
 
         if (!forceRefresh) {
             List<Map<String, Object>> cached = rawDataCache.getCreativesList(Provider.META.name(), act);
             if (cached != null) return cached;
         }
-
-        UserEntity user = userRepository.findById(userId)
-                .orElseThrow(() -> BusinessException.notFound("User not found with id: " + userId));
 
         var token = tokens.getAccessToken(user, Provider.META);
         var client = clients.of(Provider.META);
@@ -768,6 +771,27 @@ public class AdCreativeService {
         String id = (adAccountId != null && !adAccountId.isBlank()) ? adAccountId : defaultAdAccountId;
         if (id == null || id.isBlank()) throw new IllegalStateException("No adAccountId provided and no default configured");
         return id;
+    }
+
+    /**
+     * A user can have more than one active Meta ad account connection, so the requested
+     * adAccountId can drift from the account this user's campaigns are actually synced to.
+     * Prefer the ad account backing this user's synced campaigns so creatives stay consistent
+     * with the rest of the workflow (campaigns/ad sets/ads).
+     */
+    private String resolveConnectedAdAccountId(UserEntity user, String requestedAdAccountId) {
+        String requested = normalizeAct(resolveAdAccountId(requestedAdAccountId));
+
+        return campaignRepository.findByUserAndPlatform(user, Provider.META.name()).stream()
+                .findFirst()
+                .map(campaign -> normalizeAct(campaign.getAdAccountId()))
+                .filter(syncedAccountId -> !syncedAccountId.equals(requested))
+                .map(syncedAccountId -> {
+                    log.warn("Requested ad account {} does not match the ad account with synced campaigns {} for user {}; using synced account for creatives",
+                            requested, syncedAccountId, user.getId());
+                    return syncedAccountId;
+                })
+                .orElse(requested);
     }
 
     private String normalizeAct(String adAccountId) {
