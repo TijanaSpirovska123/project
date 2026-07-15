@@ -99,14 +99,24 @@ public class AdService extends AbstractPlatformService<AdEntity, AdDto, AdStrate
                     + " must be synced to the platform before creating an ad (missing externalId)");
         }
 
-        // Trust the ad set's own synced adAccountId over the request's, since a user can have
-        // multiple active Meta ad account connections and the session's adAccountId may not be
-        // the account this specific ad set/campaign actually belongs to. Using a mismatched
-        // account here causes Facebook error "campaign must have the same account id as the
-        // adgroup you're creating" when posting to act_{effectiveAdAccountId}/ads.
-        String effectiveAdAccountId = (adSet.getAdAccountId() != null && !adSet.getAdAccountId().isBlank())
-                ? adSet.getAdAccountId()
-                : dto.getAdAccountId();
+        // Use the request's adAccountId when explicitly provided; fall back to the adSet's stored value.
+        // This handles the case where the adSet entity has a stale/mismatched account in the DB
+        // but the user's request carries the correct working account.
+        String effectiveAdAccountId = (dto.getAdAccountId() != null && !dto.getAdAccountId().isBlank())
+                ? dto.getAdAccountId()
+                : adSet.getAdAccountId();
+
+        // The ad set (and its parent campaign) must belong to the same ad account we're about to
+        // create the ad in, otherwise Facebook rejects the request. A user can have ad sets
+        // persisted from a previously-active ad account connection, so this can drift from the
+        // account they are currently connected as. Fail with a clear message instead of a cryptic
+        // Facebook API error.
+        if (adSet.getAdAccountId() != null && !stripActPrefix(effectiveAdAccountId).equals(stripActPrefix(adSet.getAdAccountId()))) {
+            throw BusinessException.badRequest(
+                    "Ad set '" + adSet.getExternalId() + "' belongs to ad account '" + adSet.getAdAccountId()
+                            + "' but you are creating this ad under '" + effectiveAdAccountId + "'. "
+                            + "Select a campaign/ad set from your currently connected ad account.");
+        }
 
         AdEntity e = new AdEntity();
         e.setAdSet(adSet);
