@@ -1,5 +1,6 @@
 package com.example.marketing.auth;
 
+import com.example.marketing.campaign.repository.CampaignRepository;
 import com.example.marketing.exception.StatusErrorResponse;
 import com.example.marketing.user.dto.LoginRequestDto;
 import com.example.marketing.user.dto.LoginResponseDto;
@@ -19,6 +20,7 @@ public class AuthenticationService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AdAccountConnectionRepository adAccountConnectionRepository;
+    private final CampaignRepository campaignRepository;
 
     public LoginResponseDto login(LoginRequestDto request) {
         UserEntity user = userRepository.findByEmail(request.getEmail())
@@ -34,12 +36,19 @@ public class AuthenticationService {
                 user.getId()
         );
 
-        String actId = adAccountConnectionRepository
-                .findAllByUserIdAndProviderAndActiveTrue(user.getId(), "META")
-                .stream()
-                .map(AdAccountConnectionEntity::getAdAccountId)
-                .findFirst()
-                .orElse(null);
+        // Prefer the ad account the user actually chose and synced (via Sync Accounts), since a
+        // user can have more than one active Meta ad account connection at once — falling back to
+        // an arbitrary active connection made actId unpredictable across logins. The account with
+        // synced campaign data is the one the rest of the app (campaigns/ad sets/ads) reflects.
+        String actId = campaignRepository
+                .findTopByUserAndPlatformOrderByUpdatedAtDesc(user, "META")
+                .map(com.example.marketing.campaign.entity.CampaignEntity::getAdAccountId)
+                .orElseGet(() -> adAccountConnectionRepository
+                        .findAllByUserIdAndProviderAndActiveTrue(user.getId(), "META")
+                        .stream()
+                        .map(AdAccountConnectionEntity::getAdAccountId)
+                        .findFirst()
+                        .orElse(null));
 
         // Prepare response
         LoginResponseDto response = new LoginResponseDto();

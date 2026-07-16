@@ -78,7 +78,6 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     if (this.mobileStep > 1) this.mobileStep--;
   }
   userId = '';
-  actId: string | null = null;
 
   campaigns: Campaign[] = [];
   isLoadingCampaigns = false;
@@ -144,8 +143,6 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.userId = this.authStore.getUserId();
-    this.actId = this.authStore.getActId();
-    if (this.actId) this.openPanel('picker');
 
     this.adForm = this.formBuilder.group({
       name: ['', [Validators.required, Validators.maxLength(255)]],
@@ -154,7 +151,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
       adSetId: ['', [Validators.required]],
       creativeId: ['', [Validators.required]],
       platform: [Provider.META, [Validators.required]],
-      adAccountId: [this.actId ? `act_${this.actId}` : ''],
+      adAccountId: [''],
       pageId: [''],
     });
 
@@ -205,6 +202,21 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     return this.adSets.map((s) => ({ value: String(s.id), label: s.name }));
   }
 
+  /**
+   * A user can have several ad accounts synced at once, so the ad account for the rest of the
+   * workflow (creatives, ad creation) is derived from whichever ad set is actually selected here
+   * — not from a separately-tracked "current account" that can drift from what's on screen.
+   */
+  get selectedAdSet(): AdSetResponse | null {
+    const id = this.adForm?.get('adSetId')?.value;
+    if (!id) return null;
+    return this.adSets.find((s) => String(s.id) === String(id)) ?? null;
+  }
+
+  get selectedAdSetAccountId(): string | null {
+    return this.selectedAdSet?.adAccountId ?? null;
+  }
+
   get pageOptions(): DropdownOption[] {
     return this.pages.map((p) => ({ value: p.pageId, label: p.name }));
   }
@@ -221,10 +233,20 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     this.selectedCampaignId = campaignId;
     this.adForm.get('adSetId')?.setValue('');
     this.adSets = [];
+    // The new campaign may belong to a different ad account than the previous selection —
+    // clear any previously loaded/picked creative so a stale, wrong-account creative can't
+    // ride along with the newly selected ad set.
+    this.resetSelectedCreative();
 
     if (campaignId) {
       this.loadAdSetsByCampaign(campaignId);
     }
+  }
+
+  private resetSelectedCreative(): void {
+    this.creatives = [];
+    this.selectedCreative = null;
+    this.adForm.get('creativeId')?.setValue('');
   }
 
   loadAdSetsByCampaign(campaignId: string): void {
@@ -240,6 +262,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     this.campaigns = [];
     this.allAdSets = [];
     this.adSets = [];
+    this.resetSelectedCreative();
     this.isLoadingCampaigns = true;
     this.isInitialLoading = true;
 
@@ -264,10 +287,11 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
   }
 
   loadCreatives(): void {
-    if (!this.actId) return;
+    const adAccountId = this.selectedAdSetAccountId;
+    if (!adAccountId) return;
     this.isLoadingCreatives = true;
     this.creativeService
-      .getAllCreatives(this.userId, `act_${this.actId}`)
+      .getAllCreatives(this.userId, adAccountId)
       .pipe(
         finalize(() => {
           this.ngZone.run(() => {
@@ -293,8 +317,8 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
   }
 
   openPanel(type: 'picker' | 'creator'): void {
-    if (type === 'picker' && !this.actId) {
-      this.toastr.warning('No Meta ad account linked to this user');
+    if (type === 'picker' && !this.selectedAdSetAccountId) {
+      this.toastr.warning('Select a campaign and ad set first');
       return;
     }
     this.activePanelType = type;
@@ -355,7 +379,11 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     }
     this.isPublishing = true;
     try {
-      await firstValueFrom(this.adService.create({ ...this.adForm.value, userId: this.userId }));
+      await firstValueFrom(this.adService.create({
+        ...this.adForm.value,
+        userId: this.userId,
+        adAccountId: this.selectedAdSetAccountId ?? this.adForm.value.adAccountId,
+      }));
       this.toastr.success('Ad created successfully!');
       this.router.navigate(['/meta']);
     } catch (err) {
@@ -602,7 +630,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
       !this.canSubmitAssetCreative ||
       !this.selectedPickerAsset ||
       !this.selectedVariantKey ||
-      !this.actId
+      !this.selectedAdSetAccountId
     )
       return;
     this.assetCreativeForm.markAllAsTouched();
@@ -612,13 +640,13 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
 
   confirmCreativeMode(mode: 'draft' | 'direct'): void {
     this.showCreativeModeModal = false;
-    if (!this.selectedPickerAsset || !this.selectedVariantKey || !this.actId)
+    if (!this.selectedPickerAsset || !this.selectedVariantKey || !this.selectedAdSetAccountId)
       return;
 
     const asset = this.selectedPickerAsset;
     const formVal = this.assetCreativeForm.value;
     const platform = formVal.platform || 'META';
-    const adAccountId = `act_${this.actId}`;
+    const adAccountId = this.selectedAdSetAccountId;
 
     const body = {
       storedAssetId: asset.id,

@@ -99,24 +99,13 @@ public class AdService extends AbstractPlatformService<AdEntity, AdDto, AdStrate
                     + " must be synced to the platform before creating an ad (missing externalId)");
         }
 
-        // Use the request's adAccountId when explicitly provided; fall back to the adSet's stored value.
-        // This handles the case where the adSet entity has a stale/mismatched account in the DB
-        // but the user's request carries the correct working account.
-        String effectiveAdAccountId = (dto.getAdAccountId() != null && !dto.getAdAccountId().isBlank())
-                ? dto.getAdAccountId()
-                : adSet.getAdAccountId();
-
-        // The ad set (and its parent campaign) must belong to the same ad account we're about to
-        // create the ad in, otherwise Facebook rejects the request. A user can have ad sets
-        // persisted from a previously-active ad account connection, so this can drift from the
-        // account they are currently connected as. Fail with a clear message instead of a cryptic
-        // Facebook API error.
-        if (adSet.getAdAccountId() != null && !stripActPrefix(effectiveAdAccountId).equals(stripActPrefix(adSet.getAdAccountId()))) {
-            throw BusinessException.badRequest(
-                    "Ad set '" + adSet.getExternalId() + "' belongs to ad account '" + adSet.getAdAccountId()
-                            + "' but you are creating this ad under '" + effectiveAdAccountId + "'. "
-                            + "Select a campaign/ad set from your currently connected ad account.");
-        }
+        // Always create the ad in the ad set's own account, never the request's. A user can have
+        // several ad accounts synced at once (campaigns/ad sets shown from all of them), so the
+        // account must be derived from whichever ad set was actually selected — not from a
+        // separately-tracked "current account" that can drift from what's on screen.
+        String effectiveAdAccountId = (adSet.getAdAccountId() != null && !adSet.getAdAccountId().isBlank())
+                ? adSet.getAdAccountId()
+                : dto.getAdAccountId();
 
         AdEntity e = new AdEntity();
         e.setAdSet(adSet);

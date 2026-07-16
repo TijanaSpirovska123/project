@@ -18,6 +18,8 @@ public interface CampaignRepository extends JpaRepository<CampaignEntity, Long> 
 
     List<CampaignEntity> findByUserAndPlatform(UserEntity user, String platform);
 
+    Optional<CampaignEntity> findTopByUserAndPlatformOrderByUpdatedAtDesc(UserEntity user, String platform);
+
     Optional<CampaignEntity> findByUserAndPlatformAndAdAccountIdAndExternalId(
             UserEntity user, String platform, String adAccountId, String externalId
     );

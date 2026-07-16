@@ -66,6 +66,18 @@ export class AuthStoreService {
     }
   }
 
+  // Centralized method to remove a single item from localStorage with error handling
+  private removeFromStorage(key: StorageKeys): void {
+    if (!this.isBrowser || typeof localStorage === 'undefined') {
+      return;
+    }
+    try {
+      localStorage.removeItem(key);
+    } catch (error) {
+      console.error(`Error removing ${key} from localStorage:`, error);
+    }
+  }
+
   // Centralized method to clear localStorage with error handling
   private clearStorage(): void {
     if (!this.isBrowser || typeof localStorage === 'undefined') {
@@ -101,8 +113,13 @@ export class AuthStoreService {
       this.setToStorage(StorageKeys.USER_ID, userId);
     }
 
+    // Always sync ACT_ID to this login response, clearing it when absent — local storage is
+    // scoped to the browser, not the user, so a stale actId left behind by a previous
+    // user/session on this browser must not leak into this one.
     if (actId) {
       this.setToStorage(StorageKeys.ACT_ID, actId);
+    } else {
+      this.removeFromStorage(StorageKeys.ACT_ID);
     }
 
     this.setLoggedIn(true);

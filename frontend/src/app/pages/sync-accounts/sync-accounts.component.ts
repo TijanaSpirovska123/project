@@ -258,6 +258,12 @@ export class SyncAccountsComponent implements OnInit, OnDestroy {
                 platform.syncing = false;
                 platform.lastSynced = new Date().toISOString();
                 this.syncState.markMetaDataChanged();
+                // Keep the session's active ad account in lockstep with whichever account was
+                // just synced — otherwise a user with multiple connected ad accounts can end up
+                // with campaigns/ad sets in the DB for one account while actId (used everywhere
+                // else, e.g. create-ad-workflow) still points at a stale one from login.
+                this.authStore.setActId(accountId);
+                this.actId = this.authStore.getActId();
                 this.syncStep = '';
                 this.syncStepNum = 0;
                 this.cdr.detectChanges();
