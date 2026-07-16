@@ -15,7 +15,7 @@ import {
 import { Router } from '@angular/router';
 import { AppToastrService } from '../../services/core/app-toastr.service';
 import { forkJoin, firstValueFrom } from 'rxjs';
-import { finalize } from 'rxjs/operators';
+import { finalize, switchMap } from 'rxjs/operators';
 import { CoreService } from '../../services/core/core.service';
 import { AuthStoreService } from '../../services/core/auth-store.service';
 import { AdService } from '../../services/ad/ad.service';
@@ -665,8 +665,13 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     this.assetCreativeSubmitLabel =
       mode === 'draft' ? 'Saving draft...' : 'Publishing...';
 
+    const isVideo = asset.assetType === 'VIDEO';
+
+    // Video is always fully published by the stored-asset flow — it uploads to Meta and creates
+    // the real platform creative internally, regardless of mode. "Draft" vs "direct" only matters
+    // for images, since draft images are saved without ever calling Meta.
     const call$ =
-      mode === 'draft'
+      mode === 'draft' || isVideo
         ? this.creativeService.createCreativeFromAsset(
             {
               storedAssetId: asset.id,
@@ -685,11 +690,23 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
               callToAction: body.callToAction,
             },
           )
-        : this.creativeService.publishCreativeFromAsset(
-            adAccountId,
-            platform,
-            body,
-          );
+        // Direct-publish of an IMAGE: it must be uploaded (and hashed by Meta) for this specific
+        // ad account first. asset.hash is our own content hash, not Meta's — it can never match an
+        // existing AdAssetEntity, so publishCreativeFromAsset would always 404 without this step.
+        // uploadAdImageFromStoredAsset's pageName param is matched by name (pageRepository
+        // .findByNameAndUser), not by Facebook page id — formVal.pageId is the id, so it must be
+        // this.selectedPage's name instead.
+        : this.creativeService
+            .uploadAdImageFromStoredAsset(adAccountId, asset.id, this.selectedVariantKey, this.selectedPage?.name)
+            .pipe(
+              switchMap((uploadRes: any) => {
+                const uploadedHash = uploadRes?.data?.imageHash ?? uploadRes?.imageHash;
+                return this.creativeService.publishCreativeFromAsset(adAccountId, platform, {
+                  ...body,
+                  imageHash: uploadedHash,
+                });
+              }),
+            );
 
     call$
       .pipe(
