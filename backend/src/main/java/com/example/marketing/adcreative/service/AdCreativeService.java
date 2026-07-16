@@ -380,8 +380,11 @@ public class AdCreativeService {
 
         if (existing.isPresent()) return toAdAssetDto(existing.get());
 
+        // Not sanitized: findByNameAndUser is a parameter-bound JPA query (no injection risk),
+        // and stripping non-ASCII characters here would break lookups for page names in
+        // non-Latin scripts (Cyrillic, etc.) by turning them into an unmatchable empty string.
         PageEntity page = (pageName != null && !pageName.isBlank())
-                ? pageRepository.findByNameAndUser(sanitizeInput(pageName), user)
+                ? pageRepository.findByNameAndUser(pageName.trim(), user)
                 .orElseThrow(() -> BusinessException.notFound("Page '" + pageName + "' not found for current user"))
                 : null;
 
@@ -776,11 +779,6 @@ public class AdCreativeService {
 
     private static void requireNonEmpty(MultipartFile file) {
         if (file == null || file.isEmpty()) throw new IllegalArgumentException("No file uploaded");
-    }
-
-    private String sanitizeInput(String input) {
-        if (input == null) return null;
-        return input.replaceAll("[^a-zA-Z0-9_\\-.\\s]", "");
     }
 
     private static String safeFilename(String original) {
