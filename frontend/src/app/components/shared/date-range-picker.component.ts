@@ -21,6 +21,7 @@ const QUICK_OPTIONS: { label: string; key: QuickKey; days: number }[] = [
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const MONTHS_SHORT = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+const MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 @Component({
   selector: 'app-date-range-picker',
@@ -113,10 +114,27 @@ const MONTHS_SHORT = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT
     <ng-template #calendarTpl>
       <!-- Header -->
       <div class="drp-header">
-        <span class="drp-month-badge">
-          {{ headerLabel() }}
-          <i class="fa fa-caret-down drp-badge-caret" aria-hidden="true"></i>
-        </span>
+        <div class="drp-month-badge-wrap">
+          <button type="button" class="drp-month-badge"
+                  (click)="toggleMonthDropdown($event)"
+                  aria-haspopup="listbox"
+                  [attr.aria-expanded]="monthDropdownOpen()">
+            {{ headerLabel() }}
+            <i class="fa fa-caret-down drp-badge-caret" aria-hidden="true"></i>
+          </button>
+          @if (monthDropdownOpen()) {
+            <div class="drp-month-dropdown" role="listbox" aria-label="Select month">
+              @for (m of monthsFull; track m; let i = $index) {
+                <button type="button" class="drp-month-option" role="option"
+                        [class.drp-month-option-active]="i === viewMonth()"
+                        [attr.aria-selected]="i === viewMonth()"
+                        (click)="selectMonthOption(i)">
+                  {{ m }}
+                </button>
+              }
+            </div>
+          }
+        </div>
         <div class="drp-chevrons">
           <button type="button" class="drp-chevron" (click)="prevMonth()" aria-label="Previous month">
             <i class="fa fa-chevron-left" aria-hidden="true"></i>
@@ -262,6 +280,8 @@ const MONTHS_SHORT = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT
       margin-bottom: 12px;
     }
 
+    .drp-month-badge-wrap { position: relative; display: inline-flex; }
+
     .drp-month-badge {
       display: inline-flex;
       align-items: center;
@@ -274,8 +294,47 @@ const MONTHS_SHORT = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT
       font-weight: 600;
       color: #111827;
       letter-spacing: 0.02em;
+      cursor: pointer;
+      font-family: inherit;
+      transition: border-color 150ms;
     }
+    .drp-month-badge:hover { border-color: #9CA3AF; }
     .drp-badge-caret { color: #6B7280; font-size: 11px; }
+
+    .drp-month-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      z-index: 20;
+      background: white;
+      border: 1px solid #E5E7EB;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+      padding: 6px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      width: 220px;
+    }
+
+    .drp-month-option {
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      padding: 6px 4px;
+      font-size: 12px;
+      color: #374151;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: center;
+      transition: background 100ms, color 100ms;
+    }
+    .drp-month-option:hover { background: #F3F4F6; }
+    .drp-month-option-active {
+      background: #1ca698 !important;
+      color: #fff !important;
+      font-weight: 600;
+    }
 
     .drp-chevrons { display: flex; gap: 2px; }
 
@@ -421,6 +480,7 @@ export class DateRangePickerComponent implements ControlValueAccessor {
 
   readonly weekdays = WEEKDAYS;
   readonly quickOptions = QUICK_OPTIONS;
+  readonly monthsFull = MONTHS_FULL;
 
   // ── State signals ──
   startDate  = signal<Date | null>(null);
@@ -431,6 +491,7 @@ export class DateRangePickerComponent implements ControlValueAccessor {
   activeInput = signal<'from' | 'to'>('from');
   activeQuick = signal<QuickKey | null>(null);
   rangeError  = signal<string | null>(null);
+  monthDropdownOpen = signal(false);
 
   // ── Derived ──
   headerLabel = computed(() => `${MONTHS_SHORT[this.viewMonth()]} ${this.viewYear()}`);
@@ -455,13 +516,17 @@ export class DateRangePickerComponent implements ControlValueAccessor {
   // ── Host listeners ──
   @HostListener('document:click', ['$event'])
   onDocClick(e: MouseEvent): void {
-    if (this.isOpen() && !this.el.nativeElement.contains(e.target)) {
-      this.closePanel();
+    if (!this.el.nativeElement.contains(e.target)) {
+      if (this.isOpen()) this.closePanel();
+      this.monthDropdownOpen.set(false);
     }
   }
 
   @HostListener('document:keydown.escape')
-  onEscape(): void { this.closePanel(); }
+  onEscape(): void {
+    this.closePanel();
+    this.monthDropdownOpen.set(false);
+  }
 
   // ── Panel ──
   openPanel(input: 'from' | 'to'): void {
@@ -474,7 +539,10 @@ export class DateRangePickerComponent implements ControlValueAccessor {
     this.onTouched();
   }
 
-  closePanel(): void { this.isOpen.set(false); }
+  closePanel(): void {
+    this.isOpen.set(false);
+    this.monthDropdownOpen.set(false);
+  }
 
   prevMonth(): void {
     let m = this.viewMonth() - 1, y = this.viewYear();
@@ -488,6 +556,17 @@ export class DateRangePickerComponent implements ControlValueAccessor {
     if (m > 11) { m = 0; y++; }
     this.viewMonth.set(m);
     this.viewYear.set(y);
+  }
+
+  // ── Month dropdown ──
+  toggleMonthDropdown(e: MouseEvent): void {
+    e.stopPropagation();
+    this.monthDropdownOpen.update((v) => !v);
+  }
+
+  selectMonthOption(month: number): void {
+    this.viewMonth.set(month);
+    this.monthDropdownOpen.set(false);
   }
 
   // ── Day selection ──

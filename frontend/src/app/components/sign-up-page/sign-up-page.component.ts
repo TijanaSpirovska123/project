@@ -1,6 +1,6 @@
 import {
   Component, OnInit, OnDestroy, Inject, PLATFORM_ID,
-  ViewChild, ElementRef,
+  ViewChild, ElementRef, signal,
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { CoreService } from '../../services/core/core.service';
@@ -34,21 +34,26 @@ export class SignUpPageComponent implements OnInit, OnDestroy {
   showConfirmPassword = false;
 
   // ── Animation state ──────────────────────────────────────────────────────
-  isPurpleBlinking = false;
-  isBlackBlinking = false;
-  isTyping = false;
-  isLookingAtEachOther = false;
-  isPurplePeeking = false;
+  // Signals: mutated from setTimeout/mousemove callbacks outside Angular's normal
+  // template-triggered flow. Angular's coalesced scheduler can check this component
+  // from an unrelated signal write elsewhere (e.g. ngx-toastr's progress bar) at any
+  // time, so plain fields mutated without an explicit, synchronous CD notification
+  // are prone to NG0100. Signals close that gap (see login-page.component.ts).
+  isPurpleBlinking = signal(false);
+  isBlackBlinking = signal(false);
+  isTyping = signal(false);
+  isLookingAtEachOther = signal(false);
+  isPurplePeeking = signal(false);
 
   @ViewChild('purpleRef') purpleRef!: ElementRef<HTMLDivElement>;
   @ViewChild('blackRef')  blackRef!:  ElementRef<HTMLDivElement>;
   @ViewChild('yellowRef') yellowRef!: ElementRef<HTMLDivElement>;
   @ViewChild('orangeRef') orangeRef!: ElementRef<HTMLDivElement>;
 
-  purplePos = { faceX: 0, faceY: 0, bodySkew: 0 };
-  blackPos  = { faceX: 0, faceY: 0, bodySkew: 0 };
-  yellowPos = { faceX: 0, faceY: 0, bodySkew: 0 };
-  orangePos = { faceX: 0, faceY: 0, bodySkew: 0 };
+  purplePos = signal({ faceX: 0, faceY: 0, bodySkew: 0 });
+  blackPos  = signal({ faceX: 0, faceY: 0, bodySkew: 0 });
+  yellowPos = signal({ faceX: 0, faceY: 0, bodySkew: 0 });
+  orangePos = signal({ faceX: 0, faceY: 0, bodySkew: 0 });
 
   private purpleBlinkTimeout?: ReturnType<typeof setTimeout>;
   private blackBlinkTimeout?:  ReturnType<typeof setTimeout>;
@@ -60,10 +65,10 @@ export class SignUpPageComponent implements OnInit, OnDestroy {
   private onMouseMove = (e: MouseEvent) => {
     this.mouseX = e.clientX;
     this.mouseY = e.clientY;
-    this.purplePos = this.calcPos(this.purpleRef);
-    this.blackPos  = this.calcPos(this.blackRef);
-    this.yellowPos = this.calcPos(this.yellowRef);
-    this.orangePos = this.calcPos(this.orangeRef);
+    this.purplePos.set(this.calcPos(this.purpleRef));
+    this.blackPos.set(this.calcPos(this.blackRef));
+    this.yellowPos.set(this.calcPos(this.yellowRef));
+    this.orangePos.set(this.calcPos(this.orangeRef));
   };
 
   // ── Computed getters ─────────────────────────────────────────────────────
@@ -71,39 +76,39 @@ export class SignUpPageComponent implements OnInit, OnDestroy {
   get isPasswordHidden()  { return this.password.length > 0 && !this.showPassword; }
   get isPasswordVisible() { return this.password.length > 0 && this.showPassword; }
 
-  get purpleHeight() { return (this.isTyping || this.isPasswordHidden) ? '440px' : '400px'; }
+  get purpleHeight() { return (this.isTyping() || this.isPasswordHidden) ? '440px' : '400px'; }
   get purpleTransform() {
     if (this.isPasswordVisible) return 'skewX(0deg)';
-    if (this.isPasswordHidden || this.isTyping) return `skewX(${(this.purplePos.bodySkew || 0) - 12}deg) translateX(40px)`;
-    return `skewX(${this.purplePos.bodySkew || 0}deg)`;
+    if (this.isPasswordHidden || this.isTyping()) return `skewX(${(this.purplePos().bodySkew || 0) - 12}deg) translateX(40px)`;
+    return `skewX(${this.purplePos().bodySkew || 0}deg)`;
   }
-  get purpleEyesLeft()   { return this.isPasswordVisible ? '20px' : this.isLookingAtEachOther ? '55px' : `${45 + this.purplePos.faceX}px`; }
-  get purpleEyesTop()    { return this.isPasswordVisible ? '35px' : this.isLookingAtEachOther ? '65px' : `${40 + this.purplePos.faceY}px`; }
-  get purpleForceLookX(): number | undefined { if (this.isPasswordVisible) return this.isPurplePeeking ? 4 : -4; if (this.isLookingAtEachOther) return 3; return undefined; }
-  get purpleForceLookY(): number | undefined { if (this.isPasswordVisible) return this.isPurplePeeking ? 5 : -4; if (this.isLookingAtEachOther) return 4; return undefined; }
+  get purpleEyesLeft()   { return this.isPasswordVisible ? '20px' : this.isLookingAtEachOther() ? '55px' : `${45 + this.purplePos().faceX}px`; }
+  get purpleEyesTop()    { return this.isPasswordVisible ? '35px' : this.isLookingAtEachOther() ? '65px' : `${40 + this.purplePos().faceY}px`; }
+  get purpleForceLookX(): number | undefined { if (this.isPasswordVisible) return this.isPurplePeeking() ? 4 : -4; if (this.isLookingAtEachOther()) return 3; return undefined; }
+  get purpleForceLookY(): number | undefined { if (this.isPasswordVisible) return this.isPurplePeeking() ? 5 : -4; if (this.isLookingAtEachOther()) return 4; return undefined; }
 
   get blackTransform() {
     if (this.isPasswordVisible) return 'skewX(0deg)';
-    if (this.isLookingAtEachOther) return `skewX(${(this.blackPos.bodySkew || 0) * 1.5 + 10}deg) translateX(20px)`;
-    if (this.isPasswordHidden || this.isTyping) return `skewX(${(this.blackPos.bodySkew || 0) * 1.5}deg)`;
-    return `skewX(${this.blackPos.bodySkew || 0}deg)`;
+    if (this.isLookingAtEachOther()) return `skewX(${(this.blackPos().bodySkew || 0) * 1.5 + 10}deg) translateX(20px)`;
+    if (this.isPasswordHidden || this.isTyping()) return `skewX(${(this.blackPos().bodySkew || 0) * 1.5}deg)`;
+    return `skewX(${this.blackPos().bodySkew || 0}deg)`;
   }
-  get blackEyesLeft()   { return this.isPasswordVisible ? '10px' : this.isLookingAtEachOther ? '32px' : `${26 + this.blackPos.faceX}px`; }
-  get blackEyesTop()    { return this.isPasswordVisible ? '28px' : this.isLookingAtEachOther ? '12px' : `${32 + this.blackPos.faceY}px`; }
-  get blackForceLookX(): number | undefined { return this.isPasswordVisible ? -4 : this.isLookingAtEachOther ? 0 : undefined; }
-  get blackForceLookY(): number | undefined { return this.isPasswordVisible ? -4 : this.isLookingAtEachOther ? -4 : undefined; }
+  get blackEyesLeft()   { return this.isPasswordVisible ? '10px' : this.isLookingAtEachOther() ? '32px' : `${26 + this.blackPos().faceX}px`; }
+  get blackEyesTop()    { return this.isPasswordVisible ? '28px' : this.isLookingAtEachOther() ? '12px' : `${32 + this.blackPos().faceY}px`; }
+  get blackForceLookX(): number | undefined { return this.isPasswordVisible ? -4 : this.isLookingAtEachOther() ? 0 : undefined; }
+  get blackForceLookY(): number | undefined { return this.isPasswordVisible ? -4 : this.isLookingAtEachOther() ? -4 : undefined; }
 
-  get orangeTransform() { return this.isPasswordVisible ? 'skewX(0deg)' : `skewX(${this.orangePos.bodySkew || 0}deg)`; }
-  get orangeEyesLeft()  { return this.isPasswordVisible ? '50px' : `${82 + (this.orangePos.faceX || 0)}px`; }
-  get orangeEyesTop()   { return this.isPasswordVisible ? '85px' : `${90 + (this.orangePos.faceY || 0)}px`; }
+  get orangeTransform() { return this.isPasswordVisible ? 'skewX(0deg)' : `skewX(${this.orangePos().bodySkew || 0}deg)`; }
+  get orangeEyesLeft()  { return this.isPasswordVisible ? '50px' : `${82 + (this.orangePos().faceX || 0)}px`; }
+  get orangeEyesTop()   { return this.isPasswordVisible ? '85px' : `${90 + (this.orangePos().faceY || 0)}px`; }
   get orangeForceLookX(): number | undefined { return this.isPasswordVisible ? -5 : undefined; }
   get orangeForceLookY(): number | undefined { return this.isPasswordVisible ? -4 : undefined; }
 
-  get yellowTransform()  { return this.isPasswordVisible ? 'skewX(0deg)' : `skewX(${this.yellowPos.bodySkew || 0}deg)`; }
-  get yellowEyesLeft()   { return this.isPasswordVisible ? '20px' : `${52 + (this.yellowPos.faceX || 0)}px`; }
-  get yellowEyesTop()    { return this.isPasswordVisible ? '35px' : `${40 + (this.yellowPos.faceY || 0)}px`; }
-  get yellowMouthLeft()  { return this.isPasswordVisible ? '10px' : `${40 + (this.yellowPos.faceX || 0)}px`; }
-  get yellowMouthTop()   { return this.isPasswordVisible ? '88px' : `${88 + (this.yellowPos.faceY || 0)}px`; }
+  get yellowTransform()  { return this.isPasswordVisible ? 'skewX(0deg)' : `skewX(${this.yellowPos().bodySkew || 0}deg)`; }
+  get yellowEyesLeft()   { return this.isPasswordVisible ? '20px' : `${52 + (this.yellowPos().faceX || 0)}px`; }
+  get yellowEyesTop()    { return this.isPasswordVisible ? '35px' : `${40 + (this.yellowPos().faceY || 0)}px`; }
+  get yellowMouthLeft()  { return this.isPasswordVisible ? '10px' : `${40 + (this.yellowPos().faceX || 0)}px`; }
+  get yellowMouthTop()   { return this.isPasswordVisible ? '88px' : `${88 + (this.yellowPos().faceY || 0)}px`; }
   get yellowForceLookX(): number | undefined { return this.isPasswordVisible ? -5 : undefined; }
   get yellowForceLookY(): number | undefined { return this.isPasswordVisible ? -4 : undefined; }
 
@@ -183,13 +188,13 @@ export class SignUpPageComponent implements OnInit, OnDestroy {
   toggleConfirmPassword() { this.showConfirmPassword = !this.showConfirmPassword; }
 
   onInputFocus() {
-    this.isTyping = true;
-    this.isLookingAtEachOther = true;
+    this.isTyping.set(true);
+    this.isLookingAtEachOther.set(true);
     clearTimeout(this.lookTimeout);
-    this.lookTimeout = setTimeout(() => { this.isLookingAtEachOther = false; }, 800);
+    this.lookTimeout = setTimeout(() => { this.isLookingAtEachOther.set(false); }, 800);
   }
 
-  onInputBlur() { this.isTyping = false; this.isLookingAtEachOther = false; }
+  onInputBlur() { this.isTyping.set(false); this.isLookingAtEachOther.set(false); }
 
   onPasswordChange(_val: string) { this.schedulePeekIfNeeded(); }
 
@@ -197,25 +202,25 @@ export class SignUpPageComponent implements OnInit, OnDestroy {
     clearTimeout(this.peekTimeout);
     if (this.password.length > 0 && this.showPassword) {
       this.peekTimeout = setTimeout(() => {
-        this.isPurplePeeking = true;
-        setTimeout(() => { this.isPurplePeeking = false; }, 800);
+        this.isPurplePeeking.set(true);
+        setTimeout(() => { this.isPurplePeeking.set(false); }, 800);
       }, Math.random() * 3000 + 2000);
     } else {
-      this.isPurplePeeking = false;
+      this.isPurplePeeking.set(false);
     }
   }
 
   private schedulePurpleBlink() {
     this.purpleBlinkTimeout = setTimeout(() => {
-      this.isPurpleBlinking = true;
-      setTimeout(() => { this.isPurpleBlinking = false; this.schedulePurpleBlink(); }, 150);
+      this.isPurpleBlinking.set(true);
+      setTimeout(() => { this.isPurpleBlinking.set(false); this.schedulePurpleBlink(); }, 150);
     }, Math.random() * 4000 + 3000);
   }
 
   private scheduleBlackBlink() {
     this.blackBlinkTimeout = setTimeout(() => {
-      this.isBlackBlinking = true;
-      setTimeout(() => { this.isBlackBlinking = false; this.scheduleBlackBlink(); }, 150);
+      this.isBlackBlinking.set(true);
+      setTimeout(() => { this.isBlackBlinking.set(false); this.scheduleBlackBlink(); }, 150);
     }, Math.random() * 4000 + 3000);
   }
 

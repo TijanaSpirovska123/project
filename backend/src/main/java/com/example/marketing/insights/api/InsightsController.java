@@ -91,7 +91,11 @@ public class InsightsController extends BaseController {
         Long userId = extractUserId(auth);
         body.setObjectType(InsightObjectType.CAMPAIGN);
         body.setFetchMode(FetchMode.BATCH_IDS);
-        return ok(service.sync(userId, body));
+        // Response shape preserved for existing frontend consumers (a bare snapshot array) — the
+        // richer per-entity success/empty/failure report from syncBatchWithReport is still
+        // computed internally (so counts/statuses are available to future callers) but this
+        // endpoint's contract stays additive-only, never replacing "data" with a different shape.
+        return ok(service.syncBatchWithReport(userId, body).getSnapshots());
     }
 
     // -------------------------------------------------------------------------
@@ -126,7 +130,7 @@ public class InsightsController extends BaseController {
         Long userId = extractUserId(auth);
         body.setObjectType(InsightObjectType.ADSET);
         body.setFetchMode(FetchMode.BATCH_IDS);
-        return ok(service.sync(userId, body));
+        return ok(service.syncBatchWithReport(userId, body).getSnapshots());
     }
 
     // -------------------------------------------------------------------------
@@ -158,6 +162,8 @@ public class InsightsController extends BaseController {
     //         "datePreset": "maximum", "limit": 100,
     //         "actionBreakdowns": "action_type",
     //         "timeIncrementAllDays": true }
+    // "maximum" is only a fallback for callers that specify neither a preset nor an explicit
+    // dateStart/dateStop — it must never override a period the caller actually asked for.
     // -------------------------------------------------------------------------
 
     @PostMapping("/sync/ads/batch")
@@ -168,10 +174,11 @@ public class InsightsController extends BaseController {
         body.setObjectType(InsightObjectType.AD);
         body.setFetchMode(FetchMode.BATCH_IDS);
         body.setTimeIncrementAllDays(true);
-        if (body.getDatePreset() == null) body.setDatePreset("maximum");
+        boolean hasExplicitRange = body.getDateStart() != null && body.getDateStop() != null;
+        if (body.getDatePreset() == null && !hasExplicitRange) body.setDatePreset("maximum");
         if (body.getLimit() == null) body.setLimit(100);
         if (body.getActionBreakdowns() == null) body.setActionBreakdowns("action_type");
-        return ok(service.sync(userId, body));
+        return ok(service.syncBatchWithReport(userId, body).getSnapshots());
     }
 
     // -------------------------------------------------------------------------

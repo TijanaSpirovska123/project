@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="add-pagination-complete-to-insight-snapshot" author="tijana">
+        <addColumn tableName="insight_snapshot">
+            <!-- Null for existing rows (unknown/no evidence either way) — never defaulted to
+                 true or false, since we don't actually know for snapshots synced before this
+                 column existed. -->
+            <column name="pagination_complete" type="BOOLEAN"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

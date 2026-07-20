@@ -1,6 +1,6 @@
 import {
   Component, Input, OnInit, OnDestroy, AfterViewInit, OnChanges,
-  SimpleChanges, ViewChild, ElementRef, ChangeDetectorRef, Inject, PLATFORM_ID,
+  SimpleChanges, ViewChild, ElementRef, ChangeDetectorRef, Inject, PLATFORM_ID, NgZone,
 } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 
@@ -33,6 +33,7 @@ export class PupilComponent implements OnInit, OnDestroy, AfterViewInit, OnChang
 
   constructor(
     private cdr: ChangeDetectorRef,
+    private ngZone: NgZone,
     @Inject(PLATFORM_ID) platformId: Object,
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -47,13 +48,16 @@ export class PupilComponent implements OnInit, OnDestroy, AfterViewInit, OnChang
 
   ngOnInit() {
     if (this.isBrowser) {
-      window.addEventListener('mousemove', this.onMouseMove);
+      this.ngZone.runOutsideAngular(() => {
+        window.addEventListener('mousemove', this.onMouseMove);
+      });
     }
   }
 
   ngAfterViewInit() {
     if (this.isBrowser) {
-      setTimeout(() => this.update(), 0);
+      this.update();
+      this.cdr.detectChanges();
     }
   }
 

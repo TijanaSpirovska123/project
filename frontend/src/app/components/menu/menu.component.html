@@ -54,8 +54,8 @@
       [class.expanded]="isExpanded"
       matTooltipPosition="right"
     >
-      <span class="material-symbols-outlined">{{ theme.isDark ? 'light_mode' : 'dark_mode' }}</span>
-      <span class="label">{{ theme.isDark ? 'Light Mode' : 'Dark Mode' }}</span>
+      <span class="material-symbols-outlined">{{ theme.isDark() ? 'light_mode' : 'dark_mode' }}</span>
+      <span class="label">{{ theme.isDark() ? 'Light Mode' : 'Dark Mode' }}</span>
     </button>
     <button
       (click)="logout()"
@@ -85,8 +85,8 @@
     <span class="mob-label">{{ item.label }}</span>
   </a>
   <button class="mob-tab mob-tab-button" (click)="theme.toggle()" type="button">
-    <span class="material-symbols-outlined">{{ theme.isDark ? 'light_mode' : 'dark_mode' }}</span>
-    <span class="mob-label">{{ theme.isDark ? 'Light' : 'Dark' }}</span>
+    <span class="material-symbols-outlined">{{ theme.isDark() ? 'light_mode' : 'dark_mode' }}</span>
+    <span class="mob-label">{{ theme.isDark() ? 'Light' : 'Dark' }}</span>
   </button>
   <button class="mob-tab mob-tab-button" (click)="logout()" type="button">
     <span class="material-symbols-outlined">{{ isLoggedIn ? 'logout' : 'login' }}</span>

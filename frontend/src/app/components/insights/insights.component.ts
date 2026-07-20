@@ -1260,8 +1260,8 @@ export class InsightsComponent implements OnInit, OnDestroy {
       if (!this.isLoading) {
         this.loadAllData();
       }
-      this.cdr.detectChanges();
       this.runPendingInitialSync();
+      this.cdr.detectChanges();
       return;
     }
 
@@ -1281,14 +1281,15 @@ export class InsightsComponent implements OnInit, OnDestroy {
         if (!this.isLoading) {
           this.loadAllData();
         }
-        this.cdr.detectChanges();
         this.runPendingInitialSync();
+        this.cdr.detectChanges();
       }
     };
 
     this.campaignService.getAllByPlatform(Provider.META).subscribe({
       next: (res: any) => {
         this.availableCampaigns = res?.data ?? [];
+        this.cdr.markForCheck();
         finish();
       },
       error: () => {
@@ -1299,6 +1300,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
     this.adSetService.getAllByPlatform(Provider.META).subscribe({
       next: (res: any) => {
         this.availableAdSets = res?.data ?? [];
+        this.cdr.markForCheck();
         finish();
       },
       error: () => {
@@ -1309,6 +1311,7 @@ export class InsightsComponent implements OnInit, OnDestroy {
     this.adService.getAllByPlatform(Provider.META).subscribe({
       next: (res: any) => {
         this.availableAds = res?.data ?? [];
+        this.cdr.markForCheck();
         finish();
       },
       error: () => {
@@ -2611,8 +2614,8 @@ export class InsightsComponent implements OnInit, OnDestroy {
     this.loadAllData();
     this.loadBreakdownData();
     this.saveLastView();
-    this.cdr.detectChanges();
     this.runPendingInitialSync();
+    this.cdr.detectChanges();
   }
 
   /** If an initial saved view auto-applied, run a Meta API sync once available objects are loaded. */

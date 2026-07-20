@@ -1,28 +1,42 @@
 package com.example.marketing.insights.mapper;
 
 import com.example.marketing.infrastructure.mapper.BaseMapper;
+import com.example.marketing.insights.dto.InsightPeriodDto;
 import com.example.marketing.insights.dto.InsightSnapshotDto;
 import com.example.marketing.insights.dto.InsightMetricDto;
+import com.example.marketing.insights.dto.InsightWarningDto;
 import com.example.marketing.insights.entity.InsightMetricEntity;
 import com.example.marketing.insights.entity.InsightSnapshotEntity;
+import com.example.marketing.insights.mapper.InsightMetricsExtractor.MetricsResult;
+import com.example.marketing.insights.strategy.InsightsFetchStrategy;
+import com.example.marketing.insights.strategy.InsightsFetchStrategyRegistry;
+import com.example.marketing.insights.util.InsightSyncStatus;
+import com.example.marketing.insights.util.InsightWarningCode;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.mapstruct.*;
+import org.springframework.beans.factory.annotation.Autowired;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
+/**
+ * An abstract class (rather than the usual MapStruct interface) so it can hold the
+ * injected {@link InsightsFetchStrategyRegistry} — needed to delegate raw-response row
+ * extraction to the correct per-provider strategy instead of assuming Meta's envelope shape.
+ */
 @Mapper(componentModel = "spring", uses = BaseMapper.class)
-public interface InsightsSnapshotMapper extends BaseMapper<InsightSnapshotDto, InsightSnapshotEntity> {
+public abstract class InsightsSnapshotMapper implements BaseMapper<InsightSnapshotDto, InsightSnapshotEntity> {
 
-    ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    @Autowired
+    protected InsightsFetchStrategyRegistry strategyRegistry;
 
     @Override
     @Mapping(target = "rawData", ignore = true)
-    InsightSnapshotDto convertToBaseDto(InsightSnapshotEntity entity);
+    @Mapping(target = "warnings", ignore = true)
+    public abstract InsightSnapshotDto convertToBaseDto(InsightSnapshotEntity entity);
 
     @Override
     @Mapping(target = "rawJson", ignore = true)
@@ -31,11 +45,19 @@ public interface InsightsSnapshotMapper extends BaseMapper<InsightSnapshotDto, I
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "breakdownsJson", ignore = true)
-    InsightSnapshotEntity convertToBaseEntity(InsightSnapshotDto dto);
+    @Mapping(target = "paginationComplete", ignore = true)
+    public abstract InsightSnapshotEntity convertToBaseEntity(InsightSnapshotDto dto);
 
-   @AfterMapping
-    default void fillDerivedFields(InsightSnapshotEntity entity, @MappingTarget InsightSnapshotDto dto) {
+    @AfterMapping
+    protected void fillDerivedFields(InsightSnapshotEntity entity, @MappingTarget InsightSnapshotDto dto) {
         if (entity.getRawJson() == null || entity.getRawJson().isBlank()) {
+            dto.setMetrics(List.of());
+            dto.setNormalizedMetrics(List.of());
+            dto.setProviderMetrics(List.of());
+            dto.setSyncStatus(InsightSyncStatus.NOT_SYNCHRONIZED);
+            dto.setSyncComplete(false);
+            dto.setWarnings(List.of(InsightWarningDto.of(InsightWarningCode.INSIGHT_SNAPSHOT_EMPTY,
+                    "This snapshot has no stored provider data.")));
             return;
         }
 
@@ -52,64 +74,136 @@ public interface InsightsSnapshotMapper extends BaseMapper<InsightSnapshotDto, I
             }
 
             dto.setRawData(root);
-            dto.setMetrics(extractMetrics(root));
+
+            // Row extraction (and action-type normalization below) is provider-specific (Meta
+            // wraps rows under "data"; other providers will differ) — delegated to that
+            // provider's own strategy rather than assumed here, so the shared analytics layer
+            // stays provider-independent.
+            InsightsFetchStrategy strategy = strategyRegistry.of(entity.getProvider());
+            List<JsonNode> rows = strategy.extractDataRows(root);
+
+            // syncStatus/syncComplete are based on whether the fetch itself succeeded and
+            // followed every page — NEVER on whether the provider had delivery data throughout
+            // the requested range. A sparse-delivery campaign over a long range is completely
+            // normal and must not be reported as an incomplete sync.
+            boolean paginationComplete = !Boolean.FALSE.equals(entity.getPaginationComplete());
+            InsightSyncStatus syncStatus = paginationComplete ? InsightSyncStatus.COMPLETE : InsightSyncStatus.PARTIALLY_COMPLETE;
+            dto.setSyncStatus(syncStatus);
+            dto.setSyncComplete(syncStatus == InsightSyncStatus.COMPLETE);
+
+            List<InsightWarningDto> warnings = new ArrayList<>();
+            if (!paginationComplete) {
+                warnings.add(InsightWarningDto.of(InsightWarningCode.INSIGHT_PAGINATION_INCOMPLETE,
+                        "Not all pages of the provider's response could be fetched — this snapshot's data may be incomplete."));
+            }
+
+            if (rows.isEmpty()) {
+                dto.setMetrics(List.of());
+                dto.setNormalizedMetrics(List.of());
+                dto.setProviderMetrics(List.of());
+                dto.setActivityPeriod(null);
+                dto.setDaysWithActivity(0);
+                // entity.getPaginationComplete() == null means we have no explicit evidence
+                // either way (e.g. a snapshot persisted before this tracking existed) — in that
+                // case, don't confidently claim "no activity", since we can't fully vouch for
+                // the fetch. Once we DO know the fetch fully succeeded, an empty result is just
+                // the provider correctly reporting zero delivery — not an error.
+                String code = entity.getPaginationComplete() == null
+                        ? InsightWarningCode.INSIGHT_PROVIDER_RESPONSE_EMPTY
+                        : InsightWarningCode.INSIGHT_NO_ACTIVITY_IN_PERIOD;
+                warnings.add(InsightWarningDto.of(code,
+                        code.equals(InsightWarningCode.INSIGHT_NO_ACTIVITY_IN_PERIOD)
+                                ? "The request was fully processed, but the provider reported no delivery for this period."
+                                : "The provider returned no data rows for this snapshot's date range."));
+                dto.setWarnings(warnings);
+                return;
+            }
+
+            MetricsResult metricsResult = InsightMetricsExtractor.extractMetrics(rows, strategy);
+            dto.setNormalizedMetrics(metricsResult.normalizedMetrics());
+            dto.setProviderMetrics(metricsResult.providerMetrics());
+            dto.setMetrics(metricsResult.combined());
+            dto.setConversionDataAvailable(metricsResult.conversionDataAvailable());
+
+            // activityPeriod is ground truth for where DELIVERY occurred (derived from the rows
+            // the provider actually returned) — it is deliberately NOT compared against
+            // dateStart/dateStop to infer completeness. Meta only returns rows for days with
+            // delivery, so a request spanning months with only a handful of active days is
+            // expected, not a sign anything went wrong.
+            dto.setActivityPeriod(InsightMetricsExtractor.computeActivityPeriod(rows));
+            dto.setDaysWithActivity(rows.size());
+
+            dto.setWarnings(warnings);
         } catch (Exception e) {
             dto.setRawData(entity.getRawJson());
-            dto.setMetrics(Collections.emptyList());
+            dto.setMetrics(List.of());
+            dto.setNormalizedMetrics(List.of());
+            dto.setProviderMetrics(List.of());
+            dto.setSyncStatus(InsightSyncStatus.FAILED);
+            dto.setSyncComplete(false);
+            dto.setWarnings(List.of(InsightWarningDto.of(InsightWarningCode.INSIGHT_METRICS_EMPTY,
+                    "Stored provider data could not be parsed: " + e.getMessage())));
         }
     }
 
-    default List<InsightMetricDto> extractMetrics(JsonNode root) {
-    List<InsightMetricDto> result = new ArrayList<>();
+    /**
+     * Explodes one snapshot's stored rawJson into one {@link InsightSnapshotDto} per day-row it
+     * actually contains — used by Phase-2 time-series analytics, which needs day-level
+     * granularity that {@link #fillDerivedFields} intentionally collapses away (a snapshot's
+     * normalizedMetrics are the SUM across every row it stored, exactly like the main mapping
+     * path). Reuses the exact same InsightMetricsExtractor logic as that path, just invoked once
+     * per row instead of once for the whole snapshot, so day-level and whole-snapshot metrics are
+     * always computed identically.
+     * <p>
+     * A snapshot synced with {@code timeIncrementAllDays} (one row spanning the whole requested
+     * range rather than one row per day) explodes to a single "day" entry whose date is that
+     * row's own date_start — not truly one calendar day. Callers needing genuine daily
+     * granularity should ensure the underlying sync used a daily time_increment.
+     */
+    public List<InsightSnapshotDto> explodeDailyDtos(InsightSnapshotEntity entity) {
+        if (entity.getRawJson() == null || entity.getRawJson().isBlank()) return List.of();
+        try {
+            JsonNode root = OBJECT_MAPPER.readTree(entity.getRawJson());
+            InsightsFetchStrategy strategy = strategyRegistry.of(entity.getProvider());
+            List<JsonNode> rows = strategy.extractDataRows(root);
 
-    // FIX: Meta returns flat fields — skip known non-metric structural keys
-    Set<String> skip = Set.of("date_start", "date_stop", "data", "paging", "summary");
+            List<InsightSnapshotDto> result = new ArrayList<>();
+            for (JsonNode row : rows) {
+                InsightSnapshotDto dayDto = new InsightSnapshotDto();
+                dayDto.setProvider(entity.getProvider());
+                dayDto.setAdAccountId(entity.getAdAccountId());
+                dayDto.setObjectType(entity.getObjectType());
+                dayDto.setObjectExternalId(entity.getObjectExternalId());
+                dayDto.setDateStart(entity.getDateStart());
+                dayDto.setDateStop(entity.getDateStop());
 
-    root.fields().forEachRemaining(entry -> {
-        if (skip.contains(entry.getKey())) return;
+                List<JsonNode> singleRowList = List.of(row);
+                InsightMetricsExtractor.MetricsResult metricsResult =
+                        InsightMetricsExtractor.extractMetrics(singleRowList, strategy);
+                dayDto.setNormalizedMetrics(metricsResult.normalizedMetrics());
+                dayDto.setProviderMetrics(metricsResult.providerMetrics());
+                dayDto.setMetrics(metricsResult.combined());
+                dayDto.setConversionDataAvailable(metricsResult.conversionDataAvailable());
 
-        JsonNode valueNode = entry.getValue();
+                InsightPeriodDto dayPeriod = InsightMetricsExtractor.computeActivityPeriod(singleRowList);
+                dayDto.setActivityPeriod(dayPeriod);
+                dayDto.setDaysWithActivity(dayPeriod != null ? 1 : 0);
 
-        // Expandable array fields (actions, video_play_actions, etc.)
-        if (valueNode.isArray()) {
-            for (JsonNode item : valueNode) {
-                String actionType = item.path("action_type").asText(null);
-                String value      = item.path("value").asText(null);
-                if (actionType != null && value != null) {
-                    InsightMetricDto dto = new InsightMetricDto();
-                    dto.setName(entry.getKey() + "." + actionType);
-                    dto.setValueNumber(parseDecimal(value));
-                    result.add(dto);
-                }
+                boolean paginationComplete = !Boolean.FALSE.equals(entity.getPaginationComplete());
+                dayDto.setSyncStatus(paginationComplete ? InsightSyncStatus.COMPLETE : InsightSyncStatus.PARTIALLY_COMPLETE);
+                dayDto.setSyncComplete(dayDto.getSyncStatus() == InsightSyncStatus.COMPLETE);
+                dayDto.setRawData(row);
+                dayDto.setWarnings(List.of());
+
+                result.add(dayDto);
             }
-            return;
+            return result;
+        } catch (Exception e) {
+            return List.of();
         }
+    }
 
-        // Flat numeric/text fields
-        if (valueNode.isNumber() || valueNode.isTextual()) {
-            InsightMetricDto dto = new InsightMetricDto();
-            dto.setName(entry.getKey());
-            if (valueNode.isNumber()) {
-                dto.setValueNumber(valueNode.decimalValue());
-            } else {
-                BigDecimal parsed = parseDecimal(valueNode.asText());
-                if (parsed != null) dto.setValueNumber(parsed);
-                else dto.setValueText(valueNode.asText());
-            }
-            result.add(dto);
-        }
-    });
-
-    return result;
-}
-
-default BigDecimal parseDecimal(String value) {
-    if (value == null || value.isBlank()) return null;
-    try { return new BigDecimal(value.trim()); }
-    catch (NumberFormatException e) { return null; }
-}
-
-    default InsightMetricDto toMetricDto(InsightMetricEntity entity) {
+    protected InsightMetricDto toMetricDto(InsightMetricEntity entity) {
         InsightMetricDto dto = new InsightMetricDto();
         dto.setName(entity.getName());
         dto.setValueNumber(entity.getValueNumber());

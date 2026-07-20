@@ -72,6 +72,15 @@ public class InsightSnapshotEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     private String rawJson;
 
+    /**
+     * Whether every page of the provider's paginated response was successfully fetched for this
+     * snapshot. Null for rows persisted before this column existed (unknown, not necessarily
+     * complete or incomplete — read as "no evidence either way"). False means a later page
+     * failed after at least one page succeeded, so this snapshot's data may be missing rows.
+     */
+    @Column(name = "pagination_complete")
+    private Boolean paginationComplete;
+
     @Column(name="created_at", nullable = false)
     private LocalDateTime createdAt;
 

@@ -1,8 +1,12 @@
 package com.example.marketing.insights.service;
 
 import com.example.marketing.insights.dto.CompareRequestDto;
+import com.example.marketing.insights.dto.InsightBatchSyncResultDto;
+import com.example.marketing.insights.dto.InsightEntitySyncResultDto;
+import com.example.marketing.insights.dto.InsightMetricDto;
 import com.example.marketing.insights.dto.InsightSnapshotDto;
 import com.example.marketing.insights.dto.InsightSyncRequestDto;
+import com.example.marketing.insights.dto.InsightWarningDto;
 import com.example.marketing.insights.dto.InsightsBreakdownRowDto;
 import com.example.marketing.insights.entity.InsightSnapshotEntity;
 import com.example.marketing.insights.mapper.InsightsSnapshotMapper;
@@ -12,6 +16,8 @@ import com.example.marketing.insights.strategy.InsightsFetchStrategy;
 import com.example.marketing.insights.strategy.InsightsFetchStrategyRegistry;
 import com.example.marketing.insights.util.FetchMode;
 import com.example.marketing.insights.util.InsightObjectType;
+import com.example.marketing.insights.util.InsightSyncStatus;
+import com.example.marketing.insights.util.InsightWarningCode;
 import com.example.marketing.infrastructure.util.Provider;
 import com.example.marketing.exception.BusinessException;
 import com.example.marketing.user.entity.UserEntity;
@@ -23,6 +29,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpStatusCodeException;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -42,6 +50,7 @@ public class InsightsService {
     private final InsightsSnapshotMapper mapper;
     private final ObjectMapper objectMapper;
     private final InsightMetricRepository metricRepository;
+    private final com.example.marketing.insights.analytics.service.BreakdownAnalyticsService breakdownAnalyticsService;
 
     // -----------------------------------------------------------------------
     // Sync - Fetch from platform API and save
@@ -73,21 +82,8 @@ public class InsightsService {
     private static final ExecutorService BREAKDOWN_EXECUTOR =
             Executors.newFixedThreadPool(BREAKDOWN_GROUPS.size());
 
-    /** Maps each breakdown dimension to the group key used in breakdownsJson. */
-    private static final Map<String, String> DIMENSION_TO_GROUP = Map.ofEntries(
-            Map.entry("age",                "age_gender"),
-            Map.entry("gender",             "age_gender"),
-            Map.entry("country",            "country"),
-            Map.entry("impression_device",  "placement"),
-            Map.entry("publisher_platform", "placement"),
-            // "placement" is a UI-level dimension key — Meta itself never returns a field
-            // literally called "placement", only impression_device + publisher_platform.
-            Map.entry("placement",          "placement"),
-            // "device" and "os" both derive from the same impression_device field the
-            // placement group already fetches — no separate Meta call needed.
-            Map.entry("device",             "placement"),
-            Map.entry("os",                 "placement")
-    );
+    // DIMENSION_TO_GROUP (read-path dimension -> breakdownsJson group key) moved to
+    // BreakdownAnalyticsService along with the rest of the breakdown() read logic.
 
     @Transactional
     public List<InsightSnapshotDto> sync(Long userId, InsightSyncRequestDto req) {
@@ -106,7 +102,13 @@ public class InsightsService {
         Map<String, String> queryParams = strategy.buildQueryParams(req, fields, timeInc);
 
         List<InsightSnapshotDto> results = switch (mode) {
-            case BATCH_IDS -> syncBatch(user, req, queryParams);
+            // .snapshot() is null for FAILED entities — dropped here to keep this method's
+            // return type unchanged for existing callers; use syncBatchWithReport for the
+            // full per-entity success/empty/failure breakdown.
+            case BATCH_IDS -> syncBatch(user, req, queryParams).stream()
+                    .map(EntitySyncOutcome::snapshot)
+                    .filter(Objects::nonNull)
+                    .toList();
             case ACCOUNT   -> syncAccount(user, req, queryParams, strategy);
             default        -> syncPerObject(user, req, queryParams, strategy);
         };
@@ -122,6 +124,67 @@ public class InsightsService {
         }
 
         return results;
+    }
+
+    /**
+     * Batch sync with a full per-entity success/no-activity/failure report — used by the
+     * dedicated /sync/{campaigns,adsets,ads}/batch endpoints. One entity failing to sync (bad
+     * ID, provider error, persistence error) no longer aborts the whole batch; it's reported
+     * individually instead.
+     */
+    @Transactional
+    public InsightBatchSyncResultDto syncBatchWithReport(Long userId, InsightSyncRequestDto req) {
+        req.setFetchMode(FetchMode.BATCH_IDS);
+        validateSyncRequest(req);
+
+        UserEntity user = getUserOrThrow(userId);
+        InsightsFetchStrategy strategy = strategyRegistry.of(req.getProvider());
+        List<String> fields = resolveFields(req, strategy, FetchMode.BATCH_IDS);
+        int timeInc = Optional.ofNullable(req.getTimeIncrement()).orElse(1);
+        req.setBreakdowns(null);
+        Map<String, String> queryParams = strategy.buildQueryParams(req, fields, timeInc);
+
+        List<EntitySyncOutcome> outcomes = syncBatch(user, req, queryParams);
+
+        try {
+            fetchAndStoreBreakdowns(user, req, strategy);
+        } catch (Exception e) {
+            logBreakdownFailure("post-sync", e);
+        }
+
+        return buildBatchResult(req.getObjectExternalIds(), outcomes);
+    }
+
+    /** Per-entity outcome of a batch sync attempt — SYNCED/NO_ACTIVITY/FAILED, matching InsightEntitySyncResultDto.status. */
+    private record EntitySyncOutcome(String objectExternalId, String status, InsightSnapshotDto snapshot, List<InsightWarningDto> warnings) {}
+
+    private InsightBatchSyncResultDto buildBatchResult(List<String> requestedIds, List<EntitySyncOutcome> outcomes) {
+        int requested = requestedIds == null ? 0 : requestedIds.size();
+        int successful = (int) outcomes.stream().filter(o -> "SYNCED".equals(o.status())).count();
+        int empty = (int) outcomes.stream().filter(o -> "NO_ACTIVITY".equals(o.status())).count();
+        int failed = (int) outcomes.stream().filter(o -> "FAILED".equals(o.status())).count();
+
+        InsightSyncStatus status;
+        if (failed == 0) status = InsightSyncStatus.COMPLETE;
+        else if (successful + empty > 0) status = InsightSyncStatus.PARTIALLY_COMPLETE;
+        else status = InsightSyncStatus.FAILED;
+
+        InsightBatchSyncResultDto result = new InsightBatchSyncResultDto();
+        result.setRequestedCount(requested);
+        result.setProcessedCount(outcomes.size());
+        result.setSuccessfulCount(successful);
+        result.setEmptyResultCount(empty);
+        result.setFailedCount(failed);
+        result.setSyncStatus(status);
+        result.setSnapshots(outcomes.stream().map(EntitySyncOutcome::snapshot).filter(Objects::nonNull).toList());
+        result.setResults(outcomes.stream().map(o -> {
+            InsightEntitySyncResultDto r = new InsightEntitySyncResultDto();
+            r.setObjectExternalId(o.objectExternalId());
+            r.setStatus(o.status());
+            r.setWarnings(o.warnings() != null ? o.warnings() : List.of());
+            return r;
+        }).toList());
+        return result;
     }
 
     // -----------------------------------------------------------------------
@@ -263,94 +326,57 @@ public class InsightsService {
     }
 
     /**
-     * Resolves breakdown rows for a given dimension from a snapshot.
-     * Prefers the structured breakdownsJson (new format); falls back to rawJson data
-     * array (legacy — only works if the snapshot was synced with that breakdown dimension).
+     * NOTE (known scope limitation): pagination is fully followed for each ID within a chunk
+     * only in the sense that Meta's ids= batch response for each ID is taken as-is — per-ID
+     * continuation beyond one page within a single batch response is not implemented (unlike
+     * fetchForObject/fetchForAccount, which do follow pagination). paginationComplete is
+     * therefore always recorded as true for batch-synced snapshots; this is a documented gap,
+     * not a silent one.
      */
-    @SuppressWarnings("unchecked")
-    private List<Object> resolveBreakdownRows(InsightSnapshotEntity snap, String dimension) {
-        // 1. Try new structured breakdownsJson
-        if (snap.getBreakdownsJson() != null) {
-            try {
-                Map<String, Object> bj = objectMapper.readValue(snap.getBreakdownsJson(), Map.class);
-                String groupKey = DIMENSION_TO_GROUP.get(dimension);
-                if (groupKey != null && bj.containsKey(groupKey)) {
-                    Object rows = bj.get(groupKey);
-                    if (rows instanceof List) return (List<Object>) rows;
-                }
-            } catch (Exception ignored) {}
-        }
-
-        // 2. Fallback: rawJson data array (legacy)
-        if (snap.getRawJson() != null) {
-            try {
-                Map<String, Object> raw = objectMapper.readValue(snap.getRawJson(), Map.class);
-                List<Object> dataList = (List<Object>) raw.get("data");
-                return dataList != null ? dataList : List.of();
-            } catch (Exception ignored) {}
-        }
-
-        return List.of();
-    }
-
-    /**
-     * Reads the dimension value off a breakdown row. Several UI-level dimension keys
-     * have no field of that literal name in Meta's response and must be derived from
-     * whatever field the row actually carries.
-     */
-    private Object extractDimensionValue(Map<String, Object> row, String dimension) {
-        return switch (dimension) {
-            // placement/device share the same impression_device+publisher_platform row shape
-            case "placement" -> row.get("publisher_platform");
-            case "device"    -> row.get("impression_device");
-            case "os"        -> classifyOs((String) row.get("impression_device"));
-            // "day of week" isn't a Meta breakdown at all — derived from the daily
-            // date_start already present on main (non-breakdown-group) time-series rows.
-            case "dow"       -> dayOfWeekFromDate((String) row.get("date_start"));
-            default          -> row.get(dimension);
-        };
-    }
-
-    /**
-     * Meta has no dedicated OS breakdown — this is a best-effort classification of the
-     * impression_device value (e.g. "iphone", "android_smartphone") into iOS/Android/
-     * Desktop/Other. Approximate by nature; labeled as such in the UI.
-     */
-    private static String classifyOs(String impressionDevice) {
-        if (impressionDevice == null || impressionDevice.isBlank()) return null;
-        String d = impressionDevice.toLowerCase(Locale.ROOT);
-        if (d.contains("iphone") || d.contains("ipad") || d.contains("ipod") || d.contains("ios")) return "iOS";
-        if (d.contains("android")) return "Android";
-        if (d.contains("desktop")) return "Desktop";
-        return "Other";
-    }
-
-    private static String dayOfWeekFromDate(String dateStart) {
-        if (dateStart == null || dateStart.isBlank()) return null;
-        try {
-            return LocalDate.parse(dateStart).getDayOfWeek()
-                    .getDisplayName(java.time.format.TextStyle.FULL, Locale.ENGLISH);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private List<InsightSnapshotDto> syncBatch(UserEntity user, InsightSyncRequestDto req,
+    private List<EntitySyncOutcome> syncBatch(UserEntity user, InsightSyncRequestDto req,
             Map<String, String> queryParams) {
         InsightsFetchStrategy strategy = strategyRegistry.of(req.getProvider());
-        Map<String, Map<String, Object>> results = strategy.fetchForObjects(
-                user, req.getObjectExternalIds(), queryParams);
-
-        return results.entrySet().stream()
-                .map(entry -> persistSnapshot(user, req, entry.getKey(), entry.getValue()))
+        List<String> ids = Optional.ofNullable(req.getObjectExternalIds()).orElse(List.of()).stream()
+                .filter(id -> id != null && !id.isBlank())
                 .toList();
+
+        Map<String, Map<String, Object>> results;
+        try {
+            results = strategy.fetchForObjects(user, ids, queryParams);
+        } catch (Exception e) {
+            log.error("Batch insights fetch failed entirely: {}", e.getMessage());
+            InsightWarningDto warning = InsightWarningDto.of(InsightWarningCode.INSIGHT_SYNC_FAILED,
+                    "Provider request failed: " + e.getMessage());
+            return ids.stream().map(id -> new EntitySyncOutcome(id, "FAILED", null, List.of(warning))).toList();
+        }
+
+        List<EntitySyncOutcome> outcomes = new ArrayList<>();
+        for (String id : ids) {
+            Map<String, Object> body = results.get(id);
+            if (body == null) {
+                outcomes.add(new EntitySyncOutcome(id, "FAILED", null, List.of(
+                        InsightWarningDto.of(InsightWarningCode.INSIGHT_SYNC_FAILED,
+                                "The provider did not return a result for this ID (invalid ID, no access, or ownership issue)."))));
+                continue;
+            }
+            try {
+                InsightSnapshotDto dto = persistSnapshot(user, req, id, body, true);
+                boolean hasActivity = dto.getDaysWithActivity() != null && dto.getDaysWithActivity() > 0;
+                outcomes.add(new EntitySyncOutcome(id, hasActivity ? "SYNCED" : "NO_ACTIVITY", dto, dto.getWarnings()));
+            } catch (Exception e) {
+                log.error("Failed to persist insights for {}: {}", id, e.getMessage());
+                outcomes.add(new EntitySyncOutcome(id, "FAILED", null, List.of(
+                        InsightWarningDto.of(InsightWarningCode.INSIGHT_PERSISTENCE_PARTIAL, e.getMessage()))));
+            }
+        }
+        return outcomes;
     }
 
     private List<InsightSnapshotDto> syncAccount(UserEntity user, InsightSyncRequestDto req,
             Map<String, String> queryParams,
             InsightsFetchStrategy strategy) {
-        Map<String, Object> body = strategy.fetchForAccount(user, req.getAdAccountId(), queryParams);
-        return List.of(persistSnapshot(user, req, req.getAdAccountId(), body));
+        InsightsFetchStrategy.ProviderFetchResult result = strategy.fetchForAccount(user, req.getAdAccountId(), queryParams);
+        return List.of(persistSnapshot(user, req, req.getAdAccountId(), result.body(), result.paginationComplete()));
     }
 
     private List<InsightSnapshotDto> syncPerObject(UserEntity user, InsightSyncRequestDto req,
@@ -360,25 +386,25 @@ public class InsightsService {
                 .filter(Objects::nonNull)
                 .filter(id -> !id.isBlank())
                 .map(objectId -> {
-                    Map<String, Object> body = strategy.fetchForObject(user, objectId, queryParams);
-                    return persistSnapshot(user, req, objectId, body);
+                    InsightsFetchStrategy.ProviderFetchResult result = strategy.fetchForObject(user, objectId, queryParams);
+                    return persistSnapshot(user, req, objectId, result.body(), result.paginationComplete());
                 })
                 .toList();
     }
 
     private InsightSnapshotDto persistSnapshot(UserEntity user, InsightSyncRequestDto req,
-            String objectId, Map<String, Object> body) {
+            String objectId, Map<String, Object> body, boolean paginationComplete) {
         String rawJson = serializeToJson(body);
 
         InsightSnapshotEntity snapshot = upsertSnapshot(
-                user, req, objectId, rawJson, req.getBreakdowns());
+                user, req, objectId, rawJson, req.getBreakdowns(), paginationComplete);
 
         return mapper.convertToBaseDto(snapshot);
     }
 
     private InsightSnapshotEntity upsertSnapshot(UserEntity user, InsightSyncRequestDto req,
             String objectExternalId, String rawJson,
-            Map<String, Object> breakdowns) {
+            Map<String, Object> breakdowns, boolean paginationComplete) {
 
         LocalDate dateStart = Objects.requireNonNull(req.getDateStart(), "dateStart must not be null for storage");
         LocalDate dateStop = Objects.requireNonNull(req.getDateStop(), "dateStop must not be null for storage");
@@ -411,6 +437,10 @@ public class InsightsService {
         }
 
         snapshot.setRawJson(rawJson);
+        // Always refresh to the latest sync attempt's result, not just set once at creation —
+        // a snapshot that previously had incomplete pagination should reflect a later,
+        // successful re-sync (and vice versa).
+        snapshot.setPaginationComplete(paginationComplete);
 
         if (breakdowns != null && !breakdowns.isEmpty()) {
             snapshot.setBreakdownsJson(serializeToJson(breakdowns));
@@ -492,7 +522,17 @@ public class InsightsService {
         }
     }
 
-    private LocalDate[] resolveDatesForPreset(String preset, LocalDate today) {
+    /**
+     * Only used to seed the DB dedupe/lookup key (dateStart/dateStop) before the Meta call —
+     * the actual data range returned is separately derived from the response itself at read
+     * time (see InsightMetricsExtractor.computeDataPeriod / InsightSnapshotDto.dataPeriod),
+     * which is authoritative. Still worth getting these approximations right, since a large
+     * mismatch would make later exact-range lookups miss this snapshot.
+     * <p>
+     * dateStop is always inclusive, matching Meta's own time_range.until semantics.
+     */
+    // Package-private (not private) so InsightsServiceDatePresetTest can verify the date math directly.
+    LocalDate[] resolveDatesForPreset(String preset, LocalDate today) {
         return switch (preset) {
             case "today"                    -> new LocalDate[]{today, today};
             case "yesterday"                -> new LocalDate[]{today.minusDays(1), today.minusDays(1)};
@@ -501,10 +541,16 @@ public class InsightsService {
                  "last_week_mon_sun"        -> new LocalDate[]{today.minusDays(7), today};
             case "last_14d"                 -> new LocalDate[]{today.minusDays(14), today};
             case "last_28d"                 -> new LocalDate[]{today.minusDays(28), today};
-            case "last_30d", "last_month"   -> new LocalDate[]{today.minusDays(30), today};
+            case "last_30d"                 -> new LocalDate[]{today.minusDays(30), today};
             case "last_90d"                 -> new LocalDate[]{today.minusDays(90), today};
             case "last_quarter"             -> new LocalDate[]{today.minusDays(90), today};
             case "this_month"               -> new LocalDate[]{today.withDayOfMonth(1), today};
+            // The previous full calendar month — NOT "the last 30 days" (that's last_30d).
+            // e.g. if today is 2026-04-15, last_month is 2026-03-01 to 2026-03-31.
+            case "last_month" -> {
+                LocalDate firstOfThisMonth = today.withDayOfMonth(1);
+                yield new LocalDate[]{firstOfThisMonth.minusMonths(1), firstOfThisMonth.minusDays(1)};
+            }
             case "this_year"                -> new LocalDate[]{today.withDayOfYear(1), today};
             case "maximum"                  -> new LocalDate[]{LocalDate.of(2019, 1, 1), today};
             default                         -> new LocalDate[]{today.minusDays(30), today};
@@ -569,136 +615,75 @@ public class InsightsService {
         return result;
     }
 
-    private Map<String, Object> aggregateNormalizedMetrics(List<InsightSnapshotEntity> snapshots) {
-        double spend = 0, impressions = 0, clicks = 0;
+    /**
+     * Sums normalized metrics across snapshots for /compare. Reuses the mapper's already-fixed
+     * row extraction (rather than re-parsing rawJson's top level directly, which — like the
+     * empty-metrics bug this mirrors — would always read 0/absent fields, since spend/
+     * impressions/clicks live inside rawJson's "data" rows, not at its top level).
+     * <p>
+     * null (not 0) means "no data to compute this from" — e.g. no snapshots existed at all for
+     * this platform, or a ratio's denominator was zero/absent — as opposed to 0, which means the
+     * provider returned real data and the value is genuinely zero. See InsightWarningCode /
+     * InsightSnapshotDto.warnings for the equivalent distinction already applied to per-snapshot
+     * metrics.
+     */
+    Map<String, Object> aggregateNormalizedMetrics(List<InsightSnapshotEntity> snapshots) {
+        List<InsightSnapshotDto> dtos = mapper.convertToBaseDto(snapshots);
 
-        for (InsightSnapshotEntity snap : snapshots) {
-            if (snap.getRawJson() == null) continue;
-            try {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> raw = objectMapper.readValue(snap.getRawJson(), Map.class);
-                spend += toDouble(raw.get("spend"));
-                impressions += toDouble(raw.get("impressions"));
-                clicks += toDouble(raw.get("clicks"));
-            } catch (Exception ignored) {
+        BigDecimal spend = null, impressions = null, clicks = null;
+
+        for (InsightSnapshotDto dto : dtos) {
+            // Only normalizedMetrics — never the raw providerMetrics/combined list — so this
+            // aggregate can never double-count a normalized metric alongside its raw source(s).
+            for (InsightMetricDto metric : dto.getNormalizedMetrics()) {
+                BigDecimal value = metric.getValueNumber();
+                if (value == null) continue;
+                switch (metric.getName()) {
+                    case "spend" -> spend = addNullable(spend, value);
+                    case "impressions" -> impressions = addNullable(impressions, value);
+                    case "clicks" -> clicks = addNullable(clicks, value);
+                    default -> { }
+                }
             }
         }
 
-        double ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-        double cpc = clicks > 0 ? spend / clicks : 0;
+        BigDecimal ctr = safeRatio(clicks, impressions, BigDecimal.valueOf(100));
+        BigDecimal cpc = safeRatio(spend, clicks, null);
 
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("spend", round2(spend));
-        m.put("impressions", (long) impressions);
-        m.put("clicks", (long) clicks);
+        m.put("impressions", impressions == null ? null : impressions.longValue());
+        m.put("clicks", clicks == null ? null : clicks.longValue());
         m.put("ctr", round2(ctr));
         m.put("cpc", round2(cpc));
         return m;
     }
 
-    private static double toDouble(Object val) {
-        if (val == null) return 0;
-        if (val instanceof Number n) return n.doubleValue();
-        try { return Double.parseDouble(val.toString()); } catch (Exception e) { return 0; }
+    private static BigDecimal addNullable(BigDecimal current, BigDecimal delta) {
+        return (current == null ? BigDecimal.ZERO : current).add(delta);
     }
 
-    private static double round2(double val) {
-        return Math.round(val * 100.0) / 100.0;
+    /** numerator/denominator (× multiplier if given); null if the denominator is zero/absent — division by zero is undefined, never a fabricated 0. */
+    static BigDecimal safeRatio(BigDecimal numerator, BigDecimal denominator, BigDecimal multiplier) {
+        if (numerator == null || denominator == null || denominator.signum() == 0) return null;
+        BigDecimal result = numerator.divide(denominator, 10, RoundingMode.HALF_UP);
+        return multiplier != null ? result.multiply(multiplier) : result;
+    }
+
+    private static BigDecimal round2(BigDecimal val) {
+        return val == null ? null : val.setScale(2, RoundingMode.HALF_UP);
     }
 
     // -----------------------------------------------------------------------
-    // Breakdown by dimension
+    // Breakdown by dimension — moved to BreakdownAnalyticsService (Phase 2, Step 13); this
+    // method now only enforces user ownership and delegates.
     // -----------------------------------------------------------------------
 
     @Transactional(readOnly = true)
     public List<InsightsBreakdownRowDto> breakdown(Long userId, Provider provider, String adAccountId,
             String dimension, LocalDate dateStart, LocalDate dateStop, List<String> campaignIds) {
         UserEntity user = getUserOrThrow(userId);
-
-        List<InsightSnapshotEntity> snapshots = new ArrayList<>();
-        if (campaignIds != null && !campaignIds.isEmpty()) {
-            // Scope to selected campaigns only
-            for (String campaignId : campaignIds) {
-                snapshots.addAll(snapshotRepository
-                        .findByUserAndProviderAndAdAccountIdAndObjectTypeAndObjectExternalIdAndDateRange(
-                                user, provider, adAccountId, InsightObjectType.CAMPAIGN,
-                                campaignId, dateStart, dateStop));
-            }
-        } else {
-            // Account-wide: aggregate across all object types
-            for (InsightObjectType type : List.of(InsightObjectType.CAMPAIGN, InsightObjectType.ADSET, InsightObjectType.AD)) {
-                snapshots.addAll(snapshotRepository
-                        .findByUserAndProviderAndAdAccountIdAndObjectTypeAndDateRange(
-                                user, provider, adAccountId, type, dateStart, dateStop));
-            }
-        }
-
-        // dimensionValue -> [spend, impressions, clicks, reach, revenueForRoas]
-        Map<String, double[]> aggMap = new LinkedHashMap<>();
-
-        for (InsightSnapshotEntity snap : snapshots) {
-            List<Object> rows = resolveBreakdownRows(snap, dimension);
-            for (Object item : rows) {
-                if (!(item instanceof Map)) continue;
-                @SuppressWarnings("unchecked")
-                Map<String, Object> row = (Map<String, Object>) item;
-
-                Object dimValue = extractDimensionValue(row, dimension);
-                if (dimValue == null) continue;
-
-                String dimStr = String.valueOf(dimValue);
-                double[] agg = aggMap.computeIfAbsent(dimStr, k -> new double[5]);
-                agg[0] += toDouble(row.get("spend"));
-                agg[1] += toDouble(row.get("impressions"));
-                agg[2] += toDouble(row.get("clicks"));
-                agg[3] += toDouble(row.get("reach"));
-                agg[4] += extractRoasRevenue(row);
-            }
-        }
-
-        if (aggMap.isEmpty()) return List.of();
-
-        double totalSpend = aggMap.values().stream().mapToDouble(a -> a[0]).sum();
-
-        return aggMap.entrySet().stream()
-                .map(e -> {
-                    double[] a = e.getValue();
-                    double ctr = a[1] > 0 ? (a[2] / a[1]) * 100 : 0;
-                    double roas = a[0] > 0 ? a[4] / a[0] : 0;
-                    double share = totalSpend > 0 ? (a[0] / totalSpend) * 100 : 0;
-                    return InsightsBreakdownRowDto.builder()
-                            .dimension(dimension)
-                            .dimensionValue(e.getKey())
-                            .spend(round2(a[0]))
-                            .impressions((long) a[1])
-                            .clicks((long) a[2])
-                            .reach((long) a[3])
-                            .ctr(round2(ctr))
-                            .roas(round2(roas))
-                            .share(round2(share))
-                            .build();
-                })
-                .sorted(Comparator.comparingDouble(InsightsBreakdownRowDto::getShare).reversed())
-                .collect(Collectors.toList());
-    }
-
-    @SuppressWarnings("unchecked")
-    private double extractRoasRevenue(Map<String, Object> row) {
-        Object purchaseRoas = row.get("purchase_roas");
-        if (purchaseRoas instanceof List<?> list && !list.isEmpty()) {
-            Object first = list.get(0);
-            if (first instanceof Map<?,?> m) return toDouble(m.get("value"));
-        }
-        Object actionValues = row.get("action_values");
-        if (actionValues instanceof List<?> avList) {
-            for (Object av : avList) {
-                if (av instanceof Map<?,?> m
-                        && "offsite_conversion.fb_pixel_purchase".equals(m.get("action_type"))) {
-                    return toDouble(m.get("value"));
-                }
-            }
-        }
-        return 0;
+        return breakdownAnalyticsService.breakdown(user, provider, adAccountId, dimension, dateStart, dateStop, campaignIds);
     }
 
 }

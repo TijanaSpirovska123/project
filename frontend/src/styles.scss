@@ -772,6 +772,19 @@ body {
     border-color: $clr-surface-tonal-a30 !important;
     color: $clr-primary-a40 !important;
   }
+  .drp-month-dropdown {
+    background: $clr-surface-tonal-a10 !important;
+    border-color: $clr-surface-tonal-a20 !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4) !important;
+  }
+  .drp-month-option {
+    color: $clr-primary-a40 !important;
+    &:hover { background: $clr-surface-tonal-a20 !important; }
+  }
+  .drp-month-option-active {
+    background: $clr-primary-a0 !important;
+    color: $clr-surface-a0 !important;
+  }
   .drp-chevron {
     background: $clr-surface-tonal-a20 !important;
     border-color: $clr-surface-tonal-a30 !important;
@@ -1257,6 +1270,21 @@ body {
         background: $clr-surface-tonal-a10 !important;
         border-color: $clr-surface-tonal-a20 !important;
         color: $clr-primary-a50 !important;
+      }
+
+      .drp-month-dropdown {
+        background: $clr-surface-tonal-a10 !important;
+        border-color: $clr-surface-tonal-a20 !important;
+      }
+
+      .drp-month-option {
+        color: $clr-primary-a50 !important;
+        &:hover { background: $clr-surface-tonal-a20 !important; }
+      }
+
+      .drp-month-option-active {
+        background: $clr-primary-a0 !important;
+        color: $clr-surface-a0 !important;
       }
 
       .drp-chevron {

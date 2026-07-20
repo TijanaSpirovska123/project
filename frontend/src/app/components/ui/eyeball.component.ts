@@ -1,6 +1,6 @@
 import {
   Component, Input, OnInit, OnDestroy, AfterViewInit, OnChanges,
-  SimpleChanges, ViewChild, ElementRef, ChangeDetectorRef, Inject, PLATFORM_ID,
+  SimpleChanges, ViewChild, ElementRef, ChangeDetectorRef, Inject, PLATFORM_ID, NgZone,
 } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 
@@ -47,6 +47,7 @@ export class EyeballComponent implements OnInit, OnDestroy, AfterViewInit, OnCha
 
   constructor(
     private cdr: ChangeDetectorRef,
+    private ngZone: NgZone,
     @Inject(PLATFORM_ID) platformId: Object,
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -61,7 +62,9 @@ export class EyeballComponent implements OnInit, OnDestroy, AfterViewInit, OnCha
 
   ngOnInit() {
     if (this.isBrowser) {
-      window.addEventListener('mousemove', this.onMouseMove);
+      this.ngZone.runOutsideAngular(() => {
+        window.addEventListener('mousemove', this.onMouseMove);
+      });
     }
   }
 

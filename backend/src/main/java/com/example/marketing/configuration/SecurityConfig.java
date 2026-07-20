@@ -60,8 +60,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/register",
                                 "/api/auth/login",
-                                "/api/user/request-password-reset",
-                                "/api/user/reset-password",
+                                "/api/users/request-password-reset",
+                                "/api/users/reset-password",
                                 "/api/auth/logout",
                                 "/api/oauth/meta/callback",
                                 "/v3/api-docs/**",

@@ -16,7 +16,9 @@ public class InsightSyncRequestDto {
     private InsightObjectType objectType;
     private List<String> objectExternalIds;
 
-    // Date range — use either datePreset OR dateStart+dateStop
+    // Date range — use either datePreset OR dateStart+dateStop.
+    // dateStop is inclusive (matches Meta's own time_range.until semantics): a range of
+    // dateStart=2026-06-16, dateStop=2026-07-16 covers data through and including July 16th.
     private LocalDate dateStart;
     private LocalDate dateStop;
     private String datePreset;              // e.g. "last_month", "this_year", "maximum", "last_quarter"

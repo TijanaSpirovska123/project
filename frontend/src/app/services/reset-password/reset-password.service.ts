@@ -9,6 +9,6 @@ import { CoreService } from '../core/core.service';
 })
 export class ResetPasswordService extends CoreService {
   constructor(@Inject(HttpClient) http: HttpClient) {
-    super('user/reset-password', http);
+    super('users/reset-password', http);
   }
 }

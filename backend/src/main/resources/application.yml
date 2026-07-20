@@ -120,6 +120,22 @@ frontend:
   failure-redirect-url: ${FRONTEND_FAILURE_URL:http://localhost:5000/login}
   login-url: ${FRONTEND_LOGIN_URL:http://localhost:5000/login}
 
+insights:
+  analytics:
+    limits:
+      max-selected-campaigns: 200
+      max-selected-ad-sets: 200
+      max-selected-ads: 200
+      max-date-range-days: 400
+      max-time-series-buckets: 400
+      max-ranking-results: 100
+    findings:
+      minimum-impressions: 100
+      minimum-clicks: 10
+      minimum-spend: 5
+      percentage-change-threshold: 10
+      high-spend-share-threshold: 40
+
 springdoc:
   api-docs:
     path: /v3/api-docs

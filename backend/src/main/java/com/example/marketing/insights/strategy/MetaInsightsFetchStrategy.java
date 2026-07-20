@@ -6,6 +6,7 @@ import com.example.marketing.insights.dto.InsightSyncRequestDto;
 import com.example.marketing.insights.util.InsightObjectType;
 import com.example.marketing.oauth.service.TokenService;
 import com.example.marketing.user.entity.UserEntity;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -173,6 +174,7 @@ public class MetaInsightsFetchStrategy implements InsightsFetchStrategy {
         if (objectType == null)
             return AD_FIELDS;
         return switch (objectType) {
+            case ACCOUNT -> ACCOUNT_FIELDS;
             case CAMPAIGN -> CAMPAIGN_FIELDS;
             case ADSET -> ADSET_FIELDS;
             case AD -> batch ? AD_BATCH_FIELDS : AD_FIELDS;
@@ -217,11 +219,10 @@ public class MetaInsightsFetchStrategy implements InsightsFetchStrategy {
     // -------------------------------------------------------------------------
 
     @Override
-    public Map<String, Object> fetchForObject(UserEntity user, String objectId, Map<String, String> queryParams) {
+    public ProviderFetchResult fetchForObject(UserEntity user, String objectId, Map<String, String> queryParams) {
         String token = tokens.getAccessToken(user, Provider.META);
         var client = clients.of(Provider.META);
-        ResponseEntity<Map> resp = client.get(objectId + "/insights", queryParams, token);
-        return validateAndReturn(resp, "object: " + objectId);
+        return fetchAllPages(client, objectId + "/insights", queryParams, token, "object: " + objectId);
     }
 
     @Override
@@ -263,11 +264,10 @@ public class MetaInsightsFetchStrategy implements InsightsFetchStrategy {
     }
 
     @Override
-    public Map<String, Object> fetchForAccount(UserEntity user, String adAccountId, Map<String, String> queryParams) {
+    public ProviderFetchResult fetchForAccount(UserEntity user, String adAccountId, Map<String, String> queryParams) {
         String token = tokens.getAccessToken(user, Provider.META);
         var client = clients.of(Provider.META);
-        ResponseEntity<Map> resp = client.get(adAccountId + "/insights", queryParams, token);
-        return validateAndReturn(resp, "account: " + adAccountId);
+        return fetchAllPages(client, adAccountId + "/insights", queryParams, token, "account: " + adAccountId);
     }
 
     @SuppressWarnings("unchecked")
@@ -276,6 +276,186 @@ public class MetaInsightsFetchStrategy implements InsightsFetchStrategy {
         if (body == null || !resp.getStatusCode().is2xxSuccessful())
             throw new RuntimeException("Meta insights fetch failed [" + context + "]: " + body);
         return body;
+    }
+
+    /** Safety cap against a misbehaving/infinite cursor loop — far beyond any real insights query. */
+    private static final int MAX_PAGES = 200;
+
+    /**
+     * Follows every page of a Meta insights response (via paging.cursors.after), merging all
+     * rows into one combined "data" array. A failure on the FIRST page is a total failure and
+     * propagates as an exception (unchanged existing behavior); a failure on a LATER page keeps
+     * whatever was already fetched and marks the result as pagination-incomplete rather than
+     * silently discarding it or claiming full success.
+     */
+    @SuppressWarnings("unchecked")
+    private ProviderFetchResult fetchAllPages(com.example.marketing.infrastructure.strategy.PlatformClient client,
+            String path, Map<String, String> queryParams, String token, String context) {
+
+        List<Object> allRows = new ArrayList<>();
+        Map<String, Object> lastBody = null;
+        Map<String, String> params = new HashMap<>(queryParams);
+        int pagesFetched = 0;
+        boolean complete = true;
+        String after = null;
+
+        do {
+            if (after != null) params.put("after", after);
+
+            Map<String, Object> body;
+            try {
+                ResponseEntity<Map> resp = client.get(path, params, token);
+                body = validateAndReturn(resp, context + " (page " + (pagesFetched + 1) + ")");
+            } catch (RuntimeException e) {
+                if (pagesFetched == 0) throw e; // first page failing is a total failure, not partial
+                log.warn("Pagination stopped after {} page(s) for [{}]: {}", pagesFetched, context, e.getMessage());
+                complete = false;
+                break;
+            }
+
+            pagesFetched++;
+            lastBody = body;
+
+            Object dataObj = body.get("data");
+            if (dataObj instanceof List<?> dataList) allRows.addAll(dataList);
+
+            Map<String, Object> paging = (Map<String, Object>) body.get("paging");
+            Map<String, Object> cursors = paging != null ? (Map<String, Object>) paging.get("cursors") : null;
+            after = cursors != null ? (String) cursors.get("after") : null;
+
+            if (after != null && pagesFetched >= MAX_PAGES) {
+                log.warn("Pagination cap ({} pages) reached for [{}] — stopping to avoid an infinite cursor loop", MAX_PAGES, context);
+                complete = false;
+                break;
+            }
+        } while (after != null);
+
+        Map<String, Object> merged = new LinkedHashMap<>();
+        merged.put("data", allRows);
+        if (lastBody != null && lastBody.containsKey("paging")) merged.put("paging", lastBody.get("paging"));
+        return new ProviderFetchResult(merged, complete);
+    }
+
+    /**
+     * Meta's /insights response is always the envelope {"data": [...rows...], "paging": {...}}.
+     * The actual metric fields (spend, impressions, actions, ...) live inside each element of
+     * "data", never at the top level of the envelope itself.
+     */
+    @Override
+    public List<JsonNode> extractDataRows(JsonNode rawResponse) {
+        JsonNode dataNode = rawResponse.path("data");
+        if (!dataNode.isArray()) return List.of();
+        List<JsonNode> rows = new ArrayList<>();
+        dataNode.forEach(rows::add);
+        return rows;
+    }
+
+    // -------------------------------------------------------------------------
+    // Action-type normalization
+    //
+    // Meta can report the SAME underlying conversion via several overlapping action types at
+    // once — e.g. Meta's own docs describe "omni_purchase" as a grouped/deduplicated total
+    // across channel-specific purchase types (offsite_conversion.fb_pixel_purchase,
+    // app_custom_event.fb_mobile_purchase, onsite_conversion.purchase, ...). Summing all of
+    // them would double- or triple-count the same purchases. Each list below is a priority
+    // order: the first action_type found wins, and no others are added on top of it.
+    // -------------------------------------------------------------------------
+
+    private static final List<String> PURCHASE_ACTION_TYPES = List.of(
+            "omni_purchase", "purchase", "offsite_conversion.fb_pixel_purchase",
+            "onsite_conversion.purchase", "app_custom_event.fb_mobile_purchase");
+
+    // "_grouped" action types follow the same "grouped/deduplicated total across channels"
+    // pattern Meta documents for omni_purchase — preferred first, same reasoning: never sum
+    // a grouped total together with the channel-specific types it already aggregates.
+    private static final List<String> LEAD_ACTION_TYPES = List.of(
+            "onsite_conversion.lead_grouped", "lead", "offsite_conversion.fb_pixel_lead");
+
+    private static final List<String> REGISTRATION_ACTION_TYPES = List.of(
+            "complete_registration", "offsite_conversion.fb_pixel_complete_registration");
+
+    private static final List<String> ADD_TO_CART_ACTION_TYPES = List.of(
+            "add_to_cart", "offsite_conversion.fb_pixel_add_to_cart");
+
+    private static final List<String> CHECKOUT_ACTION_TYPES = List.of(
+            "initiate_checkout", "offsite_conversion.fb_pixel_initiate_checkout");
+
+    private static final List<String> LANDING_PAGE_VIEW_ACTION_TYPES = List.of(
+            "omni_landing_page_view", "landing_page_view");
+
+    /**
+     * Normalizes only the additive (SUM-strategy) conversion metrics: counts and monetary
+     * totals. Ratio metrics derived from these (costPerPurchase, costPerLead, roas,
+     * costPerConversion, conversionRate, cpa) are deliberately NOT computed here — they're
+     * always recalculated fresh from summed totals by InsightMetricsExtractor, uniformly for
+     * both Meta-native ratios (ctr, cpc, cpm, frequency) and these normalized ones. Passing one
+     * row's raw cost_per_action_type/purchase_roas through directly here would let it collide
+     * with — or get silently summed alongside — that recalculated value.
+     */
+    @Override
+    public Map<String, BigDecimal> normalizeActionMetrics(JsonNode row) {
+        Map<String, BigDecimal> result = new LinkedHashMap<>();
+
+        String winningPurchaseType = firstAvailableActionType(row, "actions", PURCHASE_ACTION_TYPES);
+        if (winningPurchaseType != null) {
+            putIfPresent(result, "purchases", actionValueFor(row, "actions", winningPurchaseType));
+            putIfPresent(result, "purchaseValue", actionValueFor(row, "action_values", winningPurchaseType));
+        }
+
+        putIfPresent(result, "leads", firstAvailableActionValue(row, "actions", LEAD_ACTION_TYPES));
+        putIfPresent(result, "registrations", firstAvailableActionValue(row, "actions", REGISTRATION_ACTION_TYPES));
+        putIfPresent(result, "addToCart", firstAvailableActionValue(row, "actions", ADD_TO_CART_ACTION_TYPES));
+        putIfPresent(result, "checkoutInitiated", firstAvailableActionValue(row, "actions", CHECKOUT_ACTION_TYPES));
+        putIfPresent(result, "landingPageViews", firstAvailableActionValue(row, "actions", LANDING_PAGE_VIEW_ACTION_TYPES));
+
+        // Meta's own "conversions" field is itself already an aggregate across the account's
+        // configured custom conversions — sum its entries rather than picking one.
+        putIfPresent(result, "conversions", sumArrayField(row, "conversions"));
+
+        return result;
+    }
+
+    private static String firstAvailableActionType(JsonNode row, String arrayField, List<String> priorityOrder) {
+        JsonNode array = row.path(arrayField);
+        if (!array.isArray()) return null;
+        for (String candidate : priorityOrder) {
+            for (JsonNode item : array) {
+                if (candidate.equals(item.path("action_type").asText(null))) return candidate;
+            }
+        }
+        return null;
+    }
+
+    private BigDecimal actionValueFor(JsonNode row, String arrayField, String actionType) {
+        JsonNode array = row.path(arrayField);
+        if (!array.isArray()) return null;
+        for (JsonNode item : array) {
+            if (actionType.equals(item.path("action_type").asText(null))) {
+                return parseDecimal(item.path("value").asText(null));
+            }
+        }
+        return null;
+    }
+
+    private BigDecimal firstAvailableActionValue(JsonNode row, String arrayField, List<String> priorityOrder) {
+        String winner = firstAvailableActionType(row, arrayField, priorityOrder);
+        return winner == null ? null : actionValueFor(row, arrayField, winner);
+    }
+
+    private BigDecimal sumArrayField(JsonNode row, String arrayField) {
+        JsonNode array = row.path(arrayField);
+        if (!array.isArray() || array.isEmpty()) return null;
+        BigDecimal sum = null;
+        for (JsonNode item : array) {
+            BigDecimal v = parseDecimal(item.path("value").asText(null));
+            if (v == null) continue;
+            sum = (sum == null ? BigDecimal.ZERO : sum).add(v);
+        }
+        return sum;
+    }
+
+    private static void putIfPresent(Map<String, BigDecimal> map, String key, BigDecimal value) {
+        if (value != null) map.put(key, value);
     }
 
     @Override
