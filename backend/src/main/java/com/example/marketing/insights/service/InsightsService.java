@@ -119,7 +119,7 @@ public class InsightsService {
             try {
                 fetchAndStoreBreakdowns(user, req, strategy);
             } catch (Exception e) {
-                logBreakdownFailure("post-sync", e);
+                logAndDescribeBreakdownFailure("post-sync", e);
             }
         }
 
@@ -149,7 +149,7 @@ public class InsightsService {
         try {
             fetchAndStoreBreakdowns(user, req, strategy);
         } catch (Exception e) {
-            logBreakdownFailure("post-sync", e);
+            logAndDescribeBreakdownFailure("post-sync", e);
         }
 
         return buildBatchResult(req.getObjectExternalIds(), outcomes);
@@ -207,7 +207,7 @@ public class InsightsService {
         // Fire all breakdown-group calls concurrently — they're independent Meta API
         // requests (age/gender, country, placement can't be combined in one call), so
         // running them in parallel cuts wait time from ~3x a single call down to ~1x.
-        List<CompletableFuture<AbstractMap.SimpleEntry<String, Map<String, Map<String, Object>>>>> futures =
+        List<CompletableFuture<BreakdownGroupOutcome>> futures =
                 BREAKDOWN_GROUPS.entrySet().stream()
                         .map(groupEntry -> CompletableFuture.supplyAsync(
                                 () -> fetchOneBreakdownGroup(user, req, strategy, validIds, groupEntry),
@@ -218,23 +218,36 @@ public class InsightsService {
         // exactly ONE read-modify-write instead of one per group (also avoids a lost-update
         // race that per-group writes would have if this loop were ever parallelized too).
         Map<String, Map<String, List<Object>>> rowsByObjectThenGroup = new LinkedHashMap<>();
+        List<String> failedGroups = new ArrayList<>();
         for (var future : futures) {
-            AbstractMap.SimpleEntry<String, Map<String, Map<String, Object>>> entry = future.join();
-            String groupKey = entry.getKey();
-            entry.getValue().forEach((objectId, body) -> {
+            BreakdownGroupOutcome outcome = future.join();
+            if (outcome.failureReason() != null) {
+                failedGroups.add(outcome.groupKey() + ": " + outcome.failureReason());
+                continue;
+            }
+            outcome.perObjectRows().forEach((objectId, body) -> {
                 @SuppressWarnings("unchecked")
                 List<Object> rows = (List<Object>) body.getOrDefault("data", List.of());
                 rowsByObjectThenGroup
                         .computeIfAbsent(objectId, k -> new LinkedHashMap<>())
-                        .put(groupKey, rows);
+                        .put(outcome.groupKey(), rows);
             });
         }
 
-        rowsByObjectThenGroup.forEach((objectId, groupRows) ->
-                mergeBreakdownGroupsIntoSnapshot(user, req, objectId, storedTimeInc, groupRows));
+        // Touch EVERY synced object, not just ones that ended up with at least one
+        // successful group — otherwise a total breakdown-fetch failure (e.g. every group
+        // rate-limited) leaves rowsByObjectThenGroup completely empty and this method
+        // silently does nothing at all, with no trace anywhere that it was even attempted.
+        for (String objectId : validIds) {
+            Map<String, List<Object>> groupRows = rowsByObjectThenGroup.getOrDefault(objectId, Map.of());
+            mergeBreakdownGroupsIntoSnapshot(user, req, objectId, storedTimeInc, groupRows, failedGroups);
+        }
     }
 
-    private AbstractMap.SimpleEntry<String, Map<String, Map<String, Object>>> fetchOneBreakdownGroup(
+    private record BreakdownGroupOutcome(String groupKey, Map<String, Map<String, Object>> perObjectRows,
+            String failureReason) {}
+
+    private BreakdownGroupOutcome fetchOneBreakdownGroup(
             UserEntity user, InsightSyncRequestDto req, InsightsFetchStrategy strategy,
             List<String> validIds, Map.Entry<String, List<String>> groupEntry) {
 
@@ -247,21 +260,26 @@ public class InsightsService {
         try {
             // Reuse fetchForObjects — it batches up to 50 IDs per call automatically
             Map<String, Map<String, Object>> batchResult = strategy.fetchForObjects(user, validIds, bParams);
-            return new AbstractMap.SimpleEntry<>(groupKey, batchResult);
+            return new BreakdownGroupOutcome(groupKey, batchResult, null);
         } catch (Exception e) {
-            logBreakdownFailure("group '" + groupKey + "'", e);
-            return new AbstractMap.SimpleEntry<>(groupKey, Map.of());
+            String reason = logAndDescribeBreakdownFailure("group '" + groupKey + "'", e);
+            return new BreakdownGroupOutcome(groupKey, Map.of(), reason);
         }
     }
 
     /**
-     * Breakdown fetch failures are swallowed (non-fatal — the main sync already
-     * succeeded), so this is the only place the real cause is visible. RestTemplate
-     * throws HttpStatusCodeException before InsightsFetchStrategy ever sees the
-     * response, so the Meta error body (with its rate-limit code) is only reachable
-     * here via getResponseBodyAsString() — e.getMessage() alone omits it.
+     * Breakdown fetch failures are non-fatal (the main sync already succeeded) but were
+     * previously ONLY logged server-side and never surfaced to any caller — from the
+     * outside, a total failure (e.g. every group rate-limited) looked identical to
+     * "breakdown data legitimately doesn't exist yet," with nothing to distinguish the two
+     * short of grepping backend logs. The returned reason is now stored (see
+     * mergeBreakdownGroupsIntoSnapshot's "_fetchErrors") and surfaced as a warning on the
+     * snapshot by InsightsSnapshotMapper. RestTemplate throws HttpStatusCodeException before
+     * InsightsFetchStrategy ever sees the response, so the Meta error body (with its
+     * rate-limit code) is only reachable here via getResponseBodyAsString() —
+     * e.getMessage() alone omits it.
      */
-    private void logBreakdownFailure(String what, Exception e) {
+    private String logAndDescribeBreakdownFailure(String what, Exception e) {
         if (e instanceof HttpStatusCodeException httpEx) {
             String responseBody = httpEx.getResponseBodyAsString();
             boolean rateLimited = responseBody != null && (
@@ -272,12 +290,13 @@ public class InsightsService {
             if (rateLimited) {
                 log.warn("Breakdown {} failed due to Meta rate limiting [{}]: {}",
                         what, httpEx.getStatusCode(), responseBody);
-            } else {
-                log.warn("Breakdown {} failed [{}]: {}", what, httpEx.getStatusCode(), responseBody);
+                return "rate limited by Meta";
             }
-        } else {
-            log.warn("Breakdown {} failed ({}): {}", what, e.getClass().getSimpleName(), e.getMessage());
+            log.warn("Breakdown {} failed [{}]: {}", what, httpEx.getStatusCode(), responseBody);
+            return "Meta API error " + httpEx.getStatusCode();
         }
+        log.warn("Breakdown {} failed ({}): {}", what, e.getClass().getSimpleName(), e.getMessage());
+        return e.getClass().getSimpleName() + (e.getMessage() != null ? ": " + e.getMessage() : "");
     }
 
     private InsightSyncRequestDto buildBreakdownRequest(InsightSyncRequestDto original,
@@ -295,9 +314,14 @@ public class InsightsService {
         return bReq;
     }
 
+    /** Reserved breakdownsJson key (alongside age_gender/country/placement) holding this sync
+     *  attempt's group-level failure reasons — read back by InsightsSnapshotMapper and surfaced
+     *  as an INSIGHT_BREAKDOWN_FETCH_FAILED warning instead of silently looking like "no data". */
+    private static final String FETCH_ERRORS_KEY = "_fetchErrors";
+
     @SuppressWarnings("unchecked")
     private void mergeBreakdownGroupsIntoSnapshot(UserEntity user, InsightSyncRequestDto req,
-            String objectId, int storedTimeInc, Map<String, List<Object>> newGroupRows) {
+            String objectId, int storedTimeInc, Map<String, List<Object>> newGroupRows, List<String> failedGroups) {
 
         snapshotRepository
                 .findByUserAndProviderAndAdAccountIdAndObjectTypeAndObjectExternalIdAndDateStartAndDateStopAndTimeIncrement(
@@ -320,6 +344,14 @@ public class InsightsService {
                     }
 
                     breakdownMap.putAll(newGroupRows);
+                    // A group that failed this round must not keep stale data from a previous
+                    // successful sync silently mixed in with no indication anything is wrong —
+                    // but a group that failed AND has no prior data simply stays absent.
+                    if (failedGroups.isEmpty()) {
+                        breakdownMap.remove(FETCH_ERRORS_KEY);
+                    } else {
+                        breakdownMap.put(FETCH_ERRORS_KEY, failedGroups);
+                    }
                     snapshot.setBreakdownsJson(serializeToJson(breakdownMap));
                     snapshotRepository.save(snapshot);
                 });

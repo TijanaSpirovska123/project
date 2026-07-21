@@ -4,6 +4,11 @@ export interface InsightMetric {
   valueText: string | null;
 }
 
+export interface InsightWarning {
+  code: string;
+  message: string;
+}
+
 export interface InsightSnapshot {
   id: number;
   provider: string;
@@ -17,6 +22,11 @@ export interface InsightSnapshot {
   updatedAt: string;
   metrics: InsightMetric[];
   rawData: any;
+  /** e.g. INSIGHT_BREAKDOWN_FETCH_FAILED — the post-sync demographic/placement breakdown
+   *  fetch failed for this snapshot, so its breakdown panels/chart will be empty even
+   *  though base metrics are present. Check this before assuming breakdown data is just
+   *  "not synced yet". */
+  warnings?: InsightWarning[];
 }
 
 export interface InsightResponse {

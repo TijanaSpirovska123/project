@@ -66,10 +66,23 @@ public abstract class InsightsSnapshotMapper implements BaseMapper<InsightSnapsh
 
             // Merge breakdownsJson into rawData.breakdowns so the frontend can do
             // client-side dimension filtering without a separate API call.
+            InsightWarningDto breakdownFetchWarning = null;
             if (entity.getBreakdownsJson() != null && !entity.getBreakdownsJson().isBlank() && root.isObject()) {
                 try {
                     JsonNode breakdownsNode = OBJECT_MAPPER.readTree(entity.getBreakdownsJson());
                     ((com.fasterxml.jackson.databind.node.ObjectNode) root).set("breakdowns", breakdownsNode);
+
+                    // "_fetchErrors" is a reserved key InsightsService writes alongside the real
+                    // dimension groups (age_gender/country/placement) when the post-sync
+                    // breakdown fetch failed for one or more of them — surface it here instead
+                    // of leaving the caller to guess why breakdown data never showed up.
+                    JsonNode fetchErrors = breakdownsNode.path("_fetchErrors");
+                    if (fetchErrors.isArray() && !fetchErrors.isEmpty()) {
+                        List<String> reasons = new ArrayList<>();
+                        fetchErrors.forEach(n -> reasons.add(n.asText()));
+                        breakdownFetchWarning = InsightWarningDto.of(InsightWarningCode.INSIGHT_BREAKDOWN_FETCH_FAILED,
+                                "Demographic/placement breakdown fetch failed and was not stored: " + String.join("; ", reasons));
+                    }
                 } catch (Exception ignored) {}
             }
 
@@ -92,6 +105,9 @@ public abstract class InsightsSnapshotMapper implements BaseMapper<InsightSnapsh
             dto.setSyncComplete(syncStatus == InsightSyncStatus.COMPLETE);
 
             List<InsightWarningDto> warnings = new ArrayList<>();
+            if (breakdownFetchWarning != null) {
+                warnings.add(breakdownFetchWarning);
+            }
             if (!paginationComplete) {
                 warnings.add(InsightWarningDto.of(InsightWarningCode.INSIGHT_PAGINATION_INCOMPLETE,
                         "Not all pages of the provider's response could be fetched — this snapshot's data may be incomplete."));

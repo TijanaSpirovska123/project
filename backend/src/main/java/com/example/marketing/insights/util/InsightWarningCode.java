@@ -45,4 +45,13 @@ public final class InsightWarningCode {
 
     /** Provider data was fetched successfully but could not be fully persisted. */
     public static final String INSIGHT_PERSISTENCE_PARTIAL = "INSIGHT_PERSISTENCE_PARTIAL";
+
+    /**
+     * The main sync succeeded, but the separate post-sync demographic/placement breakdown
+     * fetch (age/gender, country, placement) failed for one or more groups — breakdownsJson
+     * was left as-is (not overwritten with partial data), so breakdown panels/charts relying
+     * on it will appear empty even though base metrics are present. Previously this failure
+     * was only logged server-side and never surfaced to a caller.
+     */
+    public static final String INSIGHT_BREAKDOWN_FETCH_FAILED = "INSIGHT_BREAKDOWN_FETCH_FAILED";
 }
