@@ -50,18 +50,20 @@
       >{{ gridLabel(n) }}</text>
     }
 
-    <!-- Bar mode: primary metric bars -->
+    <!-- Bar mode: primary metric bars (unavailable points draw no bar — a gap, not a zero-height artifact) -->
     @if (chartType === 'bar' && activeMetrics.length && visData.length) {
       @for (point of visData; track i; let i = $index) {
-        <rect
-          [attr.x]="getBarX(i)"
-          [attr.y]="getBarY(activeMetrics[0], i)"
-          [attr.width]="barW"
-          [attr.height]="getBarHeight(activeMetrics[0], i)"
-          rx="3"
-          [attr.fill]="hoveredIndex === i ? getColor(activeMetrics[0]) : getColor(activeMetrics[0]) + '99'"
-          class="bar-rect"
-        />
+        @if (isPointAvailable(activeMetrics[0], i)) {
+          <rect
+            [attr.x]="getBarX(i)"
+            [attr.y]="getBarY(activeMetrics[0], i)"
+            [attr.width]="barW"
+            [attr.height]="getBarHeight(activeMetrics[0], i)"
+            rx="3"
+            [attr.fill]="hoveredIndex === i ? getColor(activeMetrics[0]) : getColor(activeMetrics[0]) + '99'"
+            class="bar-rect"
+          />
+        }
       }
     }
 
@@ -100,19 +102,21 @@
       }
     }
 
-    <!-- Dots at each data point (line mode only) -->
+    <!-- Dots at each data point (line mode only) — unavailable points draw no dot -->
     @if (chartType === 'line' && visData.length) {
       @for (metric of activeMetrics; track metric) {
         @for (point of visData; track i; let i = $index) {
-          <circle
-            [attr.cx]="getLineX(i)"
-            [attr.cy]="getY(metric, i)"
-            [attr.r]="getDotRadius(i)"
-            [attr.fill]="hoveredIndex === i ? '#ffffff' : getColor(metric)"
-            [attr.stroke]="getColor(metric)"
-            [attr.stroke-width]="hoveredIndex === i ? 2.5 : 1"
-            class="data-dot"
-          />
+          @if (isPointAvailable(metric, i)) {
+            <circle
+              [attr.cx]="getLineX(i)"
+              [attr.cy]="getY(metric, i)"
+              [attr.r]="getDotRadius(i)"
+              [attr.fill]="hoveredIndex === i ? '#ffffff' : getColor(metric)"
+              [attr.stroke]="getColor(metric)"
+              [attr.stroke-width]="hoveredIndex === i ? 2.5 : 1"
+              class="data-dot"
+            />
+          }
         }
       }
     }

@@ -9,7 +9,8 @@ import {
 
 export interface ChartDataPoint {
   label: string;
-  [key: string]: number | string;
+  /** null means "unavailable" (never plotted — renders as a gap in the line, no dot/bar); a real measured zero must be the number 0, never null. */
+  [key: string]: number | string | null;
 }
 
 export const METRIC_COLORS: Record<string, string> = {
@@ -140,10 +141,24 @@ export class InsightsSvgChartComponent implements OnChanges {
   /** Drag selection rect width in SVG coords. */
   get dragRectW(): number { return Math.abs(this.dragPixelCurrent - this.dragPixelStart); }
 
+  // ── Availability (null = unavailable, never plotted) ──────────────────────
+  private numericValueAt(source: ChartDataPoint[], i: number, metric: string): number | null {
+    const raw = source[i]?.[metric];
+    return typeof raw === 'number' ? raw : null;
+  }
+
+  /** Whether this point has a real (possibly zero) value for this metric — false means unavailable, so no dot/bar should be drawn and the line should gap here. */
+  isPointAvailable(metric: string, i: number): boolean {
+    return this.numericValueAt(this.visData, i, metric) !== null;
+  }
+
   // ── Per-metric max — each metric scales to its own range ─────────────────
   private getMetricMax(metric: string): number {
     if (!metric || !this.visData.length) return 1;
-    return Math.max(...this.visData.map(d => (d[metric] as number) ?? 0), 1);
+    const values = this.visData
+      .map((_, i) => this.numericValueAt(this.visData, i, metric))
+      .filter((v): v is number => v !== null);
+    return values.length ? Math.max(...values, 1) : 1;
   }
 
   // Grid labels show the first active metric's scale
@@ -200,14 +215,17 @@ export class InsightsSvgChartComponent implements OnChanges {
   }
 
   // ── Y positioning (per-metric scale — each line uses its own max) ─────────
+  /** Only meaningful when isPointAvailable(metric, i) is true — callers must guard rendering with that, this returns the chart baseline for unavailable points so callers that don't guard (e.g. a path builder skipping the point anyway) never divide by a missing value. */
   getY(metric: string, i: number): number {
-    const value = (this.visData[i]?.[metric] as number) ?? 0;
+    const value = this.numericValueAt(this.visData, i, metric);
+    if (value === null) return this.PAD_TOP + this.innerH;
     const ratio = value / this.getMetricMax(metric);
     return this.PAD_TOP + this.innerH - ratio * this.innerH;
   }
 
   getBarHeight(metric: string, i: number): number {
-    const value = (this.visData[i]?.[metric] as number) ?? 0;
+    const value = this.numericValueAt(this.visData, i, metric);
+    if (value === null) return 0;
     return (value / this.getMetricMax(metric)) * this.innerH;
   }
 
@@ -258,19 +276,36 @@ export class InsightsSvgChartComponent implements OnChanges {
   }
 
   // ── SVG paths ─────────────────────────────────────────────────────────────
+  /**
+   * Builds one or more "M ... L ..." subpaths, one per contiguous run of
+   * available points — an unavailable (null) point breaks the line into a
+   * gap rather than being plotted as zero. A dataset with no available point
+   * for this metric renders no line at all.
+   */
   getLinePath(metric: string): string {
     if (!this.visData.length) return '';
     if (this.visData.length === 1) {
       // Single data point: draw a horizontal line across the full chart width
-      // so the value is clearly visible as a line, not just an isolated dot.
+      // so the value is clearly visible as a line, not just an isolated dot —
+      // only when that single point actually has a value.
+      if (!this.isPointAvailable(metric, 0)) return '';
       const y  = this.getY(metric, 0).toFixed(1);
       const x1 = this.PAD_LEFT.toFixed(1);
       const x2 = (this.PAD_LEFT + this.innerW).toFixed(1);
       return `M ${x1},${y} L ${x2},${y}`;
     }
-    return 'M ' + this.visData.map((_, i) =>
-      `${this.getLineX(i).toFixed(1)},${this.getY(metric, i).toFixed(1)}`
-    ).join(' L ');
+
+    const subpaths: string[] = [];
+    let current: string[] = [];
+    for (let i = 0; i < this.visData.length; i++) {
+      if (!this.isPointAvailable(metric, i)) {
+        if (current.length) { subpaths.push('M ' + current.join(' L ')); current = []; }
+        continue;
+      }
+      current.push(`${this.getLineX(i).toFixed(1)},${this.getY(metric, i).toFixed(1)}`);
+    }
+    if (current.length) subpaths.push('M ' + current.join(' L '));
+    return subpaths.join(' ');
   }
 
   get hasPreviousData(): boolean {
@@ -284,34 +319,56 @@ export class InsightsSvgChartComponent implements OnChanges {
   }
 
   getPrevY(metric: string, i: number): number {
-    const value = (this.previousData[i]?.[metric] as number) ?? 0;
+    const value = this.numericValueAt(this.previousData, i, metric);
+    if (value === null) return this.PAD_TOP + this.innerH;
     const ratio = value / this.getMetricMax(metric);
     return this.PAD_TOP + this.innerH - ratio * this.innerH;
   }
 
   getPrevLinePath(metric: string): string {
     if (!this.previousData.length) return '';
-    return 'M ' + this.previousData.map((_, i) =>
-      `${this.getPrevLineX(i).toFixed(1)},${this.getPrevY(metric, i).toFixed(1)}`
-    ).join(' L ');
+    const subpaths: string[] = [];
+    let current: string[] = [];
+    for (let i = 0; i < this.previousData.length; i++) {
+      if (this.numericValueAt(this.previousData, i, metric) === null) {
+        if (current.length) { subpaths.push('M ' + current.join(' L ')); current = []; }
+        continue;
+      }
+      current.push(`${this.getPrevLineX(i).toFixed(1)},${this.getPrevY(metric, i).toFixed(1)}`);
+    }
+    if (current.length) subpaths.push('M ' + current.join(' L '));
+    return subpaths.join(' ');
   }
 
+  /** Same gap behavior as getLinePath — one closed fill shape per contiguous run of available points, never filling across (or under) an unavailable gap. */
   getAreaPath(metric: string): string {
     if (!this.visData.length) return '';
     const bottom = this.PAD_TOP + this.innerH;
     if (this.visData.length === 1) {
-      // Single data point: fill the entire chart width at that value
+      // Single data point: fill the entire chart width at that value — only when it has one.
+      if (!this.isPointAvailable(metric, 0)) return '';
       const y  = this.getY(metric, 0).toFixed(1);
       const x1 = this.PAD_LEFT;
       const x2 = this.PAD_LEFT + this.innerW;
       return `M ${x1},${bottom} L ${x1},${y} L ${x2},${y} L ${x2},${bottom} Z`;
     }
-    const first  = this.getLineX(0).toFixed(1);
-    const last   = this.getLineX(this.visData.length - 1).toFixed(1);
-    const line   = this.visData.map((_, i) =>
-      `${this.getLineX(i).toFixed(1)},${this.getY(metric, i).toFixed(1)}`
-    ).join(' L ');
-    return `M ${first},${bottom} L ${line} L ${last},${bottom} Z`;
+
+    const shapes: string[] = [];
+    let run: number[] = [];
+    const flushRun = () => {
+      if (run.length < 1) return;
+      const first = this.getLineX(run[0]).toFixed(1);
+      const last  = this.getLineX(run[run.length - 1]).toFixed(1);
+      const line  = run.map(i => `${this.getLineX(i).toFixed(1)},${this.getY(metric, i).toFixed(1)}`).join(' L ');
+      shapes.push(`M ${first},${bottom} L ${line} L ${last},${bottom} Z`);
+      run = [];
+    };
+    for (let i = 0; i < this.visData.length; i++) {
+      if (!this.isPointAvailable(metric, i)) { flushRun(); continue; }
+      run.push(i);
+    }
+    flushRun();
+    return shapes.join(' ');
   }
 
   // ── Grid ──────────────────────────────────────────────────────────────────
@@ -541,7 +598,8 @@ export class InsightsSvgChartComponent implements OnChanges {
   }
 
   formatTooltipValue(metric: string, i: number): string {
-    const value = (this.visData[i]?.[metric] as number) ?? 0;
+    const value = this.numericValueAt(this.visData, i, metric);
+    if (value === null) return '—';
     const fmt = METRIC_FORMATS[metric];
     return fmt ? fmt(value) : defaultFmt(value);
   }

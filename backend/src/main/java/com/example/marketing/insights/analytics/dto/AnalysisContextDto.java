@@ -2,7 +2,6 @@ package com.example.marketing.insights.analytics.dto;
 
 import com.example.marketing.infrastructure.util.Provider;
 import com.example.marketing.insights.dto.InsightPeriodDto;
-import com.example.marketing.insights.dto.InsightsBreakdownRowDto;
 import lombok.Builder;
 import lombok.Value;
 
@@ -29,13 +28,20 @@ public class AnalysisContextDto {
     AnalyticsScope scope;
     InsightPeriodDto currentPeriod;
     InsightPeriodDto comparisonPeriod;
+    CoverageDto coverage;
 
     AnalyticsSummaryDto summary;
+    /** Null when comparison was not requested/enabled — never an empty placeholder. */
     PeriodComparisonResultDto comparison;
-    List<TimeSeriesPointDto> timeSeries;
-    List<RankingEntryDto> rankings;
-    List<InsightsBreakdownRowDto> breakdowns;
+    /** Null when the time-series section was not requested/enabled. */
+    TimeSeriesResponseDto timeSeries;
+    /** Null when the rankings section was not requested/enabled. */
+    AnalyticsRankingsDto rankings;
+    /** Null when no breakdown dimensions were requested. */
+    List<AnalyticsBreakdownDto> breakdowns;
+    /** Null when includeFindings=false. */
     List<DeterministicFindingDto> findings;
+    /** Null when includeDataQuality=false. */
     List<DataQualityIssueDto> dataQualityIssues;
 
     AnalysisContextCapabilitiesDto capabilities;

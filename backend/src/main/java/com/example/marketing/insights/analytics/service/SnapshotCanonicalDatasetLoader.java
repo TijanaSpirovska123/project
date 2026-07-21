@@ -131,6 +131,7 @@ public class SnapshotCanonicalDatasetLoader implements CanonicalDatasetLoader {
                 .requestedPeriod(new InsightPeriodDto(request.getDateStart(), request.getDateStop()))
                 .scope(scope)
                 .records(records)
+                .snapshotEntities(snapshotEntities)
                 .objectNames(objectNames)
                 .currency(resolvedCurrency)
                 .mixedCurrency(mixedCurrency)

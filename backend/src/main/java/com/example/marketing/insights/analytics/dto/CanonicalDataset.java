@@ -4,6 +4,7 @@ import com.example.marketing.infrastructure.util.Provider;
 import com.example.marketing.insights.analytics.enums.MetricUnavailableReason;
 import com.example.marketing.insights.dto.InsightPeriodDto;
 import com.example.marketing.insights.dto.InsightWarningDto;
+import com.example.marketing.insights.entity.InsightSnapshotEntity;
 import com.example.marketing.insights.util.InsightSyncStatus;
 import lombok.Builder;
 import lombok.Value;
@@ -30,6 +31,14 @@ public class CanonicalDataset {
     AnalyticsScope scope;
 
     List<CanonicalInsightRecord> records;
+
+    /**
+     * Internal-only: the same snapshot entities already fetched to build {@code records}, kept so
+     * breakdown-by-dimension computation (which needs each snapshot's stored breakdownsJson/rawJson,
+     * not just normalized metrics) can reuse this ONE fetch instead of re-querying the repository —
+     * see BreakdownAnalyticsService.computeBreakdown. Never serialized into any response DTO.
+     */
+    List<InsightSnapshotEntity> snapshotEntities;
 
     /** externalId -> display name, batch-loaded once (never N+1). Missing entries mean the name lookup didn't find a locally-synced entity (deleted, or never synced). */
     Map<String, String> objectNames;

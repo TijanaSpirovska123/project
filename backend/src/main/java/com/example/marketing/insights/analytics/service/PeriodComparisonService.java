@@ -129,14 +129,6 @@ public class PeriodComparisonService {
     }
 
     private CoverageDto coverageOf(CanonicalDataset dataset) {
-        long distinctDaysWithActivity = dataset.getRecords().stream()
-                .map(r -> r.getDate())
-                .filter(java.util.Objects::nonNull)
-                .distinct()
-                .count();
-        return CoverageDto.builder()
-                .syncComplete(dataset.isOverallSyncComplete())
-                .daysWithActivity((int) distinctDaysWithActivity)
-                .build();
+        return CoverageDto.of(dataset);
     }
 }

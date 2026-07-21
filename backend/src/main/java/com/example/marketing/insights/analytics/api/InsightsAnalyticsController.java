@@ -211,11 +211,7 @@ public class InsightsAnalyticsController extends BaseController {
     @PostMapping("/context")
     public BaseResponse<AnalysisContextDto> context(Authentication auth, @RequestBody AnalysisContextRequestDto body) {
         UserEntity user = currentUser(auth);
-        com.example.marketing.insights.dto.InsightPeriodDto customPeriod =
-                body.getCustomComparisonStart() != null && body.getCustomComparisonStop() != null
-                        ? new com.example.marketing.insights.dto.InsightPeriodDto(body.getCustomComparisonStart(), body.getCustomComparisonStop())
-                        : null;
-        return ok(contextBuilder.build(user, body.getFilter(), body.getComparisonMode(), customPeriod));
+        return ok(contextBuilder.build(user, body));
     }
 
     private AnalyticsFilterRequest filterRequest(Provider provider, String adAccountId, LocalDate dateStart, LocalDate dateStop,

@@ -145,7 +145,7 @@ class InsightsAnalyticsControllerTest {
     @Test
     void context_neverCallsExternalServices_delegatesToContextBuilder() {
         AnalysisContextDto contextDto = AnalysisContextDto.builder().schemaVersion("1.0").provider(Provider.META).build();
-        when(contextBuilder.build(any(), any(), any(), any())).thenReturn(contextDto);
+        when(contextBuilder.build(any(), any())).thenReturn(contextDto);
 
         AnalysisContextRequestDto body = new AnalysisContextRequestDto();
         AnalyticsFilterRequest filter = new AnalyticsFilterRequest();

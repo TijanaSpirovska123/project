@@ -47,7 +47,12 @@ public class BreakdownAnalyticsService {
 
     public List<InsightsBreakdownRowDto> breakdown(UserEntity user, Provider provider, String adAccountId,
             String dimension, LocalDate dateStart, LocalDate dateStop, List<String> campaignIds) {
+        List<InsightSnapshotEntity> snapshots = fetchSnapshots(user, provider, adAccountId, dateStart, dateStop, campaignIds);
+        return computeBreakdown(snapshots, dimension);
+    }
 
+    private List<InsightSnapshotEntity> fetchSnapshots(UserEntity user, Provider provider, String adAccountId,
+            LocalDate dateStart, LocalDate dateStop, List<String> campaignIds) {
         List<InsightSnapshotEntity> snapshots = new ArrayList<>();
         if (campaignIds != null && !campaignIds.isEmpty()) {
             for (String campaignId : campaignIds) {
@@ -63,7 +68,18 @@ public class BreakdownAnalyticsService {
                                 user, provider, adAccountId, type, dateStart, dateStop));
             }
         }
+        return snapshots;
+    }
 
+    /**
+     * Pure computation over already-fetched snapshots — never queries the repository itself. Used
+     * both by {@link #breakdown} (which fetches its own snapshots, preserving the existing
+     * GET /api/insights/breakdown behavior exactly) and by AnalysisContextBuilder, which instead
+     * passes {@code CanonicalDataset.getSnapshotEntities()} — the SAME snapshots already fetched
+     * once by SnapshotCanonicalDatasetLoader — so computing a breakdown for the unified context
+     * never triggers a second database query.
+     */
+    public List<InsightsBreakdownRowDto> computeBreakdown(List<InsightSnapshotEntity> snapshots, String dimension) {
         Map<String, double[]> aggMap = new LinkedHashMap<>();
         Map<String, Boolean> conversionDataAvailableByBucket = new LinkedHashMap<>();
 
