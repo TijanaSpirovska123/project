@@ -82,6 +82,10 @@ public class BreakdownAnalyticsService {
     public List<InsightsBreakdownRowDto> computeBreakdown(List<InsightSnapshotEntity> snapshots, String dimension) {
         Map<String, double[]> aggMap = new LinkedHashMap<>();
         Map<String, Boolean> conversionDataAvailableByBucket = new LinkedHashMap<>();
+        // Same "was it ever actually returned" tracking as conversionDataAvailableByBucket, but
+        // for reach — a bucket with no "reach" key in any contributing row must stay null, never
+        // fall back to a fabricated 0 (see InsightsBreakdownRowDto.reach).
+        Map<String, Boolean> reachAvailableByBucket = new LinkedHashMap<>();
 
         for (InsightSnapshotEntity snap : snapshots) {
             List<Object> rows = resolveBreakdownRows(snap, dimension);
@@ -98,7 +102,12 @@ public class BreakdownAnalyticsService {
                 agg[0] += toDouble(row.get("spend"));
                 agg[1] += toDouble(row.get("impressions"));
                 agg[2] += toDouble(row.get("clicks"));
-                agg[3] += toDouble(row.get("reach"));
+                if (row.get("reach") != null) {
+                    agg[3] += toDouble(row.get("reach"));
+                    reachAvailableByBucket.put(dimStr, true);
+                } else {
+                    reachAvailableByBucket.putIfAbsent(dimStr, false);
+                }
 
                 Double revenue = extractRoasRevenue(row);
                 if (revenue != null) {
@@ -118,6 +127,7 @@ public class BreakdownAnalyticsService {
                 .map(e -> {
                     double[] a = e.getValue();
                     boolean conversionDataAvailable = Boolean.TRUE.equals(conversionDataAvailableByBucket.get(e.getKey()));
+                    boolean reachAvailable = Boolean.TRUE.equals(reachAvailableByBucket.get(e.getKey()));
                     Double ctr = safeRatio(a[2], a[1], 100);
                     Double roas = conversionDataAvailable ? safeRatio(a[4], a[0], 1) : null;
                     Double share = safeRatio(a[0], totalSpend, 100);
@@ -127,7 +137,7 @@ public class BreakdownAnalyticsService {
                             .spend(round2(a[0]))
                             .impressions((long) a[1])
                             .clicks((long) a[2])
-                            .reach((long) a[3])
+                            .reach(reachAvailable ? (long) a[3] : null)
                             .ctr(round2(ctr))
                             .roas(round2(roas))
                             .conversionDataAvailable(conversionDataAvailable)

@@ -32,7 +32,7 @@ public class AnalyticsSummaryService {
         Map<String, MetricValueDto> metrics = new LinkedHashMap<>();
         for (CanonicalMetric metric : CanonicalMetric.values()) {
             String unit = unitFor(metric);
-            metrics.put(metric.normalizedName(), aggregation.toDto(metric, unit));
+            metrics.put(metric.publicName(), aggregation.toDto(metric, unit));
         }
 
         return AnalyticsSummaryDto.builder()

@@ -18,7 +18,7 @@ public class AnalyticsSummaryDto {
     InsightPeriodDto requestedPeriod;
     AnalyticsScope scope;
     String currency;
-    /** Keyed by CanonicalMetric.normalizedName() (e.g. "spend", "ctr", "purchaseValue"). */
+    /** Keyed by CanonicalMetric.publicName() (e.g. "spend", "ctr", "purchaseValue"). */
     Map<String, MetricValueDto> metrics;
     InsightSyncStatus syncStatus;
     List<InsightWarningDto> warnings;

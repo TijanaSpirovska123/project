@@ -15,7 +15,9 @@ public class InsightsBreakdownRowDto {
     private double spend;
     private long impressions;
     private long clicks;
-    private long reach;
+
+    /** Null when the provider didn't return a reach value for this dimension bucket at all — a fabricated 0 would be indistinguishable from a real, measured zero. */
+    private Long reach;
 
     /** null when its denominator (impressions/spend/totalSpend) is zero or absent — undefined, not a fabricated 0. */
     private Double ctr;

@@ -158,6 +158,58 @@ class SnapshotCanonicalDatasetLoaderTest {
     }
 
     @Test
+    void selectedObjectIds_populatedWithExplicitIds_whenCampaignIdsRequested() {
+        InsightSnapshotEntity snap = InsightSnapshotEntity.builder()
+                .provider(Provider.META).user(user).adAccountId("act_1")
+                .objectType(InsightObjectType.CAMPAIGN).objectExternalId("c1")
+                .dateStart(LocalDate.of(2026, 2, 1)).dateStop(LocalDate.of(2026, 2, 10)).timeIncrement(1)
+                .rawJson("{\"data\": [], \"paging\": {}}").build();
+
+        when(snapshotRepository.findByUserAndProviderAndAdAccountIdAndObjectTypeAndObjectExternalIdAndDateRange(
+                any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(snap));
+        when(campaignRepository.findByUserAndPlatformAndAdAccountIdAndExternalIdIn(any(), any(), any(), any()))
+                .thenReturn(List.of());
+
+        AnalyticsFilterRequest r = baseRequest();
+        r.setCampaignIds(List.of("c1"));
+
+        var dataset = loader.load(user, r);
+
+        assertThat(dataset.getScope().getSelectedObjectIds()).containsExactly("c1");
+        assertThat(dataset.getScope().getSelectedObjectCount()).isEqualTo(dataset.getScope().getSelectedObjectIds().size());
+    }
+
+    @Test
+    void selectedObjectIds_populatedWithSyncedIds_notNull_whenNoExplicitSelection() {
+        InsightSnapshotEntity snap = InsightSnapshotEntity.builder()
+                .provider(Provider.META).user(user).adAccountId("act_1")
+                .objectType(InsightObjectType.CAMPAIGN).objectExternalId("c1")
+                .dateStart(LocalDate.of(2026, 2, 1)).dateStop(LocalDate.of(2026, 2, 10)).timeIncrement(1)
+                .rawJson("{\"data\": [], \"paging\": {}}").build();
+
+        when(snapshotRepository.findByUserAndProviderAndAdAccountIdAndObjectTypeAndDateRange(
+                any(), any(), any(), any(), any(), any())).thenReturn(List.of(snap));
+        when(campaignRepository.findByUserAndPlatformAndAdAccountIdAndExternalIdIn(any(), any(), any(), any()))
+                .thenReturn(List.of());
+
+        var dataset = loader.load(user, baseRequest());
+
+        assertThat(dataset.getScope().getSelectedObjectIds()).isNotNull().containsExactly("c1");
+        assertThat(dataset.getScope().getSelectedObjectCount()).isEqualTo(dataset.getScope().getSelectedObjectIds().size());
+    }
+
+    @Test
+    void selectedObjectIds_isEmptyList_notNull_whenNothingSynced() {
+        when(snapshotRepository.findByUserAndProviderAndAdAccountIdAndObjectTypeAndDateRange(
+                any(), any(), any(), any(), any(), any())).thenReturn(List.of());
+
+        var dataset = loader.load(user, baseRequest());
+
+        assertThat(dataset.getScope().getSelectedObjectIds()).isNotNull().isEmpty();
+        assertThat(dataset.getScope().getSelectedObjectCount()).isZero();
+    }
+
+    @Test
     void objectNames_batchLoaded_noPerObjectQuery() {
         InsightSnapshotEntity snap1 = InsightSnapshotEntity.builder()
                 .provider(Provider.META).user(user).adAccountId("act_1")

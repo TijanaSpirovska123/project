@@ -178,6 +178,11 @@ export class InsightsComponent implements OnInit, OnDestroy {
   private static cachedCampaigns: Campaign[] | null = null;
   private static cachedAdSets: AdSetResponse[] | null = null;
   private static cachedAds: AdResponse[] | null = null;
+  // Identifies which user+ad-account the static caches above belong to. These caches are
+  // static so they survive route re-navigation within the same login, but they must never
+  // survive a switch to a different account — otherwise the previous user's data would be
+  // served to whoever is logged in now. Checked/reset in ngOnInit before anything reads them.
+  private static cacheOwnerKey: string | null = null;
 
   // Side panels
   showTopPerformers = false;
@@ -321,6 +326,18 @@ export class InsightsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.userId = this.authStore.getUserId();
     this.actId = this.authStore.getActId();
+
+    // The static caches below are keyed only by date range/selection, not by user or ad
+    // account, so a stale cache from a previously logged-in user must be dropped the moment
+    // we detect we're now loading for someone else — otherwise this account would silently
+    // render the previous account's insights with no API call at all.
+    const ownerKey = `${this.userId ?? ''}__${this.actId ?? ''}`;
+    if (InsightsComponent.cacheOwnerKey !== ownerKey) {
+      this.clearCache();
+      this.clearObjectCache();
+      InsightsComponent.cacheOwnerKey = ownerKey;
+    }
+
     const tabParam = this.route.snapshot.queryParamMap.get('tab');
     if (tabParam !== null) {
       const idx = parseInt(tabParam, 10);

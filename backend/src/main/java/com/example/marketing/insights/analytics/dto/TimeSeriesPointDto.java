@@ -10,6 +10,6 @@ import java.util.Map;
 @Builder
 public class TimeSeriesPointDto {
     LocalDate date;
-    /** Keyed by CanonicalMetric.normalizedName(). Values are BigDecimal-backed MetricValueDto entries — null values preserved (see class-level rules in TimeSeriesService). */
+    /** Keyed by CanonicalMetric.publicName(). Values are BigDecimal-backed MetricValueDto entries — null values preserved (see class-level rules in TimeSeriesService). */
     Map<String, MetricValueDto> metrics;
 }

@@ -1,5 +1,6 @@
 package com.example.marketing.insights.analytics.service;
 
+import com.example.marketing.auth.AdAccountConnectionRepository;
 import com.example.marketing.exception.BusinessException;
 import com.example.marketing.insights.analytics.dto.AnalysisContextCapabilitiesDto;
 import com.example.marketing.insights.analytics.dto.AnalysisContextDto;
@@ -54,6 +55,9 @@ public class AnalysisContextBuilder {
 
     public static final String SCHEMA_VERSION = "1.0";
 
+    /** Documented fallback when the ad account's own synced timezone isn't known yet — never the JVM/server timezone or one inferred from the user. */
+    public static final String DEFAULT_TIMEZONE = "UTC";
+
     private final CanonicalDatasetLoader datasetLoader;
     private final AnalyticsSummaryService summaryService;
     private final PeriodComparisonService comparisonService;
@@ -63,6 +67,7 @@ public class AnalysisContextBuilder {
     private final DataQualityService dataQualityService;
     private final FindingEngine findingEngine;
     private final ProviderAnalyticsStrategyRegistry strategyRegistry;
+    private final AdAccountConnectionRepository adAccountConnectionRepository;
 
     public AnalysisContextDto build(UserEntity user, AnalysisContextRequestDto request) {
         if (request.getFilter() == null) {
@@ -108,7 +113,7 @@ public class AnalysisContextBuilder {
                 .provider(current.getProvider())
                 .adAccountId(current.getAdAccountId())
                 .currency(current.getCurrency())
-                .timezone(request.getFilter().getTimezone())
+                .timezone(resolveTimezone(user, current))
                 .generatedAt(Instant.now())
                 .scope(current.getScope())
                 .currentPeriod(current.getRequestedPeriod())
@@ -174,6 +179,22 @@ public class AnalysisContextBuilder {
         }
     }
 
+    /**
+     * Resolves the ad account's own synced timezone (Meta's {@code timezone_name}, captured on
+     * AdAccountConnectionEntity at connect/sync time — see MetaOAuthService) rather than trusting
+     * a client-supplied value or the JVM/server default, which would silently be wrong for an
+     * account in a different timezone. Falls back to {@link #DEFAULT_TIMEZONE} — never fabricated
+     * from the authenticated user's own location — when the account hasn't been synced yet or its
+     * timezone wasn't captured.
+     */
+    private String resolveTimezone(UserEntity user, CanonicalDataset current) {
+        return adAccountConnectionRepository
+                .findByUserIdAndProviderAndAdAccountId(user.getId(), current.getProvider().name(), current.getAdAccountId())
+                .map(conn -> conn.getTimezoneName())
+                .filter(tz -> tz != null && !tz.isBlank())
+                .orElse(DEFAULT_TIMEZONE);
+    }
+
     // -----------------------------------------------------------------------
     // Section builders — every one reads ONLY the already-loaded CanonicalDataset.
     // -----------------------------------------------------------------------
@@ -195,7 +216,7 @@ public class AnalysisContextBuilder {
         TimeSeriesResponseDto full = timeSeriesService.build(current, request.getGranularity(), request.isIncludeInactivePeriods());
         if (request.getMetrics() == null || request.getMetrics().isEmpty()) return full;
 
-        List<String> allowedNames = request.getMetrics().stream().map(CanonicalMetric::normalizedName).toList();
+        List<String> allowedNames = request.getMetrics().stream().map(CanonicalMetric::publicName).toList();
         List<TimeSeriesPointDto> filteredPoints = full.getSeries().stream()
                 .map(point -> TimeSeriesPointDto.builder()
                         .date(point.getDate())

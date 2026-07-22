@@ -13,7 +13,10 @@ public enum CanonicalMetric {
     REACH("reach", MetricCategory.NON_ADDITIVE),
     CLICKS("clicks", MetricCategory.ADDITIVE),
     UNIQUE_CLICKS("unique_clicks", MetricCategory.NON_ADDITIVE),
-    OUTBOUND_CLICKS("outbound_clicks.outbound_click", MetricCategory.NON_ADDITIVE),
+    // normalizedName stays the raw Meta action-path — that's the Phase-1 InsightMetricDto.name
+    // this reads from (see normalizedName() javadoc) — but AnalysisContext's public metrics map
+    // must never expose that path, so publicName() overrides it with a canonical camelCase key.
+    OUTBOUND_CLICKS("outbound_clicks.outbound_click", "outboundClicks", MetricCategory.NON_ADDITIVE),
     LANDING_PAGE_VIEWS("landingPageViews", MetricCategory.ADDITIVE),
     LEADS("leads", MetricCategory.CONVERSION),
     CONVERSIONS("conversions", MetricCategory.CONVERSION),
@@ -30,16 +33,31 @@ public enum CanonicalMetric {
     ROAS("roas", MetricCategory.DERIVED_RATIO);
 
     private final String normalizedName;
+    private final String publicName;
     private final MetricCategory category;
 
     CanonicalMetric(String normalizedName, MetricCategory category) {
+        this(normalizedName, normalizedName, category);
+    }
+
+    CanonicalMetric(String normalizedName, String publicName, MetricCategory category) {
         this.normalizedName = normalizedName;
+        this.publicName = publicName;
         this.category = category;
     }
 
     /** The Phase-1 normalizedMetrics/InsightMetricDto.name this canonical metric reads from. */
     public String normalizedName() {
         return normalizedName;
+    }
+
+    /**
+     * The key this metric is exposed under in provider-independent, public JSON maps
+     * (AnalysisContext's summary.metrics / timeSeries.series[].metrics) — always a canonical
+     * name, never a raw provider action-path, even where {@link #normalizedName()} is one.
+     */
+    public String publicName() {
+        return publicName;
     }
 
     public MetricCategory category() {

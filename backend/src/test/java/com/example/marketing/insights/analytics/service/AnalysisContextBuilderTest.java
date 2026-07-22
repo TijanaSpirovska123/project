@@ -1,5 +1,7 @@
 package com.example.marketing.insights.analytics.service;
 
+import com.example.marketing.auth.AdAccountConnectionEntity;
+import com.example.marketing.auth.AdAccountConnectionRepository;
 import com.example.marketing.exception.BusinessException;
 import com.example.marketing.infrastructure.util.Provider;
 import com.example.marketing.insights.analytics.config.InsightsAnalyticsFindingsProperties;
@@ -47,6 +49,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -66,6 +69,7 @@ import static org.mockito.Mockito.when;
 class AnalysisContextBuilderTest {
 
     @Mock private CanonicalDatasetLoader datasetLoader;
+    @Mock private AdAccountConnectionRepository adAccountConnectionRepository;
 
     private AnalysisContextBuilder builder;
     private RankingService rankingService;
@@ -75,6 +79,7 @@ class AnalysisContextBuilderTest {
 
     @BeforeEach
     void setUp() {
+        user.setId(1L);
         MetricAggregationService aggregation = new MetricAggregationService();
         ProviderAnalyticsStrategyRegistry strategyRegistry = new ProviderAnalyticsStrategyRegistry(List.of(new MetaAnalyticsStrategy()));
         InsightsAnalyticsLimitsProperties limits = new InsightsAnalyticsLimitsProperties();
@@ -88,9 +93,12 @@ class AnalysisContextBuilderTest {
         breakdownAnalyticsService = new BreakdownAnalyticsService(mockedBreakdownRepository, new ObjectMapper());
         DataQualityService dataQualityService = new DataQualityService();
         FindingEngine findingEngine = new FindingEngine(thresholds, rankingService, strategyRegistry, aggregation);
+        lenient().when(adAccountConnectionRepository.findByUserIdAndProviderAndAdAccountId(any(), any(), any()))
+                .thenReturn(Optional.empty());
 
         builder = new AnalysisContextBuilder(datasetLoader, summaryService, comparisonService, timeSeriesService,
-                rankingService, breakdownAnalyticsService, dataQualityService, findingEngine, strategyRegistry);
+                rankingService, breakdownAnalyticsService, dataQualityService, findingEngine, strategyRegistry,
+                adAccountConnectionRepository);
     }
 
     // -----------------------------------------------------------------------
@@ -464,7 +472,8 @@ class AnalysisContextBuilderTest {
                 breakdownAnalyticsService,
                 new DataQualityService(),
                 new FindingEngine(thresholds, rankingService, restrictedRegistry, aggregation),
-                restrictedRegistry);
+                restrictedRegistry,
+                adAccountConnectionRepository);
     }
 
     @Test
@@ -555,5 +564,107 @@ class AnalysisContextBuilderTest {
         assertThat(json).doesNotContain("SECRET_TOKEN_VALUE_ABC123");
         assertThat(json).doesNotContain("access_token");
         assertThat(json).doesNotContain("rawJson");
+    }
+
+    // -----------------------------------------------------------------------
+    // 24-25: timezone — synced ad-account timezone, documented UTC fallback
+    // -----------------------------------------------------------------------
+
+    @Test
+    void timezone_fallsBackToUtc_whenAccountNotSynced() {
+        var dataset = baseDataset(List.of(record(LocalDate.of(2026, 2, 3), "10.00", 100, 5, null, "USD")), "USD", false).build();
+        when(datasetLoader.load(any(), any())).thenReturn(dataset);
+
+        AnalysisContextDto ctx = builder.build(user, request());
+
+        assertThat(ctx.getTimezone()).isEqualTo(AnalysisContextBuilder.DEFAULT_TIMEZONE);
+    }
+
+    @Test
+    void timezone_usesSyncedAdAccountTimezone_whenAvailable() {
+        var dataset = baseDataset(List.of(record(LocalDate.of(2026, 2, 3), "10.00", 100, 5, null, "USD")), "USD", false).build();
+        when(datasetLoader.load(any(), any())).thenReturn(dataset);
+
+        AdAccountConnectionEntity conn = new AdAccountConnectionEntity();
+        conn.setTimezoneName("Europe/Berlin");
+        when(adAccountConnectionRepository.findByUserIdAndProviderAndAdAccountId(1L, "META", "act_1"))
+                .thenReturn(Optional.of(conn));
+
+        AnalysisContextDto ctx = builder.build(user, request());
+
+        assertThat(ctx.getTimezone()).isEqualTo("Europe/Berlin");
+    }
+
+    // -----------------------------------------------------------------------
+    // 26: canonical metric names — never a raw Meta action path
+    // -----------------------------------------------------------------------
+
+    @Test
+    void summaryMetrics_useCanonicalPublicNames_notRawProviderActionPaths() {
+        var dataset = baseDataset(List.of(record(LocalDate.of(2026, 2, 3), "10.00", 100, 5, null, "USD")), "USD", false).build();
+        when(datasetLoader.load(any(), any())).thenReturn(dataset);
+
+        AnalysisContextDto ctx = builder.build(user, request());
+
+        assertThat(ctx.getSummary().getMetrics()).containsKey("outboundClicks");
+        assertThat(ctx.getSummary().getMetrics()).doesNotContainKey("outbound_clicks.outbound_click");
+    }
+
+    @Test
+    void timeSeriesMetrics_useCanonicalPublicNames_notRawProviderActionPaths() {
+        var dataset = baseDataset(List.of(record(LocalDate.of(2026, 2, 3), "10.00", 100, 5, null, "USD")), "USD", false).build();
+        when(datasetLoader.load(any(), any())).thenReturn(dataset);
+
+        AnalysisContextRequestDto req = request();
+        TimeSeriesRequestDto ts = new TimeSeriesRequestDto();
+        ts.setEnabled(true);
+        req.setTimeSeries(ts);
+
+        AnalysisContextDto ctx = builder.build(user, req);
+
+        assertThat(ctx.getTimeSeries().getSeries().get(0).getMetrics()).containsKey("outboundClicks");
+        assertThat(ctx.getTimeSeries().getSeries().get(0).getMetrics()).doesNotContainKey("outbound_clicks.outbound_click");
+    }
+
+    // -----------------------------------------------------------------------
+    // 27-28: breakdown reach — missing stays null, a real zero stays zero
+    // -----------------------------------------------------------------------
+
+    @Test
+    void breakdownReach_null_whenProviderNeverReturnedIt() {
+        InsightSnapshotEntity snap = InsightSnapshotEntity.builder().provider(Provider.META)
+                .breakdownsJson("{\"country\": [{\"country\": \"US\", \"spend\": \"10.00\", \"impressions\": \"100\", \"clicks\": \"5\"}]}")
+                .build();
+        var dataset = baseDataset(List.of(record(LocalDate.of(2026, 2, 3), "10.00", 100, 5, null, "USD")), "USD", false)
+                .snapshotEntities(List.of(snap)).build();
+        when(datasetLoader.load(any(), any())).thenReturn(dataset);
+
+        AnalysisContextRequestDto req = request();
+        BreakdownRequestDto b = new BreakdownRequestDto();
+        b.setDimension(BreakdownDimension.COUNTRY);
+        req.setBreakdowns(List.of(b));
+
+        AnalysisContextDto ctx = builder.build(user, req);
+
+        assertThat(ctx.getBreakdowns().get(0).getRows().get(0).getReach()).isNull();
+    }
+
+    @Test
+    void breakdownReach_realZero_staysZero_notNull() {
+        InsightSnapshotEntity snap = InsightSnapshotEntity.builder().provider(Provider.META)
+                .breakdownsJson("{\"country\": [{\"country\": \"US\", \"spend\": \"10.00\", \"impressions\": \"100\", \"clicks\": \"5\", \"reach\": \"0\"}]}")
+                .build();
+        var dataset = baseDataset(List.of(record(LocalDate.of(2026, 2, 3), "10.00", 100, 5, null, "USD")), "USD", false)
+                .snapshotEntities(List.of(snap)).build();
+        when(datasetLoader.load(any(), any())).thenReturn(dataset);
+
+        AnalysisContextRequestDto req = request();
+        BreakdownRequestDto b = new BreakdownRequestDto();
+        b.setDimension(BreakdownDimension.COUNTRY);
+        req.setBreakdowns(List.of(b));
+
+        AnalysisContextDto ctx = builder.build(user, req);
+
+        assertThat(ctx.getBreakdowns().get(0).getRows().get(0).getReach()).isZero();
     }
 }

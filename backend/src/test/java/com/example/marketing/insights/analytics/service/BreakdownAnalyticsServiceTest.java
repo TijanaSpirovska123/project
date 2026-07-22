@@ -153,6 +153,45 @@ class BreakdownAnalyticsServiceTest {
     }
 
     @Test
+    void reach_null_whenProviderNeverReturnedIt() {
+        String json = """
+                {"country": [{"country": "US", "spend": "10.00", "impressions": "1000", "clicks": "10"}]}
+                """;
+        stubCampaignsOnly(snapshotWithCountryBreakdown(json));
+
+        List<InsightsBreakdownRowDto> rows = service.breakdown(user, Provider.META, "act_1", "country",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 1), null);
+
+        assertThat(rows.get(0).getReach()).isNull();
+    }
+
+    @Test
+    void reach_realZero_staysZero_notNull() {
+        String json = """
+                {"country": [{"country": "US", "spend": "10.00", "impressions": "1000", "clicks": "10", "reach": "0"}]}
+                """;
+        stubCampaignsOnly(snapshotWithCountryBreakdown(json));
+
+        List<InsightsBreakdownRowDto> rows = service.breakdown(user, Provider.META, "act_1", "country",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 1), null);
+
+        assertThat(rows.get(0).getReach()).isZero();
+    }
+
+    @Test
+    void reach_realValue_whenProviderReturnsIt() {
+        String json = """
+                {"country": [{"country": "US", "spend": "10.00", "impressions": "1000", "clicks": "10", "reach": "820"}]}
+                """;
+        stubCampaignsOnly(snapshotWithCountryBreakdown(json));
+
+        List<InsightsBreakdownRowDto> rows = service.breakdown(user, Provider.META, "act_1", "country",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 1), null);
+
+        assertThat(rows.get(0).getReach()).isEqualTo(820L);
+    }
+
+    @Test
     void noSnapshots_returnsEmptyList_notNull() {
         when(snapshotRepository.findByUserAndProviderAndAdAccountIdAndObjectTypeAndDateRange(
                 any(), any(), any(), any(), any(), any())).thenReturn(List.of());

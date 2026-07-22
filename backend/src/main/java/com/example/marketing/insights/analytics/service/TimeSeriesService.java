@@ -78,7 +78,7 @@ public class TimeSeriesService {
     private Map<String, MetricValueDto> toMetricMap(MetricAggregationService.AggregationResult aggregation) {
         Map<String, MetricValueDto> metrics = new LinkedHashMap<>();
         for (CanonicalMetric metric : CanonicalMetric.values()) {
-            metrics.put(metric.normalizedName(), aggregation.toDto(metric, AnalyticsSummaryService.unitFor(metric)));
+            metrics.put(metric.publicName(), aggregation.toDto(metric, AnalyticsSummaryService.unitFor(metric)));
         }
         return metrics;
     }
@@ -97,11 +97,11 @@ public class TimeSeriesService {
                     || metric == CanonicalMetric.CLICKS || metric == CanonicalMetric.LANDING_PAGE_VIEWS;
             if (isZeroableDelivery) {
                 BigDecimal zero = BigDecimal.ZERO.setScale(2);
-                metrics.put(metric.normalizedName(), "currency".equals(unit)
+                metrics.put(metric.publicName(), "currency".equals(unit)
                         ? MetricValueDto.available(zero, unit, currency)
                         : MetricValueDto.available(zero, unit));
             } else {
-                metrics.put(metric.normalizedName(), MetricValueDto.unavailable(MetricUnavailableReason.NOT_RETURNED_BY_PROVIDER, unit));
+                metrics.put(metric.publicName(), MetricValueDto.unavailable(MetricUnavailableReason.NOT_RETURNED_BY_PROVIDER, unit));
             }
         }
         return metrics;
