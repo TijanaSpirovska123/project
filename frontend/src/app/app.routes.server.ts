@@ -14,6 +14,10 @@ export const serverRoutes: ServerRoute[] = [
     renderMode: RenderMode.Client,
   },
   {
+    path: 'ai-insights',
+    renderMode: RenderMode.Client,
+  },
+  {
     path: 'creative-library',
     renderMode: RenderMode.Client,
   },
