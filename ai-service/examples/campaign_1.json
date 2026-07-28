@@ -1,0 +1,238 @@
+{
+  "analysisContext": {
+    "schemaVersion": "1.0",
+    "provider": "META",
+    "adAccountId": "act_481686937778670",
+    "currency": "USD",
+    "timezone": "America/New_York",
+    "generatedAt": "2026-07-22T14:30:08.134Z",
+    "scope": {
+      "objectType": "CAMPAIGN",
+      "selectedObjectIds": [
+        "120244089191690082"
+      ],
+      "selectedObjectCount": 1,
+      "objectsWithActivity": 1,
+      "objectsWithoutActivity": 0,
+      "singleEntity": true
+    },
+    "currentPeriod": {
+      "start": "2026-07-14",
+      "stop": "2026-07-21"
+    },
+    "comparisonPeriod": {
+      "start": "2026-07-06",
+      "stop": "2026-07-13"
+    },
+    "coverage": {
+      "syncComplete": true,
+      "daysWithActivity": 2
+    },
+    "summary": {
+      "provider": "META",
+      "adAccountId": "act_481686937778670",
+      "requestedPeriod": {
+        "start": "2026-07-14",
+        "stop": "2026-07-21"
+      },
+      "scope": {
+        "objectType": "CAMPAIGN",
+        "selectedObjectIds": [
+          "120244089191690082"
+        ],
+        "selectedObjectCount": 1,
+        "objectsWithActivity": 1,
+        "objectsWithoutActivity": 0,
+        "singleEntity": true
+      },
+      "currency": "USD",
+      "metrics": {
+        "spend": {
+          "value": 50.5,
+          "available": true,
+          "unavailableReason": null,
+          "unit": "currency",
+          "currency": "USD"
+        },
+        "impressions": {
+          "value": 8000,
+          "available": true,
+          "unavailableReason": null,
+          "unit": "count",
+          "currency": null
+        },
+        "clicks": {
+          "value": 510,
+          "available": true,
+          "unavailableReason": null,
+          "unit": "count",
+          "currency": null
+        },
+        "reach": {
+          "value": null,
+          "available": false,
+          "unavailableReason": "NOT_RETURNED_BY_PROVIDER",
+          "unit": "count",
+          "currency": null
+        },
+        "purchases": {
+          "value": 13,
+          "available": true,
+          "unavailableReason": null,
+          "unit": "count",
+          "currency": null
+        },
+        "purchaseValue": {
+          "value": 260,
+          "available": true,
+          "unavailableReason": null,
+          "unit": "currency",
+          "currency": "USD"
+        },
+        "ctr": {
+          "value": 6.38,
+          "available": true,
+          "unavailableReason": null,
+          "unit": "percentage",
+          "currency": null
+        },
+        "cpc": {
+          "value": 0.1,
+          "available": true,
+          "unavailableReason": null,
+          "unit": "currency",
+          "currency": "USD"
+        },
+        "roas": {
+          "value": 5.15,
+          "available": true,
+          "unavailableReason": null,
+          "unit": "ratio",
+          "currency": null
+        }
+      },
+      "syncStatus": "COMPLETE",
+      "warnings": []
+    },
+    "comparison": {
+      "currentPeriod": {
+        "start": "2026-07-14",
+        "stop": "2026-07-21"
+      },
+      "comparisonPeriod": {
+        "start": "2026-07-06",
+        "stop": "2026-07-13"
+      },
+      "metrics": [
+        {
+          "metric": "SPEND",
+          "currentValue": 50.5,
+          "previousValue": 18,
+          "absoluteChange": 32.5,
+          "percentageChange": 180.56,
+          "changeReason": null,
+          "direction": "INCREASED",
+          "available": true,
+          "unavailableReason": null
+        },
+        {
+          "metric": "CLICKS",
+          "currentValue": 510,
+          "previousValue": 190,
+          "absoluteChange": 320,
+          "percentageChange": 168.42,
+          "changeReason": null,
+          "direction": "INCREASED",
+          "available": true,
+          "unavailableReason": null
+        },
+        {
+          "metric": "ROAS",
+          "currentValue": 5.15,
+          "previousValue": 4.44,
+          "absoluteChange": 0.71,
+          "percentageChange": 15.99,
+          "changeReason": null,
+          "direction": "INCREASED",
+          "available": true,
+          "unavailableReason": null
+        }
+      ],
+      "currentCoverage": {
+        "syncComplete": true,
+        "daysWithActivity": 2
+      },
+      "comparisonCoverage": {
+        "syncComplete": true,
+        "daysWithActivity": 1
+      }
+    },
+    "timeSeries": null,
+    "rankings": {
+      "metric": "SPEND",
+      "results": [
+        {
+          "rank": 1,
+          "objectType": "CAMPAIGN",
+          "objectExternalId": "120244089191690082",
+          "objectName": "Summer Sale - Retargeting",
+          "value": 50.5,
+          "currency": "USD",
+          "activityPeriod": {
+            "start": "2026-07-14",
+            "stop": "2026-07-21"
+          },
+          "spend": 50.5,
+          "impressions": 8000,
+          "clicks": 510
+        }
+      ]
+    },
+    "breakdowns": [],
+    "findings": [
+      {
+        "code": "ROAS_INCREASED",
+        "severity": "INFO",
+        "scope": null,
+        "title": "Return on ad spend increased",
+        "message": "Return on ad spend increased from 4.44 to 5.15.",
+        "evidence": [
+          {
+            "metric": "ROAS",
+            "currentValue": 5.15,
+            "previousValue": 4.44,
+            "percentageChange": 15.99
+          }
+        ],
+        "confidence": "HIGH"
+      }
+    ],
+    "dataQualityIssues": [],
+    "capabilities": {
+      "supportedMetrics": [
+        "SPEND",
+        "IMPRESSIONS",
+        "REACH",
+        "CLICKS",
+        "PURCHASES",
+        "PURCHASE_VALUE",
+        "CTR",
+        "CPC",
+        "ROAS"
+      ],
+      "supportedBreakdowns": [
+        "AGE",
+        "GENDER",
+        "COUNTRY",
+        "PLACEMENT",
+        "DEVICE",
+        "PLATFORM"
+      ],
+      "conversionMetricsAvailable": true,
+      "supportsDailyTimeSeries": true,
+      "supportsComparison": true,
+      "supportsExactAggregateReach": true
+    }
+  },
+  "question": "Explain how the campaign performed compared with the previous period and recommend the next actions."
+}

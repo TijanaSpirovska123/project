@@ -36,6 +36,7 @@ import { AnalyticsModalComponent } from './components/analytics-modal/analytics-
 import { CreateAdWorkflowComponent } from './components/create-ad-workflow/create-ad-workflow.component';
 import { OauthSuccessComponent } from './components/oauth/oauth-token.component';
 import { InsightsComponent } from './components/insights/insights.component';
+import { AiInsightsComponent } from './components/ai-insights/ai-insights.component';
 import { CreativeLibraryComponent } from './pages/creative-library/creative-library.component';
 import { SyncAccountsComponent } from './pages/sync-accounts/sync-accounts.component';
 import {
@@ -69,6 +70,7 @@ import { InsightsBreakdownPanelsComponent } from './components/insights/insights
     AnalyticsModalComponent,
     CreateAdWorkflowComponent,
     InsightsComponent,
+    AiInsightsComponent,
     AdflowDateRangePickerComponent,
     InsightsSvgChartComponent,
     InsightsBreakdownPanelComponent,

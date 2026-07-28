@@ -1,0 +1,266 @@
+<div class="page with-menu">
+  <app-menu [isVisible]="true"></app-menu>
+
+  <div class="ai-insights">
+    <div class="ai-insights-row">
+      <!-- ── Left: context / filters card ─────────────────────────────── -->
+      <div class="ai-context-card">
+        <div class="ai-context-header">
+          <h2><mat-icon>smart_toy</mat-icon> AI Insights</h2>
+          <p class="ai-context-subtitle">Ask questions about a campaign, ad set or ad and get an AI-generated analysis.</p>
+        </div>
+
+        @if (isInitialLoading) {
+          <div class="ai-init-loading">
+            <div class="ai-init-spinner"></div>
+            <p>Loading campaign data…</p>
+          </div>
+        } @else {
+          <div class="ai-context-body">
+            <div class="form-group">
+              <label>Platform</label>
+              <app-searchable-dropdown
+                [(ngModel)]="platform"
+                [ngModelOptions]="{ standalone: true }"
+                [options]="platformOptions"
+                placeholder="Select a platform"
+                (selectionChange)="onPlatformChange($event)"
+              ></app-searchable-dropdown>
+            </div>
+
+            <div class="form-group">
+              <label>Campaign <span class="required-star">*</span></label>
+              <app-searchable-dropdown
+                [options]="campaignOptions"
+                placeholder="Select a campaign"
+                (selectionChange)="onCampaignChange($event)"
+              ></app-searchable-dropdown>
+            </div>
+
+            <div class="form-group">
+              <label>Ad Set <span class="optional-tag">optional</span></label>
+              <app-searchable-dropdown
+                [options]="adSetOptions"
+                [disabled]="!selectedCampaign"
+                [placeholder]="!selectedCampaign ? 'Select a campaign first' : 'All ad sets in campaign'"
+                (selectionChange)="onAdSetChange($event)"
+              ></app-searchable-dropdown>
+            </div>
+
+            <div class="form-group">
+              <label>Ad <span class="optional-tag">optional</span></label>
+              <app-searchable-dropdown
+                [options]="adOptions"
+                [disabled]="!selectedAdSet"
+                [placeholder]="!selectedAdSet ? 'Select an ad set first' : 'All ads in ad set'"
+                (selectionChange)="onAdChange($event)"
+              ></app-searchable-dropdown>
+            </div>
+
+            <div class="form-group">
+              <label>Date Range</label>
+              <adflow-date-range-picker
+                [value]="dateSelection"
+                (valueChange)="onDateSelectionChange($event)"
+              ></adflow-date-range-picker>
+            </div>
+
+            <label class="ai-checkbox-row">
+              <input type="checkbox" [(ngModel)]="includeTrend" />
+              <span>Include daily trend in analysis</span>
+            </label>
+
+            <div class="form-group">
+              <label>Focus Metrics</label>
+              <div class="ai-metric-chips">
+                @for (m of metricOptions; track m.key) {
+                  <button
+                    type="button"
+                    class="ai-metric-chip"
+                    [class.active]="isMetricSelected(m.key)"
+                    (click)="toggleMetric(m.key)"
+                  >{{ m.label }}</button>
+                }
+              </div>
+            </div>
+
+            <div class="ai-selection-summary">
+              <mat-icon>info</mat-icon>
+              <span>{{ contextLabel }}</span>
+            </div>
+          </div>
+        }
+      </div>
+      <!-- end ai-context-card -->
+
+      <!-- ── Right: chat card ─────────────────────────────────────────── -->
+      <div class="ai-chat-card">
+        <div class="ai-chat-header">
+          <div class="ai-chat-header-info">
+            <span class="ai-chat-title">Conversation</span>
+            <span class="ai-chat-context">{{ contextLabel }}</span>
+          </div>
+          <button class="ai-clear-btn" (click)="clearConversation()" [disabled]="!messages.length">
+            <mat-icon>delete_sweep</mat-icon>
+            Clear
+          </button>
+        </div>
+
+        <div class="ai-chat-body" #chatBody>
+          @if (!messages.length) {
+            <div class="ai-chat-empty">
+              <mat-icon>auto_awesome</mat-icon>
+              <p>Select a campaign on the left, then ask a question to get started.</p>
+              <div class="ai-suggestions">
+                @for (q of suggestedQuestions; track q) {
+                  <button type="button" class="ai-suggestion-chip" (click)="useSuggestion(q)">{{ q }}</button>
+                }
+              </div>
+            </div>
+          }
+
+          @for (message of messages; track trackByMessageId($index, message)) {
+            @if (message.role === 'user') {
+              <div class="ai-message ai-message-user">
+                <div class="ai-bubble ai-bubble-user">
+                  <p>{{ message.question }}</p>
+                  <span class="ai-bubble-meta">{{ message.contextLabel }}</span>
+                </div>
+              </div>
+            }
+
+            @if (message.role === 'error') {
+              <div class="ai-message ai-message-assistant">
+                <div class="ai-bubble ai-bubble-error">
+                  <mat-icon>error_outline</mat-icon>
+                  <span>{{ message.errorMessage }}</span>
+                </div>
+              </div>
+            }
+
+            @if (message.role === 'assistant' && message.response) {
+              <div class="ai-message ai-message-assistant">
+                <div class="ai-bubble ai-bubble-assistant">
+                  <div class="ai-response-summary">{{ message.response.summary }}</div>
+                  <p class="ai-response-answer">{{ message.response.answer }}</p>
+
+                  @if (message.response.keyInsights.length) {
+                    <div class="ai-response-section">
+                      <div class="ai-response-section-title">Key Insights</div>
+                      @for (item of message.response.keyInsights; track item.title) {
+                        <div class="ai-insight-item" [ngClass]="severityClass(item.severity)">
+                          <div class="ai-insight-item-header">
+                            <span class="ai-severity-badge" [ngClass]="severityClass(item.severity)">{{ item.severity }}</span>
+                            <span class="ai-insight-title">{{ item.title }}</span>
+                          </div>
+                          <p class="ai-insight-explanation">{{ item.explanation }}</p>
+                          @if (item.evidence.length) {
+                            <ul class="ai-evidence-list">
+                              @for (e of item.evidence; track e) {
+                                <li>{{ e }}</li>
+                              }
+                            </ul>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+
+                  @if (message.response.risks.length) {
+                    <div class="ai-response-section">
+                      <div class="ai-response-section-title">Risks</div>
+                      @for (item of message.response.risks; track item.title) {
+                        <div class="ai-insight-item" [ngClass]="severityClass(item.severity)">
+                          <div class="ai-insight-item-header">
+                            <span class="ai-severity-badge" [ngClass]="severityClass(item.severity)">{{ item.severity }}</span>
+                            <span class="ai-insight-title">{{ item.title }}</span>
+                          </div>
+                          <p class="ai-insight-explanation">{{ item.explanation }}</p>
+                          @if (item.evidence.length) {
+                            <ul class="ai-evidence-list">
+                              @for (e of item.evidence; track e) {
+                                <li>{{ e }}</li>
+                              }
+                            </ul>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+
+                  @if (message.response.recommendations.length) {
+                    <div class="ai-response-section">
+                      <div class="ai-response-section-title">Recommendations</div>
+                      @for (rec of message.response.recommendations; track rec.action) {
+                        <div class="ai-recommendation-item">
+                          <div class="ai-recommendation-header">
+                            <span class="ai-priority-badge" [ngClass]="priorityClass(rec.priority)">{{ rec.priority }}</span>
+                            <span class="ai-recommendation-action">{{ rec.action }}</span>
+                          </div>
+                          <p class="ai-recommendation-reason">{{ rec.reason }}</p>
+                          @if (rec.suggestedChange) {
+                            <p class="ai-recommendation-detail"><strong>Suggested change:</strong> {{ rec.suggestedChange }}</p>
+                          }
+                          @if (rec.risk) {
+                            <p class="ai-recommendation-detail"><strong>Risk:</strong> {{ rec.risk }}</p>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+
+                  @if (message.response.limitations.length) {
+                    <div class="ai-response-section">
+                      <div class="ai-response-section-title">Limitations</div>
+                      <ul class="ai-evidence-list">
+                        @for (l of message.response.limitations; track l) {
+                          <li>{{ l }}</li>
+                        }
+                      </ul>
+                    </div>
+                  }
+
+                  <p class="ai-response-conclusion">{{ message.response.conclusion }}</p>
+
+                  <div class="ai-response-footer">
+                    <span class="ai-confidence-badge">Confidence: {{ formatConfidence(message.response.confidenceScore) }}</span>
+                    <span class="ai-bubble-meta">{{ message.contextLabel }}</span>
+                  </div>
+                </div>
+              </div>
+            }
+          }
+
+          @if (isAnalyzing) {
+            <div class="ai-message ai-message-assistant">
+              <div class="ai-bubble ai-bubble-assistant ai-bubble-typing">
+                <span class="ai-typing-dot"></span>
+                <span class="ai-typing-dot"></span>
+                <span class="ai-typing-dot"></span>
+              </div>
+            </div>
+          }
+        </div>
+
+        <div class="ai-chat-composer">
+          <textarea
+            class="ai-composer-input"
+            rows="2"
+            placeholder="Ask about this campaign's performance…"
+            [(ngModel)]="questionInput"
+            (keydown)="onComposerKeydown($event)"
+            [disabled]="isAnalyzing"
+          ></textarea>
+          <button class="ai-send-btn" (click)="send()" [disabled]="!canSend">
+            @if (isAnalyzing) {
+              <span class="ai-send-spinner"></span>
+            } @else {
+              <mat-icon>send</mat-icon>
+            }
+          </button>
+        </div>
+      </div>
+      <!-- end ai-chat-card -->
+    </div>
+  </div>
+</div>

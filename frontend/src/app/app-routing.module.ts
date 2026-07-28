@@ -6,6 +6,7 @@ import { SignUpPageComponent } from './components/sign-up-page/sign-up-page.comp
 import { OauthSuccessComponent } from './components/oauth/oauth-token.component';
 import { CreateAdWorkflowComponent } from './components/create-ad-workflow/create-ad-workflow.component';
 import { InsightsComponent } from './components/insights/insights.component';
+import { AiInsightsComponent } from './components/ai-insights/ai-insights.component';
 import { CreativeLibraryComponent } from './pages/creative-library/creative-library.component';
 import { SyncAccountsComponent } from './pages/sync-accounts/sync-accounts.component';
 import { authGuard } from './guards/auth.guard';
@@ -21,6 +22,7 @@ const routes: Routes = [
     canActivate: [authGuard],
   },
   { path: 'insights', component: InsightsComponent, canActivate: [authGuard] },
+  { path: 'ai-insights', component: AiInsightsComponent, canActivate: [authGuard] },
   {
     path: 'creative-library',
     component: CreativeLibraryComponent,

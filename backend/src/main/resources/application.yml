@@ -101,6 +101,13 @@ app:
     creative:
       ttl-seconds: 180
 
+  ai-insights:
+    enabled: ${AI_INSIGHTS_ENABLED:true}
+    base-url: ${AI_INSIGHTS_BASE_URL:http://localhost:8000}
+    analyze-path: /insights/analyze
+    connection-timeout: 5s
+    read-timeout: 60s
+
 facebook:
   login:
     config-id: ${CONFIG_ID} # replace with your actual config id
@@ -139,6 +146,7 @@ insights:
       minimum-spend: 5
       percentage-change-threshold: 10
       high-spend-share-threshold: 40
+
 
 springdoc:
   api-docs:

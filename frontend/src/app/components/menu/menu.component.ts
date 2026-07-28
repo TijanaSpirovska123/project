@@ -75,6 +75,14 @@ export class MenuComponent implements OnInit, OnDestroy {
         isExpanded: false,
       },
       {
+        icon: 'smart_toy',
+        label: 'AI Insights',
+        route: 'ai-insights',
+        active: false,
+        isParent: false,
+        isExpanded: false,
+      },
+      {
         icon: 'perm_media',
         label: 'Creative Library',
         route: 'creative-library',

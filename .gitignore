@@ -7,3 +7,9 @@
 
 # Claude Code
 .claude/
+
+# Python (ai-service)
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/

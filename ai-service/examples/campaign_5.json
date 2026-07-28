@@ -1,0 +1,29 @@
+{
+  "campaign_name": "Brand Awareness Video Campaign",
+  "target_audience": "General audience aged 18-45 interested in lifestyle content",
+  "objective": "Increase brand visibility through short video content",
+  "channel": "TikTok Ads",
+  "metrics": [
+    {
+      "name": "video_views",
+      "value": 230000,
+      "unit": "count"
+    },
+    {
+      "name": "engagement_rate",
+      "value": 3.4,
+      "unit": "percent"
+    },
+    {
+      "name": "clicks",
+      "value": 1800,
+      "unit": "count"
+    },
+    {
+      "name": "conversion_rate",
+      "value": 0.6,
+      "unit": "percent"
+    }
+  ],
+  "notes": "The campaign achieved many video views, but website conversions were low."
+}

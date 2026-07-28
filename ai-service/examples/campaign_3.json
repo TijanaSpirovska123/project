@@ -1,0 +1,29 @@
+{
+  "campaign_name": "New Product Launch Awareness",
+  "target_audience": "Young professionals aged 22-35 interested in productivity tools",
+  "objective": "Create awareness for a new software product",
+  "channel": "LinkedIn Ads",
+  "metrics": [
+    {
+      "name": "impressions",
+      "value": 82000,
+      "unit": "count"
+    },
+    {
+      "name": "clicks",
+      "value": 960,
+      "unit": "count"
+    },
+    {
+      "name": "ctr",
+      "value": 1.17,
+      "unit": "percent"
+    },
+    {
+      "name": "cost_per_click",
+      "value": 2.9,
+      "unit": "EUR"
+    }
+  ],
+  "notes": "The campaign is focused only on awareness and traffic. No conversion data is available yet."
+}

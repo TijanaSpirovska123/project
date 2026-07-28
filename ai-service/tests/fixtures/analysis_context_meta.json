@@ -1,0 +1,271 @@
+ {
+    "schemaVersion" : "1.0",
+    "provider" : "META",
+    "adAccountId" : "act_481686937778670",
+    "currency" : "USD",
+    "timezone" : "America/New_York",
+    "generatedAt" : "2026-07-22T10:03:48.783963800Z",
+    "scope" : {
+      "objectType" : "CAMPAIGN",
+      "selectedObjectIds" : [ "120244089191690082" ],
+      "selectedObjectCount" : 1,
+      "objectsWithActivity" : 1,
+      "objectsWithoutActivity" : 0,
+      "singleEntity" : true
+    },
+    "currentPeriod" : { "start" : "2026-07-14", "stop" : "2026-07-21" },
+    "comparisonPeriod" : { "start" : "2026-07-06", "stop" : "2026-07-13" },
+    "coverage" : { "syncComplete" : true, "daysWithActivity" : 2 },
+    "summary" : {
+      "provider" : "META", "adAccountId" : "act_481686937778670",
+      "requestedPeriod" : { "start" : "2026-07-14", "stop" : "2026-07-21" },
+      "scope" : { "objectType" : "CAMPAIGN", "selectedObjectIds" : [ "120244089191690082" ], "selectedObjectCount" : 1,
+  "objectsWithActivity" : 1, "objectsWithoutActivity" : 0, "singleEntity" : true },
+      "currency" : "USD",
+      "metrics" : {
+        "spend" : { "value" : 50.50, "available" : true, "unavailableReason" : null, "unit" : "currency", "currency" :
+  "USD" },
+        "impressions" : { "value" : 8000.00, "available" : true, "unavailableReason" : null, "unit" : "count",
+  "currency" : null },
+        "reach" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER", "unit" :
+  "count", "currency" : null },
+        "clicks" : { "value" : 510.00, "available" : true, "unavailableReason" : null, "unit" : "count", "currency" :
+  null },
+        "unique_clicks" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER",
+  "unit" : "count", "currency" : null },
+        "outboundClicks" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER",
+  "unit" : "count", "currency" : null },
+        "landingPageViews" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER",
+  "unit" : "count", "currency" : null },
+        "leads" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER", "unit" :
+  "count", "currency" : null },
+        "conversions" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER", "unit"
+  : "count", "currency" : null },
+        "purchases" : { "value" : 13.00, "available" : true, "unavailableReason" : null, "unit" : "count", "currency" :
+  null },
+        "purchaseValue" : { "value" : 260.00, "available" : true, "unavailableReason" : null, "unit" : "currency",
+  "currency" : "USD" },
+        "ctr" : { "value" : 6.38, "available" : true, "unavailableReason" : null, "unit" : "percentage", "currency" :
+  null },
+        "cpc" : { "value" : 0.10, "available" : true, "unavailableReason" : null, "unit" : "currency", "currency" :
+  "USD" },
+        "cpm" : { "value" : 6.31, "available" : true, "unavailableReason" : null, "unit" : "currency", "currency" :
+  "USD" },
+        "frequency" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER", "unit" :
+  "ratio", "currency" : null },
+        "conversionRate" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER",
+  "unit" : "percentage", "currency" : null },
+        "costPerLead" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER", "unit"
+  : "currency", "currency" : null },
+        "costPerConversion" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER",
+  "unit" : "currency", "currency" : null },
+        "costPerPurchase" : { "value" : 3.88, "available" : true, "unavailableReason" : null, "unit" : "currency",
+  "currency" : "USD" },
+        "roas" : { "value" : 5.15, "available" : true, "unavailableReason" : null, "unit" : "ratio", "currency" : null }
+      },
+      "syncStatus" : "COMPLETE", "warnings" : [ ]
+    },
+    "comparison" : {
+      "currentPeriod" : { "start" : "2026-07-14", "stop" : "2026-07-21" },
+      "comparisonPeriod" : { "start" : "2026-07-06", "stop" : "2026-07-13" },
+      "metrics" : [
+        { "metric" : "SPEND", "currentValue" : 50.50, "previousValue" : 18.00, "absoluteChange" : 32.50,
+  "percentageChange" : 180.56, "changeReason" : null, "direction" : "INCREASED", "available" : true, "unavailableReason"
+  : null },
+        { "metric" : "IMPRESSIONS", "currentValue" : 8000.00, "previousValue" : 3000.00, "absoluteChange" : 5000.00,
+  "percentageChange" : 166.67, "changeReason" : null, "direction" : "INCREASED", "available" : true, "unavailableReason"
+  : null },
+        { "metric" : "REACH", "currentValue" : null, "previousValue" : null, "absoluteChange" : null, "percentageChange"
+  : null, "changeReason" : null, "direction" : "UNKNOWN", "available" : false, "unavailableReason" :
+  "NOT_RETURNED_BY_PROVIDER" },
+        { "metric" : "CLICKS", "currentValue" : 510.00, "previousValue" : 190.00, "absoluteChange" : 320.00,
+  "percentageChange" : 168.42, "changeReason" : null, "direction" : "INCREASED", "available" : true, "unavailableReason"
+  : null },
+        { "metric" : "UNIQUE_CLICKS", "currentValue" : null, "previousValue" : null, "absoluteChange" : null,
+  "percentageChange" : null, "changeReason" : null, "direction" : "UNKNOWN", "available" : false, "unavailableReason" :
+  "NOT_RETURNED_BY_PROVIDER" },
+        { "metric" : "OUTBOUND_CLICKS", "currentValue" : null, "previousValue" : null, "absoluteChange" : null,
+  "percentageChange" : null, "changeReason" : null, "direction" : "UNKNOWN", "available" : false, "unavailableReason" :
+  "NOT_RETURNED_BY_PROVIDER" },
+        { "metric" : "LANDING_PAGE_VIEWS", "currentValue" : null, "previousValue" : null, "absoluteChange" : null,
+  "percentageChange" : null, "changeReason" : null, "direction" : "UNKNOWN", "available" : false, "unavailableReason" :
+  "NOT_RETURNED_BY_PROVIDER" },
+        { "metric" : "LEADS", "currentValue" : null, "previousValue" : null, "absoluteChange" : null, "percentageChange"
+  : null, "changeReason" : null, "direction" : "UNKNOWN", "available" : false, "unavailableReason" :
+  "NOT_RETURNED_BY_PROVIDER" },
+        { "metric" : "CONVERSIONS", "currentValue" : null, "previousValue" : null, "absoluteChange" : null,
+  "percentageChange" : null, "changeReason" : null, "direction" : "UNKNOWN", "available" : false, "unavailableReason" :
+  "NOT_RETURNED_BY_PROVIDER" },
+        { "metric" : "PURCHASES", "currentValue" : 13.00, "previousValue" : 4.00, "absoluteChange" : 9.00,
+  "percentageChange" : 225.00, "changeReason" : null, "direction" : "INCREASED", "available" : true, "unavailableReason"
+  : null },
+        { "metric" : "PURCHASE_VALUE", "currentValue" : 260.00, "previousValue" : 80.00, "absoluteChange" : 180.00,
+  "percentageChange" : 225.00, "changeReason" : null, "direction" : "INCREASED", "available" : true, "unavailableReason"
+  : null },
+        { "metric" : "CTR", "currentValue" : 6.38, "previousValue" : 6.33, "absoluteChange" : 0.05, "percentageChange" :
+  0.79, "changeReason" : null, "direction" : "INCREASED", "available" : true, "unavailableReason" : null },
+        { "metric" : "CPC", "currentValue" : 0.10, "previousValue" : 0.09, "absoluteChange" : 0.01, "percentageChange" :
+  11.11, "changeReason" : null, "direction" : "INCREASED", "available" : true, "unavailableReason" : null },
+        { "metric" : "CPM", "currentValue" : 6.31, "previousValue" : 6.00, "absoluteChange" : 0.31, "percentageChange" :
+  5.17, "changeReason" : null, "direction" : "INCREASED", "available" : true, "unavailableReason" : null },
+        { "metric" : "FREQUENCY", "currentValue" : null, "previousValue" : null, "absoluteChange" : null,
+  "percentageChange" : null, "changeReason" : null, "direction" : "UNKNOWN", "available" : false, "unavailableReason" :
+  "NOT_RETURNED_BY_PROVIDER" },
+        { "metric" : "CONVERSION_RATE", "currentValue" : null, "previousValue" : null, "absoluteChange" : null,
+  "percentageChange" : null, "changeReason" : null, "direction" : "UNKNOWN", "available" : false, "unavailableReason" :
+  "NOT_RETURNED_BY_PROVIDER" },
+        { "metric" : "COST_PER_LEAD", "currentValue" : null, "previousValue" : null, "absoluteChange" : null,
+  "percentageChange" : null, "changeReason" : null, "direction" : "UNKNOWN", "available" : false, "unavailableReason" :
+  "NOT_RETURNED_BY_PROVIDER" },
+        { "metric" : "COST_PER_CONVERSION", "currentValue" : null, "previousValue" : null, "absoluteChange" : null,
+  "percentageChange" : null, "changeReason" : null, "direction" : "UNKNOWN", "available" : false, "unavailableReason" :
+  "NOT_RETURNED_BY_PROVIDER" },
+        { "metric" : "COST_PER_PURCHASE", "currentValue" : 3.88, "previousValue" : 4.50, "absoluteChange" : -0.62,
+  "percentageChange" : -13.78, "changeReason" : null, "direction" : "DECREASED", "available" : true, "unavailableReason"
+  : null },
+        { "metric" : "ROAS", "currentValue" : 5.15, "previousValue" : 4.44, "absoluteChange" : 0.71, "percentageChange"
+  : 15.99, "changeReason" : null, "direction" : "INCREASED", "available" : true, "unavailableReason" : null }
+      ],
+      "currentCoverage" : { "syncComplete" : true, "daysWithActivity" : 2 },
+      "comparisonCoverage" : { "syncComplete" : true, "daysWithActivity" : 1 }
+    },
+    "timeSeries" : {
+      "provider" : "META", "granularity" : "DAY",
+      "period" : { "start" : "2026-07-14", "stop" : "2026-07-21" },
+      "series" : [
+        { "date" : "2026-07-14", "metrics" : {
+            "spend" : { "value" : 24.10, "available" : true, "unavailableReason" : null, "unit" : "currency", "currency"
+  : "USD" },
+            "impressions" : { "value" : 3900.00, "available" : true, "unavailableReason" : null, "unit" : "count",
+  "currency" : null },
+            "reach" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER", "unit" :
+  "count", "currency" : null },
+            "clicks" : { "value" : 250.00, "available" : true, "unavailableReason" : null, "unit" : "count", "currency"
+  : null },
+            "unique_clicks" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER",
+  "unit" : "count", "currency" : null },
+            "outboundClicks" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER",
+  "unit" : "count", "currency" : null },
+            "landingPageViews" : { "value" : null, "available" : false, "unavailableReason" :
+  "NOT_RETURNED_BY_PROVIDER", "unit" : "count", "currency" : null },
+            "leads" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER", "unit" :
+  "count", "currency" : null },
+            "conversions" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER",
+  "unit" : "count", "currency" : null },
+            "purchases" : { "value" : 6.00, "available" : true, "unavailableReason" : null, "unit" : "count", "currency"
+  : null },
+            "purchaseValue" : { "value" : 120.00, "available" : true, "unavailableReason" : null, "unit" : "currency",
+  "currency" : "USD" },
+            "ctr" : { "value" : 6.41, "available" : true, "unavailableReason" : null, "unit" : "percentage", "currency"
+  : null },
+            "cpc" : { "value" : 0.10, "available" : true, "unavailableReason" : null, "unit" : "currency", "currency" :
+  "USD" },
+            "cpm" : { "value" : 6.18, "available" : true, "unavailableReason" : null, "unit" : "currency", "currency" :
+  "USD" },
+            "frequency" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER",
+  "unit" : "ratio", "currency" : null },
+            "conversionRate" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER",
+  "unit" : "percentage", "currency" : null },
+            "costPerLead" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER",
+  "unit" : "currency", "currency" : null },
+            "costPerConversion" : { "value" : null, "available" : false, "unavailableReason" :
+  "NOT_RETURNED_BY_PROVIDER", "unit" : "currency", "currency" : null },
+            "costPerPurchase" : { "value" : 4.02, "available" : true, "unavailableReason" : null, "unit" : "currency",
+  "currency" : "USD" },
+            "roas" : { "value" : 4.98, "available" : true, "unavailableReason" : null, "unit" : "ratio", "currency" :
+  null }
+        } },
+        { "date" : "2026-07-15", "metrics" : {
+            "spend" : { "value" : 26.40, "available" : true, "unavailableReason" : null, "unit" : "currency", "currency"
+  : "USD" },
+            "impressions" : { "value" : 4100.00, "available" : true, "unavailableReason" : null, "unit" : "count",
+  "currency" : null },
+            "reach" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER", "unit" :
+  "count", "currency" : null },
+            "clicks" : { "value" : 260.00, "available" : true, "unavailableReason" : null, "unit" : "count", "currency"
+  : null },
+            "unique_clicks" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER",
+  "unit" : "count", "currency" : null },
+            "outboundClicks" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER",
+  "unit" : "count", "currency" : null },
+            "landingPageViews" : { "value" : null, "available" : false, "unavailableReason" :
+  "NOT_RETURNED_BY_PROVIDER", "unit" : "count", "currency" : null },
+            "leads" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER", "unit" :
+  "count", "currency" : null },
+            "conversions" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER",
+  "unit" : "count", "currency" : null },
+            "purchases" : { "value" : 7.00, "available" : true, "unavailableReason" : null, "unit" : "count", "currency"
+  : null },
+            "purchaseValue" : { "value" : 140.00, "available" : true, "unavailableReason" : null, "unit" : "currency",
+  "currency" : "USD" },
+            "ctr" : { "value" : 6.34, "available" : true, "unavailableReason" : null, "unit" : "percentage", "currency"
+  : null },
+            "cpc" : { "value" : 0.10, "available" : true, "unavailableReason" : null, "unit" : "currency", "currency" :
+  "USD" },
+            "cpm" : { "value" : 6.44, "available" : true, "unavailableReason" : null, "unit" : "currency", "currency" :
+  "USD" },
+            "frequency" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER",
+  "unit" : "ratio", "currency" : null },
+            "conversionRate" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER",
+  "unit" : "percentage", "currency" : null },
+            "costPerLead" : { "value" : null, "available" : false, "unavailableReason" : "NOT_RETURNED_BY_PROVIDER",
+  "unit" : "currency", "currency" : null },
+            "costPerConversion" : { "value" : null, "available" : false, "unavailableReason" :
+  "NOT_RETURNED_BY_PROVIDER", "unit" : "currency", "currency" : null },
+            "costPerPurchase" : { "value" : 3.77, "available" : true, "unavailableReason" : null, "unit" : "currency",
+  "currency" : "USD" },
+            "roas" : { "value" : 5.30, "available" : true, "unavailableReason" : null, "unit" : "ratio", "currency" :
+  null }
+        } }
+      ]
+    },
+    "rankings" : {
+      "metric" : "SPEND",
+      "results" : [ {
+        "rank" : 1, "objectType" : "CAMPAIGN", "objectExternalId" : "120244089191690082",
+        "objectName" : "Summer Sale - Retargeting", "value" : 50.50, "currency" : "USD",
+        "activityPeriod" : { "start" : "2026-07-14", "stop" : "2026-07-15" },
+        "spend" : 50.50, "impressions" : 8000, "clicks" : 510
+      } ]
+    },
+    "breakdowns" : [
+      { "dimension" : "COUNTRY", "shareMetric" : "SPEND", "rows" : [
+        { "dimension" : "country", "dimensionValue" : "US", "spend" : 38.2, "impressions" : 6200, "clicks" : 410,
+  "reach" : 5100, "ctr" : 6.61, "roas" : null, "conversionDataAvailable" : false, "share" : 75.94, "shareMetric" :
+  "SPEND" },
+        { "dimension" : "country", "dimensionValue" : "DE", "spend" : 12.1, "impressions" : 1900, "clicks" : 95, "reach"
+  : null, "ctr" : 5.0, "roas" : null, "conversionDataAvailable" : false, "share" : 24.06, "shareMetric" : "SPEND" }
+      ] },
+      { "dimension" : "AGE", "shareMetric" : "SPEND", "rows" : [
+        { "dimension" : "age", "dimensionValue" : "25-34", "spend" : 22.5, "impressions" : 3400, "clicks" : 260, "reach"
+  : null, "ctr" : 7.65, "roas" : null, "conversionDataAvailable" : false, "share" : 55.69, "shareMetric" : "SPEND" },
+        { "dimension" : "age", "dimensionValue" : "35-44", "spend" : 17.9, "impressions" : 2500, "clicks" : 180, "reach"
+  : null, "ctr" : 7.2, "roas" : null, "conversionDataAvailable" : false, "share" : 44.31, "shareMetric" : "SPEND" }
+      ] }
+    ],
+    "findings" : [
+      { "code" : "SPEND_INCREASED", "severity" : "INFO", "scope" : null, "title" : "Spend increased", "message" : "Spend increased from 18.00 to 50.50 (180.56%).", "evidence" : [ { "metric" : "SPEND", "currentValue" : 50.50,
+  "previousValue" : 18.00, "percentageChange" : 180.56 } ], "confidence" : "HIGH" },
+      { "code" : "IMPRESSIONS_INCREASED", "severity" : "INFO", "scope" : null, "title" : "Impressions increased",
+  "message" : "Impressions increased from 3000.00 to 8000.00 (166.67%).", "evidence" : [ { "metric" : "IMPRESSIONS",
+  "currentValue" : 8000.00, "previousValue" : 3000.00, "percentageChange" : 166.67 } ], "confidence" : "HIGH" },
+      { "code" : "CLICKS_INCREASED", "severity" : "INFO", "scope" : null, "title" : "Clicks increased", "message" :
+  "Clicks increased from 190.00 to 510.00 (168.42%).", "evidence" : [ { "metric" : "CLICKS", "currentValue" : 510.00,
+  "previousValue" : 190.00, "percentageChange" : 168.42 } ], "confidence" : "HIGH" },
+      { "code" : "CPC_INCREASED", "severity" : "INFO", "scope" : null, "title" : "Cost per click increased", "message" :
+  "Cost per click increased from 0.09 to 0.10 (11.11%).", "evidence" : [ { "metric" : "CPC", "currentValue" : 0.10,
+  "previousValue" : 0.09, "percentageChange" : 11.11 } ], "confidence" : "HIGH" },
+      { "code" : "ROAS_INCREASED", "severity" : "INFO", "scope" : null, "title" : "Return on ad spend increased",
+  "message" : "Return on ad spend increased from 4.44 to 5.15 (15.99%).", "evidence" : [ { "metric" : "ROAS",
+  "currentValue" : 5.15, "previousValue" : 4.44, "percentageChange" : 15.99 } ], "confidence" : "HIGH" }
+    ],
+    "dataQualityIssues" : [ ],
+    "capabilities" : {
+      "supportedMetrics" : [ "SPEND", "IMPRESSIONS", "REACH", "CLICKS", "UNIQUE_CLICKS", "OUTBOUND_CLICKS",
+  "LANDING_PAGE_VIEWS", "LEADS", "CONVERSIONS", "PURCHASES", "PURCHASE_VALUE", "CTR", "CPC", "CPM", "FREQUENCY",
+  "CONVERSION_RATE", "COST_PER_LEAD", "COST_PER_CONVERSION", "COST_PER_PURCHASE", "ROAS" ],
+      "supportedBreakdowns" : [ "AGE", "GENDER", "COUNTRY", "PLACEMENT", "DEVICE", "PLATFORM" ],
+      "conversionMetricsAvailable" : true, "supportsDailyTimeSeries" : true, "supportsComparison" : true,
+  "supportsExactAggregateReach" : true
+    }
+  }
