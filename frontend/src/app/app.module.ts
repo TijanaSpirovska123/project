@@ -12,6 +12,7 @@ import {
   withInterceptorsFromDi,
 } from '@angular/common/http';
 import { AuthInterceptor } from './configs/http.token.interceptor';
+import { RequestIdInterceptor } from './configs/request-id.interceptor';
 import { MenuComponent } from './components/menu/menu.component';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule, MatOptionModule } from '@angular/material/core';
@@ -124,6 +125,11 @@ import { InsightsBreakdownPanelsComponent } from './components/insights/insights
   ],
   providers: [
     provideHttpClient(withInterceptorsFromDi()),
+    {
+      provide: HTTP_INTERCEPTORS,
+      useClass: RequestIdInterceptor,
+      multi: true,
+    },
     {
       provide: HTTP_INTERCEPTORS,
       useClass: AuthInterceptor,

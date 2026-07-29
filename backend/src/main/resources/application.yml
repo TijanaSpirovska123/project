@@ -86,6 +86,10 @@ jwt:
   secret: ${JWT_SECRET:3d5f78520a5483f1742708ce3f5e80edfbde53e9b06f718aced5a6764ff17d83b3e531cbae1a8c9af0ccd98565a342f4302666dc83b0b022bdd60a6545f9f486}
   expiration: 3600000 # 1 hour in ms
 
+logging:
+  pattern:
+    level: "%5p [%X{requestId:-no-request-id}]"
+
 app:
   ffmpeg:
     path: ${FFMPEG_PATH:/usr/bin/ffmpeg}

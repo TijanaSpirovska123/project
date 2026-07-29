@@ -1,9 +1,16 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
 
   postgres:
     image: postgres:16-alpine
     container_name: marketing_postgres
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -22,6 +29,7 @@ services:
     image: redis:7-alpine
     container_name: marketing_redis
     restart: unless-stopped
+    logging: *default-logging
     command: redis-server --requirepass ${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
@@ -37,6 +45,7 @@ services:
     image: minio/minio:latest
     container_name: marketing_minio
     restart: unless-stopped
+    logging: *default-logging
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
@@ -56,6 +65,7 @@ services:
   minio-init:
     image: minio/mc:latest
     container_name: marketing_minio_init
+    logging: *default-logging
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
@@ -78,6 +88,7 @@ services:
       dockerfile: Dockerfile
     container_name: marketing_ai
     restart: unless-stopped
+    logging: *default-logging
     environment:
       LLM_PROVIDER: ${LLM_PROVIDER:-groq}
       GROQ_API_KEY: ${GROQ_API_KEY}
@@ -106,6 +117,7 @@ services:
       dockerfile: Dockerfile
     container_name: marketing_backend
     restart: unless-stopped
+    logging: *default-logging
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       DB_USERNAME: ${POSTGRES_USER}
@@ -157,6 +169,7 @@ services:
       dockerfile: Dockerfile
     container_name: marketing_frontend
     restart: unless-stopped
+    logging: *default-logging
     environment:
       NODE_ENV: production
     depends_on:
@@ -168,6 +181,7 @@ services:
     image: nginx:alpine
     container_name: marketing_nginx
     restart: unless-stopped
+    logging: *default-logging
     command: >
       /bin/sh -c "
       apk add --no-cache openssl &&

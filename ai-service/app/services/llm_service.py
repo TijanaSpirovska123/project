@@ -485,12 +485,20 @@ def generate_groq_insights(
         )
     )
 
+    scope = request.analysis_context.scope
+
+    log_context = {
+        "object_type": scope.object_type,
+        "object_ids": scope.selected_object_ids,
+    }
+
     logger.info(
         "Sending Groq request. model=%s prompt_characters=%s "
         "max_completion_tokens=%s",
         model,
         len(prompt),
         max_completion_tokens,
+        extra=log_context,
     )
 
     response = None
@@ -529,6 +537,7 @@ def generate_groq_insights(
                 attempt,
                 max_attempts,
                 str(exc),
+                extra=log_context,
             )
 
             if attempt < max_attempts:
@@ -549,6 +558,7 @@ def generate_groq_insights(
                 attempt,
                 max_attempts,
                 type(exc).__name__,
+                extra=log_context,
             )
 
             if attempt < max_attempts:
@@ -561,7 +571,8 @@ def generate_groq_insights(
 
         except AuthenticationError as exc:
             logger.exception(
-                "Groq authentication failed."
+                "Groq authentication failed.",
+                extra=log_context,
             )
 
             raise LLMUnavailableError(
@@ -575,6 +586,7 @@ def generate_groq_insights(
                 "Groq rejected the request. status=%s body=%s",
                 exc.status_code,
                 body,
+                extra=log_context,
             )
 
             raise LLMUnavailableError(
@@ -589,6 +601,7 @@ def generate_groq_insights(
                 "Groq API error. status=%s body=%s",
                 status_code,
                 body,
+                extra=log_context,
             )
 
             # A request-size error will not succeed after waiting.
@@ -621,6 +634,7 @@ def generate_groq_insights(
                 "Unexpected Groq error. error_type=%s error=%s",
                 type(exc).__name__,
                 str(exc),
+                extra=log_context,
             )
 
             raise LLMUnavailableError(
@@ -653,6 +667,7 @@ def generate_groq_insights(
         logger.error(
             "Groq response validation failed. errors=%s",
             exc.errors(include_url=False),
+            extra=log_context,
         )
 
         raise LLMInvalidResponseError(
