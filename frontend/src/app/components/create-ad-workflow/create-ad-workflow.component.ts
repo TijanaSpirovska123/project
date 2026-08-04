@@ -63,20 +63,11 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
   isPublishing = false;
   isInitialLoading = false;
 
-  // Mobile stepper (sm/xs only — controlled by CSS)
-  mobileStep = 1; // 1: Ad Details, 2: Choose Creative, 3: Review & Publish
-  readonly mobileStepLabels = [
-    'Ad Details',
-    'Choose Creative',
-    'Review & Publish',
-  ];
+  // Step wizard (steps 1-5, see step*Done / unlockedStep below)
+  openStep = 1;
+  /** Which creative pathway is active: an already-published creative, or one built from the asset library */
+  creativeSource: 'existing' | 'library' | null = null;
 
-  nextMobileStep(): void {
-    if (this.mobileStep < 3) this.mobileStep++;
-  }
-  prevMobileStep(): void {
-    if (this.mobileStep > 1) this.mobileStep--;
-  }
   userId = '';
 
   campaigns: Campaign[] = [];
@@ -91,8 +82,8 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
   isLoadingCreatives = false;
   selectedCreative: any = null;
 
-  /** Which side panel is open: creative picker, creative creator, or none */
-  activePanelType: 'picker' | 'creator' | null = null;
+  /** The embedded creative-library overlay, opened from the "no creatives found" empty state */
+  activePanelType: 'creator' | null = null;
 
   // ── Asset Library tab (Tab 2 of picker panel) ────────────────────────────────
   creativePickerTab: 'existing' | 'asset-library' = 'existing';
@@ -103,8 +94,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
   private assetThumbCache = new Map<string, string>();
   private assetThumbObjectUrls: string[] = [];
 
-  // Variant selection modal
-  isVariantModalOpen = false;
+  // Variant selection (step 4 of the wizard)
   selectedAssetForVariant: StoredAssetDto | null = null;
   selectedVariantKey: string = 'ORIGINAL';
 
@@ -125,6 +115,15 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
   utmPreview = '';
 
   readonly platforms = AD_PLATFORM_OPTIONS;
+
+  // Format is fixed to 'single' — no CreativeStrategy handles the others yet, so they're
+  // shown for visibility (matching the design) but stay read-only.
+  readonly formatOptions: { key: string; label: string; desc: string; disabled?: boolean }[] = [
+    { key: 'single', label: 'Single image or video', desc: 'One asset, mapped to each placement.' },
+    { key: 'carousel', label: 'Carousel', desc: '2–10 cards in order, each with its own headline and link.', disabled: true },
+    { key: 'collection', label: 'Collection', desc: 'A cover asset plus products from a catalog.', disabled: true },
+    { key: 'flexible', label: 'Flexible', desc: 'A pool of assets the platform assembles per placement.', disabled: true },
+  ];
 
   constructor(
     private formBuilder: FormBuilder,
@@ -192,6 +191,226 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     this.assetThumbObjectUrls.forEach((url) => URL.revokeObjectURL(url));
   }
 
+  // ── Step wizard ─────────────────────────────────────────────────────────────
+  // All 5 steps are always shown (matching the reference layout). Steps 4-5
+  // (placement + creative details) only unlock when building a new creative
+  // from the asset library — picking an already published creative in step 3
+  // needs nothing further before publish, so they stay locked for that path.
+
+  get step1Done(): boolean {
+    return !!this.adForm?.get('platform')?.value;
+  }
+
+  get step2Done(): boolean {
+    return !!(
+      this.adForm?.get('name')?.value?.trim() &&
+      this.selectedCampaignId &&
+      this.adForm?.get('adSetId')?.value &&
+      this.adForm?.get('status')?.value
+    );
+  }
+
+  get step3Done(): boolean {
+    if (this.creativeSource === 'existing') return !!this.selectedCreative;
+    if (this.creativeSource === 'library') return !!this.selectedAssetForVariant;
+    return false;
+  }
+
+  get step4Done(): boolean {
+    return !!this.selectedAssetForVariant && !!this.selectedVariantKey;
+  }
+
+  get step5Done(): boolean {
+    return this.creativeSource === 'library' && !!this.selectedCreative;
+  }
+
+  unlockedStep(n: number): boolean {
+    switch (n) {
+      case 1: return true;
+      case 2: return this.step1Done;
+      case 3: return this.step2Done;
+      case 4: return this.creativeSource === 'library' && !!this.selectedAssetForVariant;
+      case 5: return this.creativeSource === 'library' && this.step4Done;
+      default: return false;
+    }
+  }
+
+  /** Header/arrow click: collapse an already-open step, otherwise open it (if unlocked) */
+  toggleStep(n: number): void {
+    if (this.openStep === n) {
+      this.openStep = 0;
+      return;
+    }
+    this.openStepPanel(n);
+  }
+
+  openStepPanel(n: number): void {
+    if (!this.unlockedStep(n)) return;
+    this.openStep = n;
+    if (n === 3) {
+      if (this.creativePickerTab === 'existing' && this.creatives.length === 0 && !this.isLoadingCreatives) {
+        this.loadCreatives();
+      }
+      if (this.creativePickerTab === 'asset-library' && this.pickerAssets.length === 0 && !this.isLoadingPickerAssets) {
+        this.loadPickerAssets();
+      }
+    }
+  }
+
+  /** Move on from step n to the next unlocked step, or stay put if it isn't unlocked yet */
+  continueToNext(n: number): void {
+    const next = n + 1;
+    if (this.unlockedStep(next)) {
+      this.openStepPanel(next);
+    } else {
+      this.openStep = n;
+    }
+  }
+
+  get step1Summary(): string {
+    const p = this.platformOptions.find((o) => o.value === this.adForm?.get('platform')?.value);
+    return p ? `${p.label} · Single image or video` : 'Which network is this ad for?';
+  }
+
+  get step2Summary(): string {
+    if (!this.step2Done) return 'Name, campaign, ad set, status';
+    const campaignName = this.campaigns.find((c) => String(c.id) === this.selectedCampaignId)?.name ?? '';
+    return `${this.adForm.get('name')?.value} · ${campaignName} · ${this.adForm.get('status')?.value}`;
+  }
+
+  get step3Summary(): string {
+    if (this.selectedCreative) return this.selectedCreative.name;
+    if (this.selectedPickerAsset) return this.selectedPickerAsset.originalFilename;
+    return 'Choose from your library';
+  }
+
+  get step4Summary(): string {
+    return this.selectedAssetForVariant && this.selectedVariantKey
+      ? this.getVariantLabel(this.selectedVariantKey)
+      : 'Choose an image variant';
+  }
+
+  get step5Summary(): string {
+    return this.step5Done ? 'Creative created' : 'Copy, destination and call to action';
+  }
+
+  // ── Live preview (right rail) ───────────────────────────────────────────────
+  // Shows the exact crop the selected variant will publish with — same width/height
+  // the asset-library API generated it at, so this reads correctly for any future
+  // platform's variants too, not just Meta's.
+  get hasPreviewContent(): boolean {
+    return !!this.selectedCreative || !!this.selectedAssetForVariant;
+  }
+
+  /** The variant whose crop is currently shown: the one picked in step 4, or the
+   *  original (pre-crop) while the user is still choosing one. */
+  get previewVariant(): StoredAssetVariantDto | null {
+    if (!this.selectedAssetForVariant) return null;
+    if (this.selectedVariantKey) {
+      const picked = this.selectedAssetForVariant.variants.find((v) => v.variantKey === this.selectedVariantKey);
+      if (picked) return picked;
+    }
+    return (
+      this.selectedAssetForVariant.variants.find((v) => v.variantKey === 'ORIGINAL')
+      ?? this.selectedAssetForVariant.variants[0]
+      ?? null
+    );
+  }
+
+  get previewAspectRatio(): number {
+    const v = this.previewVariant;
+    return v?.width && v?.height ? v.width / v.height : 1;
+  }
+
+  /** "1:1", "4:5", "9:16"... next to the "Live preview" heading — snaps to the
+   *  nearest common ratio name, same idea for any future platform's dimensions. */
+  get previewRatioLabel(): string {
+    const v = this.previewVariant;
+    if (!v?.width || !v?.height) return '';
+    const ratio = v.width / v.height;
+    const known: [number, string][] = [
+      [1, '1:1'], [0.8, '4:5'], [0.6667, '2:3'], [0.5625, '9:16'], [1.91, '1.91:1'],
+    ];
+    let best = known[0], diff = Infinity;
+    for (const k of known) {
+      const d = Math.abs(ratio - k[0]);
+      if (d < diff) { diff = d; best = k; }
+    }
+    return diff < 0.03 ? best[1] : `${ratio.toFixed(2)}:1`;
+  }
+
+  get previewThumb(): string | null {
+    if (this.selectedCreative) return this.getCreativeThumbnail(this.selectedCreative) || null;
+    const v = this.previewVariant;
+    if (this.selectedAssetForVariant && v) {
+      const exact = this.getAssetVariantThumb(this.selectedAssetForVariant, v.variantKey);
+      if (exact) return exact;
+    }
+    if (this.selectedAssetForVariant) return this.getPickerAssetThumb(this.selectedAssetForVariant);
+    return null;
+  }
+
+  get previewPageName(): string {
+    return this.selectedPage?.name
+      || this.pages.find((p) => p.pageId === this.assetCreativeForm?.get('pageId')?.value)?.name
+      || 'Your Page';
+  }
+
+  get previewHeadline(): string {
+    return this.assetCreativeForm?.get('headline')?.value || this.selectedCreative?.name || 'Your headline';
+  }
+
+  get previewMessage(): string {
+    return this.assetCreativeForm?.get('message')?.value || 'Your message appears here.';
+  }
+
+  get previewCta(): string {
+    const key = this.assetCreativeForm?.get('callToAction')?.value;
+    return this.callToActionOptions.find((o) => o.value === key)?.label || 'Learn More';
+  }
+
+  // ── Before-publish checklist (right rail) ─────────────────────────────────
+  get checklistGroups(): { name: string; items: { label: string; ok: boolean }[] }[] {
+    const groups: { name: string; items: { label: string; ok: boolean }[] }[] = [
+      {
+        name: 'Setup',
+        items: [
+          { label: 'Platform', ok: this.step1Done },
+          { label: 'Ad name', ok: !!this.adForm?.get('name')?.value?.trim() },
+          { label: 'Campaign', ok: !!this.selectedCampaignId },
+          { label: 'Ad set', ok: !!this.adForm?.get('adSetId')?.value },
+          { label: 'Status', ok: !!this.adForm?.get('status')?.value },
+        ],
+      },
+      { name: 'Creative', items: [{ label: 'Ad creative selected', ok: !!this.adForm?.get('creativeId')?.value }] },
+    ];
+    if (this.creativeSource === 'library') {
+      groups.push({
+        name: 'Placement',
+        items: [{ label: 'Image variant selected', ok: this.step4Done }],
+      });
+      groups.push({
+        name: 'Details',
+        items: [
+          { label: 'Page', ok: !!this.assetCreativeForm.get('pageId')?.value },
+          { label: 'Headline', ok: !!this.assetCreativeForm.get('headline')?.value?.trim() },
+          { label: 'Message', ok: !!this.assetCreativeForm.get('message')?.value?.trim() },
+          { label: 'Website URL', ok: !!this.assetCreativeForm.get('objectUrl')?.valid },
+        ],
+      });
+      groups.push({ name: 'Finish', items: [{ label: 'Creative created', ok: this.step5Done }] });
+    }
+    return groups;
+  }
+
+  get checklistDone(): number {
+    return this.checklistGroups.flatMap((g) => g.items).filter((i) => i.ok).length;
+  }
+
+  get checklistTotal(): number {
+    return this.checklistGroups.flatMap((g) => g.items).length;
+  }
+
   get campaignOptions(): DropdownOption[] {
     return this.campaigns
       .filter((c) => this.allAdSets.some((a) => a.campaignId === c.id))
@@ -222,7 +441,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
   }
 
   get platformOptions(): DropdownOption[] {
-    return this.platforms.map((p) => ({ value: p.value, label: p.label }));
+    return this.platforms.map((p) => ({ value: p.value, label: p.label, disabled: p.disabled }));
   }
 
   readonly statusOptions      = AD_STATUS_OPTIONS;
@@ -247,6 +466,11 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     this.creatives = [];
     this.selectedCreative = null;
     this.adForm.get('creativeId')?.setValue('');
+    this.selectedPickerAsset = null;
+    this.selectedAssetForVariant = null;
+    this.selectedVariantKey = 'ORIGINAL';
+    this.creativeSource = null;
+    if (this.openStep > 3) this.openStep = 3;
   }
 
   loadAdSetsByCampaign(campaignId: string): void {
@@ -316,21 +540,6 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     this.loadCreatives();
   }
 
-  openPanel(type: 'picker' | 'creator'): void {
-    if (type === 'picker' && !this.selectedAdSetAccountId) {
-      this.toastr.warning('Select a campaign and ad set first');
-      return;
-    }
-    this.activePanelType = type;
-    if (
-      type === 'picker' &&
-      this.creatives.length === 0 &&
-      !this.isLoadingCreatives
-    ) {
-      this.loadCreatives();
-    }
-  }
-
   closePanel(): void {
     this.activePanelType = null;
   }
@@ -339,6 +548,16 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     this.selectedCreative = creative;
     this.adForm.get('creativeId')?.setValue(creative.id);
     this.activePanelType = null;
+  }
+
+  /** Picking an already-published creative (tab 1) needs nothing further — no placement/details steps */
+  pickExistingCreative(creative: any): void {
+    if (creative.object_type === 'POST_DELETED') return;
+    this.creativeSource = 'existing';
+    this.selectCreative(creative);
+    // Steps 4/5 (asset-library only) disappear once creativeSource flips to 'existing' —
+    // keep the accordion pointed at a step that's still actually rendered.
+    this.openStep = 3;
   }
 
   getCreativeThumbnail(creative: any): string {
@@ -534,25 +753,44 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     return this.assetThumbCache.get(`${asset.id}_${variantKey}`) ?? null;
   }
 
-  selectPickerAsset(asset: StoredAssetDto): void {
-    // Open variant selection modal
-    this.selectedAssetForVariant = asset;
-    this.isVariantModalOpen = true;
+  /** The exact crop for one variant of an asset — used for the step 4 variant list
+   *  and the live preview, so both show precisely how that variant will publish. */
+  getAssetVariantThumb(asset: StoredAssetDto, variantKey: string): string | null {
+    return this.assetThumbCache.get(`${asset.id}_${variantKey}`) ?? null;
   }
 
-  closeVariantModal(): void {
-    this.isVariantModalOpen = false;
-    this.selectedAssetForVariant = null;
+  /** Aspect ratio helper for step 4's variant rows — width/height comes straight off
+   *  the variant DTO, so this works the same for any future platform's variants. */
+  variantRatio(v: StoredAssetVariantDto): number {
+    return v.width && v.height ? v.width / v.height : 1;
+  }
+
+  selectPickerAsset(asset: StoredAssetDto): void {
+    this.creativeSource = 'library';
+    this.selectedAssetForVariant = asset;
+    this.openStep = 4;
+    // Load the real crop for every publishable variant up front, so both the
+    // variant list and the live preview can show the exact picture, not a stand-in.
+    this.metaVariants(asset).forEach((v) => this.fetchPickerThumb(asset.id, v.variantKey));
   }
 
   selectVariant(variantKey: string): void {
     this.selectedPickerAsset = this.selectedAssetForVariant;
     this.selectedVariantKey = variantKey;
-    this.closeVariantModal();
+    this.continueToNext(4);
   }
 
   getVariantLabel(key: string): string {
     return META_VARIANT_LABELS[key] || key;
+  }
+
+  /** Short form for the preview's placement tabs — "1:1 Square" instead of
+   *  "1:1 Square (1080×1080)". Derived from the same label, not hardcoded, so
+   *  it keeps working for whatever labels a future platform's variants use. */
+  placementTabLabel(key: string): string {
+    const full = this.getVariantLabel(key);
+    const idx = full.indexOf(' (');
+    return idx > -1 ? full.slice(0, idx) : full;
   }
 
   onUploadNewImage(event: Event): void {

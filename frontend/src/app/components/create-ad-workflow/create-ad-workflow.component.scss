@@ -24,7 +24,7 @@
 .workflow-row {
   display: flex;
   gap: 20px;
-  align-items: stretch;
+  align-items: flex-start;
   width: 100%;
 
   @media (max-width: 1023px) {
@@ -32,207 +32,551 @@
   }
 }
 
-// ─── Form card ──────────────────────────────────────────────────────────────
-.ad-form-card {
-  background: var(--card-bg);
-  border: 1px solid var(--tbl-border);
-  border-radius: 10px;
-  overflow: hidden;
-  flex: 0 0 680px;
+// ─── Wizard column (steps 1-5) ────────────────────────────────────────────────
+.wizard-col {
+  background: transparent;
+  flex: 1 1 680px;
   max-width: 680px;
   width: 100%;
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 48px);
 
   @media (max-width: 1023px) {
-    flex: 1;
     max-width: 100%;
-    min-height: auto;
   }
 }
 
-.ad-form-header {
-  padding: 12px 18px;
-  border-bottom: 1px solid var(--tbl-border);
+.wizard-header {
+  padding: 4px 2px 14px;
 
   h2 {
     margin: 0;
-    font-size: 1rem;
+    font-size: 1.15rem;
     font-weight: 700;
     color: var(--body-text);
   }
 }
 
-.ad-form-body {
-  padding: 18px;
+.wizard-body {
   flex: 1;
 }
 
-// ─── Mobile Stepper ───────────────────────────────────────────────────────────
-.mobile-stepper {
-  display: none; // hidden on desktop
+// ─── Step accordion (wizard steps 1-5) ────────────────────────────────────────
+.step {
+  background: var(--card-bg);
+  border: 1px solid var(--tbl-border);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  transition: border-color 0.25s, opacity 0.25s;
 
-  @media (max-width: 479px) {
-    display: flex;
-    align-items: center;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--tbl-border);
-    gap: 0;
+  &.locked {
+    opacity: 0.45;
+  }
+  &.open {
+    border-color: #1ca698;
+    // Let dropdown/select popups inside an open step escape the card instead
+    // of being clipped by the rounded-corner overflow trick below.
+    overflow: visible;
+  }
+  &.done {
+    border-color: rgba(28, 166, 152, 0.35);
   }
 }
 
-.stepper-step {
+.step-header {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
-
-  .stepper-dot {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: #e8ebf2;
-    color: #64748b;
-    font-size: 12px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .stepper-label {
-    font-size: 10px;
-    color: #94a3b8;
-    white-space: nowrap;
-  }
-
-  &.active {
-    .stepper-dot {
-      background: #10b981;
-      color: white;
-    }
-    .stepper-label {
-      color: #10b981;
-      font-weight: 600;
-    }
-  }
-
-  &.done {
-    .stepper-dot {
-      background: #d1fae5;
-      color: #059669;
-    }
-    .stepper-label {
-      color: #059669;
-    }
-  }
-}
-
-.stepper-line {
-  flex: 1;
-  height: 2px;
-  background: #e8ebf2;
-  margin: 0 4px;
-  margin-bottom: 16px;
-
-  &.done {
-    background: #10b981;
-  }
-}
-
-// On desktop, all step sections are visible; on mobile, only the active step
-.mobile-step-section {
-  @media (max-width: 479px) {
-    &.mobile-hidden {
-      display: none !important;
-    }
-  }
-}
-
-// Review section — only meaningful on mobile (hidden on desktop)
-.mobile-step-review {
-  @media (min-width: 480px) {
-    display: none;
-  }
-}
-
-.review-summary {
-  display: flex;
-  flex-direction: column;
   gap: 12px;
-  padding: 8px 0;
-}
-
-.review-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid #f1f5f9;
-
-  .review-label {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #64748b;
-    flex-shrink: 0;
-  }
-
-  .review-value {
-    font-size: 0.85rem;
-    color: #20233a;
-    font-weight: 500;
-    text-align: right;
-  }
-}
-
-// Mobile stepper nav bar — hidden on desktop
-.mobile-stepper-nav {
-  display: none;
-
-  @media (max-width: 479px) {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-    border-top: 1px solid var(--tbl-border);
-    background: var(--tbl-bg-alt);
-    gap: 12px;
-
-    &.hidden {
-      display: none !important;
-    }
-  }
-}
-
-.mobile-nav-btn {
-  min-height: 44px;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 0.87rem;
-  font-weight: 600;
+  padding: 14px 18px;
   cursor: pointer;
-  border: none;
+  transition: background 0.15s;
+  // Matches .step's own radius so the hover background doesn't square off
+  // the top corners once .step switches to overflow: visible while open.
+  border-radius: 10px 10px 0 0;
 
-  &.back-btn {
-    background: var(--tbl-bg, #f3f4f6);
-    color: var(--tbl-text, #374151);
-    border: 1px solid var(--tbl-border, #e5e7eb);
+  &:hover {
+    background: var(--tbl-bg-alt);
   }
 
-  &.next-btn {
-    background: #10b981;
-    color: white;
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  .step.locked & {
+    cursor: not-allowed;
+    &:hover {
+      background: transparent;
+    }
+  }
+}
+
+.step-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  flex: 0 0 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--input-bg);
+  border: 1px solid var(--tbl-border);
+  color: var(--tbl-muted);
+  transition: background 0.25s, border-color 0.25s, color 0.25s;
+
+  .step.open & {
+    background: #1ca698;
+    border-color: #1ca698;
+    color: #fff;
+  }
+  .step.done & {
+    background: transparent;
+    border-color: #1ca698;
+    color: #1ca698;
+  }
+}
+
+.step-meta {
+  flex: 1;
+  min-width: 0;
+
+  h3 {
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 650;
+    color: var(--body-text);
+  }
+  p {
+    margin: 2px 0 0;
+    font-size: 11.5px;
+    color: var(--tbl-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .step.done & p {
+    color: #1ca698;
+  }
+}
+
+.step-chevron {
+  color: var(--tbl-muted);
+  flex-shrink: 0;
+  transition: transform 0.25s;
+  font-size: 20px !important;
+  width: 20px !important;
+  height: 20px !important;
+
+  .step.open & {
+    transform: rotate(180deg);
+  }
+}
+
+.step-body {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s, padding 0.3s;
+
+  .step.open & {
+    max-height: 4000px;
+    opacity: 1;
+    padding: 0 18px 18px;
+    // Steady open state — no longer clip dropdown/select popups rendered inside.
+    overflow: visible;
+  }
+}
+
+.step-footer {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--tbl-border);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-step-next {
+  border: none;
+  border-radius: 7px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  background: #1ca698;
+  color: #fff;
+  transition: filter 0.15s, opacity 0.2s;
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+// ─── Step 1: format cards (only "single" is wired up — the rest are read-only) ─
+.fmts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.fmt {
+  position: relative;
+  background: var(--input-bg);
+  border: 1px solid var(--tbl-border);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, opacity 0.2s;
+
+  &:hover {
+    border-color: #1ca698;
+  }
+  &.on {
+    border-color: #1ca698;
+    background: rgba(28, 166, 152, 0.07);
+  }
+  &.disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
 
     &:hover {
-      transform: translateY(-1px);
+      border-color: var(--tbl-border);
     }
   }
 }
 
-.ad-form-footer {
+.fmt-label {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--body-text);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.fmt-desc {
+  font-size: 10.5px;
+  color: var(--tbl-muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.fmt-radio {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid var(--tbl-muted);
+  flex: 0 0 12px;
+
+  .fmt.on & {
+    border-color: #1ca698;
+    background: radial-gradient(circle, #1ca698 0 42%, transparent 46%);
+  }
+}
+
+.fmt-badge {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tbl-muted);
+  background: var(--tbl-bg-alt);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+// ─── Step 3: existing-creative tab actions ─────────────────────────────────────
+.tab-pane-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+// ─── Step 5: selected-image banner (replaces hardcoded inline green box) ──────
+.selected-image-banner {
+  padding: 10px 12px;
+  background: rgba(28, 166, 152, 0.08);
+  border: 1px solid rgba(28, 166, 152, 0.35);
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.selected-image-banner-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1ca698;
+  margin-bottom: 4px;
+}
+
+.selected-image-banner-file {
+  font-size: 11px;
+  color: var(--body-text);
+  word-break: break-all;
+}
+
+// ─── Right rail: live preview + before-publish checklist ──────────────────────
+.rail-col {
+  flex: 0 1 320px;
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding-right: 2px;
+
+  @media (max-width: 1023px) {
+    position: static;
+    max-height: none;
+    max-width: 100%;
+  }
+}
+
+.rail-card {
+  background: var(--card-bg);
+  border: 1px solid var(--tbl-border);
+  border-radius: 10px;
+  padding: 18px;
+  flex: 0 0 auto;
+
+  // "Before publish" checklist — stretch to fill the rail's remaining height
+  // instead of stopping short of the wizard column next to it.
+  &:last-child {
+    flex: 1 1 auto;
+  }
+}
+
+.rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--tbl-muted);
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.rail-head-count {
+  font-size: 10px;
+  color: var(--tbl-muted);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.rail-empty {
+  text-align: center;
+  padding: 24px 6px;
+  color: var(--tbl-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+// Placement switcher above the preview mock — one tab per available crop
+.ptabs {
+  display: flex;
+  gap: 3px;
+  background: var(--input-bg);
+  border: 1px solid var(--tbl-border);
+  border-radius: 7px;
+  padding: 3px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.ptab {
+  flex: 1;
+  text-align: center;
+  padding: 6px 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--tbl-muted);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  min-width: 52px;
+
+  &:hover {
+    color: var(--body-text);
+  }
+  &.on {
+    background: var(--card-bg);
+    color: #1ca698;
+  }
+}
+
+// Ad mockup — intentionally always rendered on a light "platform" surface,
+// like a screenshot of the real feed card, regardless of app theme.
+.preview-mock {
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  color: #050505;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.preview-mock-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+}
+
+.preview-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1ca698, #27ae60);
+  flex: 0 0 22px;
+}
+
+.preview-page-name {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.preview-sponsored {
+  font-size: 9px;
+  color: #65676b;
+}
+
+.preview-message {
+  padding: 0 10px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.preview-media {
+  // Overridden per-render via [style.aspect-ratio] to match the exact selected
+  // variant's crop (falls back to 1:1 until a variant/dimensions are known).
+  aspect-ratio: 1 / 1;
+  background: #08110f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .preview-media-placeholder {
+    color: rgba(255, 255, 255, 0.4);
+    mat-icon {
+      font-size: 32px;
+      width: 32px;
+      height: 32px;
+    }
+  }
+}
+
+// Sits inside .preview-mock, which is always a light "platform" surface —
+// match its fixed light-mode palette rather than the app's themed muted color.
+.preview-dims {
+  font-size: 9.5px;
+  color: #65676b;
+  text-align: center;
+  padding: 6px 0 2px;
+  font-family: ui-monospace, Menlo, monospace;
+}
+
+.preview-cta-row {
+  background: #f0f2f5;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.preview-headline {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+  word-break: break-word;
+  color: #050505;
+}
+
+.preview-cta-btn {
+  background: #e4e6eb;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  color: #050505;
+}
+
+.checklist-group-label {
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tbl-muted);
+  font-weight: 700;
+  margin: 12px 0 4px;
+
+  &:first-child {
+    margin-top: 0;
+  }
+}
+
+.checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 4px 0;
+    font-size: 11.5px;
+    color: var(--tbl-muted);
+    transition: color 0.25s;
+
+    &.ok {
+      color: #1ca698;
+    }
+  }
+}
+
+.checklist-box {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid var(--tbl-border);
+  flex: 0 0 14px;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8.5px;
+  transition: background 0.25s, border-color 0.25s, color 0.25s;
+
+  li.ok & {
+    background: #1ca698;
+    border-color: #1ca698;
+    color: #fff;
+  }
+}
+
+.wizard-footer {
   padding: 12px 18px;
   border-top: 1px solid var(--tbl-border);
   background: var(--tbl-bg-alt);
@@ -299,46 +643,6 @@
   }
 }
 
-// ─── Side panel card ─────────────────────────────────────────────────────────
-.side-panel-card {
-  background: var(--card-bg);
-  border: 1px solid var(--tbl-border);
-  border-radius: 10px;
-  overflow: hidden;
-  flex: 0 0 680px;
-  max-width: 680px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100vh - 48px);
-  position: sticky;
-  top: 16px;
-}
-
-.side-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 18px;
-  border-bottom: 1px solid var(--tbl-border);
-  flex-shrink: 0;
-  background: var(--card-bg);
-
-  h3 {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--body-text);
-  }
-
-  .side-panel-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-}
-
-.panel-close-btn,
 .panel-icon-btn {
   display: flex;
   align-items: center;
@@ -361,13 +665,6 @@
     width: 16px;
     height: 16px;
   }
-}
-
-.side-panel-body {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 16px 18px;
 }
 
 .panel-loading,
@@ -453,12 +750,6 @@
   }
 }
 
-// ─── Creative action buttons row ─────────────────────────────────────────────
-.creative-action-row {
-  display: flex;
-  gap: 10px;
-}
-
 // ─── Footer buttons ──────────────────────────────────────────────────────────
 .btn {
   display: flex;
@@ -495,40 +786,6 @@
       transform: none;
       box-shadow: none;
     }
-  }
-}
-
-// ─── Creative picker button ───────────────────────────────────────────────────
-.btn-select-creative {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  border: 2px dashed var(--tbl-border);
-  border-radius: 6px;
-  background: var(--input-bg);
-  color: var(--tbl-muted);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  flex: 1;
-  justify-content: center;
-  box-sizing: border-box;
-
-  &:hover {
-    border-color: #1ca698;
-    color: #1ca698;
-    background: rgba(28, 166, 152, 0.04);
-  }
-  &.error {
-    border-color: #e74c3c;
-  }
-
-  mat-icon {
-    font-size: 18px;
-    width: 18px;
-    height: 18px;
   }
 }
 
@@ -573,112 +830,6 @@
   }
 }
 
-// ─── Selected creative preview ────────────────────────────────────────────────
-.creative-preview {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border: 1px solid #1ca698;
-  border-radius: 6px;
-  background: var(--input-bg);
-
-  .creative-preview-thumb {
-    flex-shrink: 0;
-    width: 44px;
-    height: 44px;
-    border-radius: 5px;
-    overflow: hidden;
-    background: var(--tbl-bg-alt);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .creative-preview-placeholder {
-      color: var(--tbl-muted);
-      mat-icon {
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
-      }
-    }
-  }
-
-  .creative-preview-info {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-
-    .creative-preview-name {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--body-text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .creative-preview-id {
-      font-size: 10px;
-      color: var(--tbl-muted);
-    }
-  }
-
-  .btn-change-creative {
-    flex-shrink: 0;
-    padding: 5px 12px;
-    border: 1px solid var(--tbl-border);
-    border-radius: 5px;
-    background: var(--tbl-bg-alt);
-    color: var(--body-text);
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-
-    &:hover {
-      border-color: #1ca698;
-      color: #1ca698;
-    }
-  }
-}
-
-.btn-select-creative {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 10px 16px;
-  border: 2px dashed var(--tbl-border);
-  border-radius: 8px;
-  background: var(--tbl-bg-alt);
-  color: var(--tbl-muted);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  justify-content: center;
-
-  mat-icon {
-    font-size: 18px;
-    width: 18px;
-    height: 18px;
-  }
-
-  &:hover {
-    border-color: #1ca698;
-    color: #1ca698;
-    background: rgba(28, 166, 152, 0.05);
-  }
-}
 
 // ─── Badges ───────────────────────────────────────────────────────────────────
 .creative-type-badge {
@@ -1135,15 +1286,15 @@
   animation: fadeIn 0.2s ease-out;
 }
 
-.variant-modal {
-  background: white;
+// Overlay box for the embedded Creative Library (opened from the "no creatives found" empty state)
+.creative-library-modal {
+  background: var(--card-bg);
   border-radius: 12px;
-  width: 600px;
+  width: 960px;
   max-width: 95vw;
-  max-height: 85vh;
+  max-height: 88vh;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   animation: slideUp 0.3s ease-out;
 }
@@ -1181,7 +1332,7 @@
   border-radius: 6px;
   padding: 4px;
   transition: background 0.15s;
-  color: white;
+  color: #64748b;
 
   mat-icon {
     font-size: 20px;
@@ -1190,14 +1341,8 @@
   }
 
   &:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(0, 0, 0, 0.08);
   }
-}
-
-.variant-modal-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px;
 }
 
 .variant-info {
@@ -1240,12 +1385,22 @@
     background: rgba(28, 166, 152, 0.04);
     box-shadow: 0 2px 8px rgba(28, 166, 152, 0.15);
   }
+
+  &.selected {
+    border-color: #1ca698;
+    background: rgba(28, 166, 152, 0.06);
+    box-shadow: 0 0 0 1px rgba(28, 166, 152, 0.25);
+  }
 }
 
 .variant-preview {
   flex-shrink: 0;
-  width: 80px;
-  height: 80px;
+  // Width isn't fixed — [style.aspect-ratio] on the element sizes it to the
+  // variant's real crop (square, 9:16, 1.91:1, ...) instead of forcing a square.
+  height: 72px;
+  width: auto;
+  min-width: 44px;
+  max-width: 110px;
   border-radius: 6px;
   overflow: hidden;
   background: var(--tbl-bg-alt);
@@ -1320,6 +1475,9 @@
   justify-content: center;
   padding: 40px 32px 24px;
   gap: 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--tbl-border);
+  border-radius: 10px;
 }
 
 .init-loading-spinner {
@@ -1503,15 +1661,9 @@
 // RESPONSIVE SCALE-UP  (mobile-first, min-width only)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// ── lg: 1024–1279px — panels appear side by side, expand to fill space ────────
+// ── lg: 1024–1279px — wizard column grows, rail stays a fixed-width sidebar ───
 @media (min-width: 1024px) {
-  // Let both panels grow to fill the row instead of staying at 680 px fixed
-  .ad-form-card {
-    flex: 1;
-    max-width: none;
-  }
-
-  .side-panel-card {
+  .wizard-col {
     flex: 1;
     max-width: none;
   }
@@ -1534,22 +1686,15 @@
     gap: 24px;
   }
 
-  // Left panel header
-  .ad-form-header {
-    padding: 16px 24px;
-
+  // Wizard header
+  .wizard-header {
     h2 {
-      font-size: 1.2rem;
+      font-size: 1.3rem;
     }
   }
 
-  // Left panel body
-  .ad-form-body {
-    padding: 24px;
-  }
-
-  // Left panel footer
-  .ad-form-footer {
+  // Wizard footer
+  .wizard-footer {
     padding: 16px 24px;
 
     .btn-secondary {
@@ -1587,34 +1732,18 @@
     }
   }
 
-  // Creative action buttons row
-  .creative-action-row {
-    gap: 12px;
-  }
-
-  .btn-select-creative,
   .btn-create-creative {
     padding: 10px 16px;
     font-size: 14px;
     border-radius: 8px;
   }
 
-  // Right panel header
-  .side-panel-header {
-    padding: 16px 20px;
-
-    h3 {
-      font-size: 1.2rem;
-    }
+  // Rail cards
+  .rail-card {
+    padding: 18px;
   }
 
-  // Right panel body
-  .side-panel-body {
-    padding: 20px;
-  }
-
-  // Panel icon buttons (refresh / close)
-  .panel-close-btn,
+  // Panel icon buttons (refresh)
   .panel-icon-btn {
     width: 34px;
     height: 34px;
@@ -1672,12 +1801,8 @@
     gap: 28px;
   }
 
-  .ad-form-body {
-    padding: 28px;
-  }
-
-  .side-panel-body {
-    padding: 24px;
+  .rail-card {
+    padding: 20px;
   }
 }
 

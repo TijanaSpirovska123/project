@@ -3,12 +3,18 @@ import { Provider } from './provider.enum';
 export interface PlatformOption {
   value: Provider;
   label: string;
+  /** Shown for visibility into the roadmap, but not selectable yet — no strategy wired up server-side */
+  disabled?: boolean;
 }
 
 export const AD_PLATFORM_OPTIONS: PlatformOption[] = [
   { value: Provider.META, label: 'Meta' },
   { value: Provider.FACEBOOK, label: 'Facebook' },
   { value: Provider.INSTAGRAM, label: 'Instagram' },
+  { value: Provider.TIKTOK, label: 'TikTok — coming soon', disabled: true },
+  { value: Provider.GOOGLE, label: 'Google Ads — coming soon', disabled: true },
+  { value: Provider.LINKEDIN, label: 'LinkedIn — coming soon', disabled: true },
+  { value: Provider.X, label: 'X — coming soon', disabled: true },
 ];
 
 export const META_VARIANT_LABELS: Record<string, string> = {

@@ -1640,8 +1640,15 @@ body {
     color: $clr-primary-a40 !important;
     border-bottom-color: $clr-surface-tonal-a20 !important;
   }
+  .modal-close-btn {
+    color: $clr-surface-tonal-a50 !important;
+    &:hover { background: rgba(255, 255, 255, 0.08) !important; }
+  }
   .workflow-card,
-  .ad-form-card {
+  .step,
+  .init-loading,
+  .rail-card,
+  .creative-library-modal {
     background: $clr-surface-tonal-a0 !important;
     border-color: $clr-surface-tonal-a20 !important;
     color: $clr-primary-a50 !important;
@@ -1863,6 +1870,26 @@ body {
     border-color: $clr-surface-tonal-a20;
     color: $clr-primary-a50;
   }
+
+  // ── Create Ad Workflow — step wizard ────────────────────────────────────
+  .step-header:hover { background: $clr-surface-tonal-a10; }
+  .step.locked .step-header:hover { background: transparent; }
+  .step-num {
+    background: $clr-surface-tonal-a10;
+    border-color: $clr-surface-tonal-a20;
+    color: $clr-surface-tonal-a50;
+  }
+  .format-fixed {
+    background: $clr-surface-tonal-a10;
+    border-color: $clr-surface-tonal-a20;
+  }
+  .rail-head { color: $clr-surface-tonal-a50; }
+  .rail-head-count { color: $clr-surface-tonal-a50; }
+  .rail-empty { color: $clr-surface-tonal-a50; }
+  .checklist-group-label { color: $clr-surface-tonal-a50; }
+  .checklist li { color: $clr-surface-tonal-a50; }
+  .checklist-box { border-color: $clr-surface-tonal-a20; }
+  .selected-image-banner-file { color: $clr-primary-a50; }
 }
 
 body {

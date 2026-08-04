@@ -8,6 +8,8 @@ import { CommonModule } from '@angular/common';
 export interface DropdownOption {
   value: string | number;
   label: string;
+  /** Shown in the list but not selectable — e.g. a platform/format that isn't wired up yet */
+  disabled?: boolean;
 }
 
 @Component({
@@ -52,6 +54,7 @@ export interface DropdownOption {
               <li
                 class="sdd-item"
                 [class.sdd-selected]="opt.value === value"
+                [class.sdd-item-disabled]="opt.disabled"
                 (click)="select(opt)"
               >{{ opt.label }}</li>
             }
@@ -99,6 +102,10 @@ export interface DropdownOption {
     }
     .sdd-item:hover { background: var(--tbl-bg-alt); }
     .sdd-selected { background: #ECFDF5 !important; color: #059669; font-weight: 500; }
+    .sdd-item-disabled {
+      color: var(--tbl-muted); cursor: not-allowed; font-style: italic;
+      &:hover { background: transparent; }
+    }
     .sdd-no-results { padding: 8px 12px; font-size: 13px; color: var(--tbl-muted); text-align: center; }
   `]
 })
