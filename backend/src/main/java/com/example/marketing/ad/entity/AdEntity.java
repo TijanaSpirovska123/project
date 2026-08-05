@@ -31,6 +31,11 @@ public class AdEntity extends BasePlatformEntity {
     @Column(name = "creative_id", length = 64)
     private String creativeId;
 
+    // Meta pixel id for the ad's tracking_specs — optional, independent of the ad set's
+    // own conversion-event/optimization config.
+    @Column(name = "pixel_id", length = 64)
+    private String pixelId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ad_set_id")
     private AdSetEntity adSet;

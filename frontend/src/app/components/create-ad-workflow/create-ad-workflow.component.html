@@ -483,7 +483,7 @@
                 </div>
               </div>
 
-            <!-- ═══ STEP 5 — Creative details (asset-library path only) ═══ -->
+            <!-- ═══ STEP 5 — Creative details (asset-library path) + Tracking (always) ═══ -->
               <div
                 class="step"
                 [class.locked]="!unlockedStep(5)"
@@ -499,6 +499,7 @@
                   <mat-icon class="step-chevron">expand_more</mat-icon>
                 </div>
                 <div class="step-body">
+                  @if (creativeSource === "library") {
                   @if (selectedPickerAsset) {
                     <div class="selected-image-banner">
                       <div class="selected-image-banner-title">✓ Selected Image</div>
@@ -713,6 +714,24 @@
                       }
                       {{ assetCreativeSubmitLabel }}
                     </button>
+                  </div>
+                  }
+
+                  <div class="asset-section-label" style="margin-top: 16px">Tracking</div>
+                  <div class="form-row one-col">
+                    <div class="form-group">
+                      <label>Meta Pixel</label>
+                      <app-searchable-dropdown
+                        formControlName="pixelId"
+                        [options]="pixelOptions"
+                        [loading]="isLoadingPixels"
+                        [placeholder]="isLoadingPixels ? 'Loading pixels…' : 'Select pixel…'"
+                      ></app-searchable-dropdown>
+                      <small class="field-hint"
+                        >Only Meta pixels appear here. Conversion event is set on the ad set, not
+                        the ad.</small
+                      >
+                    </div>
                   </div>
                 </div>
               </div>

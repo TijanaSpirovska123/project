@@ -24,6 +24,7 @@ import { CampaignService } from '../../services/campaign/campaign.service';
 import { CreativeService } from '../../services/ad-creative/creative.service';
 import { AssetLibraryService } from '../../services/asset/asset-library.service';
 import { PageService } from '../../services/ad-creative/page.service';
+import { PixelService } from '../../services/ad-creative/pixel.service';
 import {
   AdSetResponse,
   StoredAssetDto,
@@ -37,6 +38,7 @@ import { AD_STATUS_OPTIONS, CALL_TO_ACTION_OPTIONS } from '../../data/workflow/a
 import { formatFileSize } from '../../utils/format.util';
 import { DropdownOption } from '../shared/searchable-dropdown.component';
 import { PageDto } from '../../models/ad-creative/page.model';
+import { PixelDto } from '../../models/ad-creative/pixel.model';
 
 function urlValidator(control: AbstractControl): ValidationErrors | null {
   const value = control.value;
@@ -109,6 +111,10 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
   selectedPage: PageDto | null = null;
   pageDropdownOpen = false;
 
+  // Meta Pixel — ad-level tracking, independent of the ad set's conversion event/optimization
+  pixels: PixelDto[] = [];
+  isLoadingPixels = false;
+
   // UTM builder
   utmBuilderOpen = false;
   utm = { source: '', medium: '', campaign: '', content: '', term: '' };
@@ -136,6 +142,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     private creativeService: CreativeService,
     private assetService: AssetLibraryService,
     private pageService: PageService,
+    private pixelService: PixelService,
     private ngZone: NgZone,
     private cdr: ChangeDetectorRef,
   ) {}
@@ -152,6 +159,7 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
       platform: [Provider.META, [Validators.required]],
       adAccountId: [''],
       pageId: [''],
+      pixelId: [''], // optional — most ads publish fine without a pixel attached
     });
 
     this.assetCreativeForm = this.formBuilder.group({
@@ -221,7 +229,9 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
   }
 
   get step5Done(): boolean {
-    return this.creativeSource === 'library' && !!this.selectedCreative;
+    // Library flow: "done" once the creative is actually created. Existing-creative flow has
+    // nothing left to finish in step 5 besides the optional pixel, so it's done as soon as it's reachable.
+    return this.creativeSource === 'library' ? !!this.selectedCreative : this.step3Done;
   }
 
   unlockedStep(n: number): boolean {
@@ -230,7 +240,9 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
       case 2: return this.step1Done;
       case 3: return this.step2Done;
       case 4: return this.creativeSource === 'library' && !!this.selectedAssetForVariant;
-      case 5: return this.creativeSource === 'library' && this.step4Done;
+      // Step 5 also hosts the (optional) ad-level Meta Pixel field, which applies regardless of
+      // creative source — so an existing-creative pick can reach it directly, skipping step 4.
+      case 5: return this.creativeSource === 'library' ? this.step4Done : this.step3Done;
       default: return false;
     }
   }
@@ -254,6 +266,9 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
       if (this.creativePickerTab === 'asset-library' && this.pickerAssets.length === 0 && !this.isLoadingPickerAssets) {
         this.loadPickerAssets();
       }
+    }
+    if (n === 5 && this.pixels.length === 0 && !this.isLoadingPixels && this.selectedAdSetAccountId) {
+      this.loadPixels();
     }
   }
 
@@ -291,7 +306,11 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
   }
 
   get step5Summary(): string {
-    return this.step5Done ? 'Creative created' : 'Copy, destination and call to action';
+    if (this.creativeSource === 'library') {
+      return this.step5Done ? 'Creative created' : 'Copy, destination and call to action';
+    }
+    const pixel = this.pixels.find((p) => p.pixelId === this.adForm?.get('pixelId')?.value);
+    return pixel ? `Tracking pixel: ${pixel.name}` : 'Tracking (optional)';
   }
 
   // ── Live preview (right rail) ───────────────────────────────────────────────
@@ -440,6 +459,10 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     return this.pages.map((p) => ({ value: p.pageId, label: p.name }));
   }
 
+  get pixelOptions(): DropdownOption[] {
+    return this.pixels.map((p) => ({ value: p.pixelId, label: p.name }));
+  }
+
   get platformOptions(): DropdownOption[] {
     return this.platforms.map((p) => ({ value: p.value, label: p.label, disabled: p.disabled }));
   }
@@ -470,6 +493,10 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
     this.selectedAssetForVariant = null;
     this.selectedVariantKey = 'ORIGINAL';
     this.creativeSource = null;
+    // Pixels are scoped to the ad account, which may change along with the ad set — drop the
+    // stale list so a pixel from a different account can't ride along.
+    this.pixels = [];
+    this.adForm.get('pixelId')?.setValue('');
     if (this.openStep > 3) this.openStep = 3;
   }
 
@@ -654,6 +681,31 @@ export class CreateAdWorkflowComponent implements OnInit, OnDestroy {
           this.pages = Array.isArray(res) ? res : (res?.data ?? []);
         },
         error: (err: any) => this.handleError(err, 'Failed to load pages'),
+      });
+  }
+
+  loadPixels(): void {
+    const adAccountId = this.selectedAdSetAccountId;
+    if (!adAccountId) return;
+    this.isLoadingPixels = true;
+    this.pixelService
+      .getAllFromMeta(adAccountId)
+      .pipe(
+        finalize(() => {
+          this.ngZone.run(() => {
+            this.isLoadingPixels = false;
+            this.cdr.markForCheck();
+          });
+        }),
+      )
+      .subscribe({
+        next: (res: any) => {
+          this.ngZone.run(() => {
+            this.pixels = Array.isArray(res) ? res : (res?.data ?? []);
+            this.cdr.markForCheck();
+          });
+        },
+        error: (err: any) => this.ngZone.run(() => this.handleError(err, 'Failed to load pixels')),
       });
   }
 

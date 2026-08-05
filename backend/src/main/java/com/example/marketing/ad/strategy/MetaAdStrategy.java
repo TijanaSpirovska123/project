@@ -36,12 +36,21 @@ public class MetaAdStrategy implements AdStrategy {
         if (dto.getCreativeId() == null || dto.getCreativeId().isBlank()) {
             throw new IllegalArgumentException("creativeId is required for Meta ad create");
         }
-        return FormBuilder.create()
+        FormBuilder<AdDto> form = FormBuilder.<AdDto>create()
                 .add("name", dto.getName())
                 .add("status", dto.getStatus() != null ? dto.getStatus() : "PAUSED")
                 .add("adset_id", dto.getAdSetExternalId())
-                .add("creative", "{\"creative_id\":\"" + dto.getCreativeId() + "\"}")
-                .build();
+                .add("creative", "{\"creative_id\":\"" + dto.getCreativeId() + "\"}");
+
+        // Optional — most ads publish fine without it. Distinct from the ad set's own
+        // conversion event/optimization goal, which Meta expects via promoted_object there.
+        if (dto.getPixelId() != null && !dto.getPixelId().isBlank()) {
+            form = form.addJson("tracking_specs",
+                    "[{\"action.type\":[\"offsite_conversion\"],\"fb_pixel\":[\"%s\"]}]",
+                    dto.getPixelId());
+        }
+
+        return form.build();
     }
 
     @Override

@@ -12,6 +12,7 @@ public class AdDto extends BasePlatformDto {
     private String adSetName;        // denormalized for table display
 
     private String creativeId;       // Meta creative_id (e.g. "120210012345678")
+    private String pixelId;          // Meta pixel id for tracking_specs — optional
 
     // Raw data from Meta API — not persisted, populated on-demand from Redis/API
     private Map<String, Object> rawData;

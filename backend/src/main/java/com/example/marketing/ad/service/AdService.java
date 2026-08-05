@@ -115,6 +115,7 @@ public class AdService extends AbstractPlatformService<AdEntity, AdDto, AdStrate
         e.setName(dto.getName());
         e.setStatus(dto.getStatus() != null ? dto.getStatus() : "PAUSED");
         e.setCreativeId(resolveCreativeExternalId(dto.getCreativeId(), effectiveAdAccountId));
+        e.setPixelId(dto.getPixelId() != null && !dto.getPixelId().isBlank() ? dto.getPixelId() : null);
 
         e.setUser(user);
         e.setPlatform(adSet.getPlatform() != null ? adSet.getPlatform() : (dto.getPlatform() != null ? dto.getPlatform() : "META"));

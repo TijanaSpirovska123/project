@@ -33,5 +33,6 @@
     <include file="classpath:db.changelog/changes/28-create-insights-saved-view.xml"/>
     <include file="classpath:db.changelog/changes/29.add_meta_image_hash_to_stored_asset_variant.xml"/>
     <include file="classpath:db.changelog/changes/30.add_pagination_complete_to_insight_snapshot.xml"/>
+    <include file="classpath:db.changelog/changes/31.add_pixel_id_to_ad.xml"/>
 
 </databaseChangeLog>
